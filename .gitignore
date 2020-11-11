@@ -1,0 +1,8 @@
+# Folders
+
+Debug/
+Release/
+
+#Visual studio folder
+
+.vs/
