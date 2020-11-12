@@ -5,7 +5,7 @@
 
 namespace se {namespace graphics {
 
-	Window::Window(const char* title, unsigned int height, unsigned int width)
+	Window::Window(const char* title, unsigned int width, unsigned int height)
 	{
 		m_Title = title;
 		m_Height = height;
@@ -37,8 +37,10 @@ namespace se {namespace graphics {
 		return true;
 	}
 
-	void Window::Update() const
+	void Window::Update() 
 	{
+		glfwGetFramebufferSize(m_Window, &m_Width, &m_Height);
+		glViewport(0, 0, m_Width, m_Height);
 		glfwSwapBuffers(m_Window);
 		glfwPollEvents();
 	}
@@ -46,5 +48,10 @@ namespace se {namespace graphics {
 	bool Window::Closed() const
 	{
 		return glfwWindowShouldClose(m_Window);
+	}
+
+	void Window::Clear() const
+	{
+		glClear(GL_COLOR_BUFFER_BIT);
 	}
 }}
