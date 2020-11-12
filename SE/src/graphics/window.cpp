@@ -1,5 +1,4 @@
 #include <iostream>
-#include <GLFW/glfw3.h>
 
 #include "window.h"
 
@@ -34,6 +33,8 @@ namespace se {namespace graphics {
 			return false;
 		}
 		glfwMakeContextCurrent(m_Window);
+		if (glewInit() != GLEW_OK)
+			std::cout << "Error to initializate GLEW :c" << std::endl;
 		return true;
 	}
 
