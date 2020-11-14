@@ -17,9 +17,12 @@ namespace se {namespace graphics {
 		void Clear() const;
 		int Width() const { return m_Width;  }
 		int Height() const { return m_Height; }
+		void FPS();
+		void Vsync(const char *state);
 	private:
 		const char* m_Title;
 		int m_Height, m_Width;
+		int m_LastTime, m_CurrentTime, m_FPS;
 		bool m_Closed;
 		GLFWwindow* m_Window;
 	private:

@@ -1,13 +1,15 @@
 #pragma once
 
-namespace se {	namespace maths {
+#define LogVector(vector)  std::cout << "<" << vector.x << ", " << vector.y << ">" << std::endl;
+
+namespace se { namespace maths {
 
 	struct vec2
 	{
 		float x, y;
 
 		vec2();
-		vec2(const float& x, const float& y);
+		vec2(float x, float y);
 
 		vec2& add(vec2 other);
 		vec2& substract(vec2 other);

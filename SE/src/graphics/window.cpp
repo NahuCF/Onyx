@@ -1,4 +1,5 @@
 #include <iostream>
+#include <time.h>
 
 #include "window.h"
 
@@ -20,6 +21,9 @@ namespace se {namespace graphics {
 
 	bool Window::Init()
 	{
+		m_LastTime = time(NULL);
+		m_FPS = 0;
+
 		if (!glfwInit())
 		{
 			std::cout << "Failed to load GLFW :c" << std::endl;
@@ -44,6 +48,7 @@ namespace se {namespace graphics {
 		glViewport(0, 0, m_Width, m_Height);
 		glfwSwapBuffers(m_Window);
 		glfwPollEvents();
+		FPS();
 	}
 
 	bool Window::Closed() const
@@ -54,5 +59,29 @@ namespace se {namespace graphics {
 	void Window::Clear() const
 	{
 		glClear(GL_COLOR_BUFFER_BIT);
+	}
+
+	void Window::FPS()
+	{
+		m_FPS++;
+		m_CurrentTime = time(NULL);
+		if(m_CurrentTime - m_LastTime > 1)
+		{
+			m_LastTime = m_CurrentTime;
+			std::cout << "FPS: " << m_FPS << std::endl;
+			m_FPS = 0;
+		}
+	}
+
+	void Window::Vsync(const char *state)
+	{
+		if(state == "Enable")
+		{
+			glfwSwapInterval(1);
+		}
+		else if (state == "Disable")
+		{
+			glfwSwapInterval(0);
+		}
 	}
 }}

@@ -8,13 +8,13 @@ namespace se { namespace maths {
 		y = 0.0f;
 	}
 
-	vec2::vec2(const float& x, const float& y)
+	vec2::vec2(float x,  float y)
 	{
 		this->x = x;
 		this->y = y;
 	}
 
-	vec2 &vec2::add(vec2 other)
+	vec2& vec2::add(vec2 other)
 	{
 		x += other.x;
 		y += other.y;
