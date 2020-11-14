@@ -1,6 +1,6 @@
 #pragma once
 
-#define LogVector(vector)  std::cout << "<" << vector.x << ", " << vector.y << ">" << std::endl;
+#define Vec2Log(vector) std::cout << "<" << vector.x << ", " << vector.y << ">" << std::endl;
 
 namespace se { namespace maths {
 

@@ -22,8 +22,6 @@ namespace se {namespace graphics {
 	bool Window::Init()
 	{
 		m_LastTime = time(NULL);
-		m_FPS = 0;
-
 		if (!glfwInit())
 		{
 			std::cout << "Failed to load GLFW :c" << std::endl;
