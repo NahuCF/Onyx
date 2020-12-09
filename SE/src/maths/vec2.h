@@ -10,7 +10,6 @@ namespace se { namespace maths {
 
 		vec2();
 		vec2(float x, float y);
-
 		vec2& add(vec2 other);
 		vec2& substract(vec2 other);
 		vec2& multiply(vec2 other);

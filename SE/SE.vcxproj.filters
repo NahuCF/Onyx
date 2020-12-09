@@ -45,4 +45,7 @@
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="src\texto.vs" />
+  </ItemGroup>
 </Project>
