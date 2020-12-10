@@ -1,17 +1,22 @@
 #pragma once
 
+#include <fstream>
+#include <sstream>
+#include <string>
+
 namespace se { namespace graphics {
 
 	class Shader 
 	{
 	public:
-		void UseProgramShader(unsigned int ID);
-	private:
+		void UseProgramShader();
 		Shader(const char* vertexPath, const char* fragmentPath);
 	private:
 		unsigned int m_ProgramID, m_VertexID, m_FragmentID;
 		const char* m_VShaderCode;
 		const char* m_FShaderCode;
+		int success;
+		char infoLog[512];
 		std::string m_VertexCode;
 		std::string m_FragmentCode;
 		std::ifstream m_VShaderFile;

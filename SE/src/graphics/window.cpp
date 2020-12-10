@@ -2,10 +2,7 @@
 #include <time.h>
 
 #include "window.h"
-#define GLEW_STATIC
 
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
 namespace se {namespace graphics {
 
 	Window::Window(const char* title, unsigned int width, unsigned int height)

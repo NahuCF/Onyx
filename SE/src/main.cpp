@@ -1,9 +1,9 @@
 #include <iostream>
-#include <fstream>
 #include <string>
 
 #include "graphics/window.h"
-#include "maths/vec2.h"
+#include "maths/maths.h"
+#include "graphics/shader.h"
 
 int main()
 {
@@ -12,12 +12,12 @@ int main()
 	using namespace maths;
 
 	Window window("SE", 800, 600);
-	glClearColor(0.2f, 0.3f, 0.8f, 1.0f);
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
 	while(!window.Closed())
 	{
 		window.Clear();
 		window.Vsync("Enable");
-		window.Update();
+		window.Update();	
 	}
 }
