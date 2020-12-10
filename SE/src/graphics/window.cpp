@@ -12,6 +12,7 @@ namespace se {namespace graphics {
 		m_Width = width;
 		if(!Init())
 			glfwTerminate();
+		glEnable(GL_DEPTH_TEST);
 	};
 	
 	Window::~Window()
@@ -36,7 +37,10 @@ namespace se {namespace graphics {
 		}
 		glfwMakeContextCurrent(m_Window);
 		if (glewInit() != GLEW_OK)
+		{
 			std::cout << "Error to initializate GLEW :c" << std::endl;
+			return false;
+		}
 		return true;
 	}
 
@@ -56,7 +60,7 @@ namespace se {namespace graphics {
 
 	void Window::Clear() const
 	{
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 
 	void Window::FPS()

@@ -11,8 +11,9 @@ namespace se { namespace graphics {
 	public:
 		void UseProgramShader();
 		Shader(const char* vertexPath, const char* fragmentPath);
+		unsigned int m_ProgramID;
 	private:
-		unsigned int m_ProgramID, m_VertexID, m_FragmentID;
+		unsigned int m_VertexID, m_FragmentID;
 		const char* m_VShaderCode;
 		const char* m_FShaderCode;
 		int success;

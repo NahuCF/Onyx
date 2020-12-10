@@ -2,7 +2,14 @@
 
 layout (location = 0) in vec3 aPos;
 
+out vec4 colorsito;
+
+uniform vec4 outColorsito;
+uniform vec4 pos;
+uniform vec4 escala;
+
 void main()
 {
-	gl_Position = vec4(aPos, 1.0f);
+	colorsito = outColorsito;
+	gl_Position =  pos + escala * vec4(aPos, 1.0f);
 }
