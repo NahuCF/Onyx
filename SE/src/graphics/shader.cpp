@@ -2,6 +2,8 @@
 #include <iostream>
 
 #include "shader.h"
+#include "glm.hpp"
+#include "gtc/matrix_transform.hpp"
 
 namespace se {namespace graphics {
 
@@ -67,6 +69,18 @@ namespace se {namespace graphics {
 	void Shader::UseProgramShader()
 	{
 		glUseProgram(m_ProgramID);
+	}
+
+	void Shader::SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix)
+	{
+		glUniformMatrix4fv(glGetUniformLocation(shader.m_ProgramID, transformName), 1, GL_FALSE, &matrix[0][0]);
+	}
+
+	void Shader::MoveTo(glm::vec3 vectorPos)
+	{
+		 m_Mat2Base = glm::mat4(1.0f);
+		 m_Mat2Base = glm::translate(m_Mat2Base, vectorPos);
+		 glUniformMatrix4fv(glGetUniformLocation(this->m_ProgramID, "pos"), 1, GL_FALSE, &m_Mat2Base[0][0]);
 	}
 
 } }

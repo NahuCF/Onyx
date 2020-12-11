@@ -4,15 +4,20 @@
 #include <sstream>
 #include <string>
 
+#include "glm.hpp"
+
 namespace se { namespace graphics {
 
 	class Shader 
 	{
 	public:
-		void UseProgramShader();
 		Shader(const char* vertexPath, const char* fragmentPath);
+		void UseProgramShader();
+		void SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix);
+		void MoveTo(glm::vec3 vectorPos);
 		unsigned int m_ProgramID;
 	private:
+		glm::mat4 m_Mat2Base;
 		unsigned int m_VertexID, m_FragmentID;
 		const char* m_VShaderCode;
 		const char* m_FShaderCode;

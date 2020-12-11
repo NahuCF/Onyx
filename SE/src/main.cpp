@@ -1,5 +1,4 @@
 #include <iostream>
-#include <string>
 
 #include "graphics/window.h"
 #include "graphics/shader.h"
@@ -18,6 +17,9 @@ int main()
 	Window window("SE", 800, 600);
 	glClearColor(0.5f, 0.5f, 1.0f, 1.0f);
 
+	Shader PrimerShader("./shaders/shader.vs", "./shaders/shader.fs");
+	Shader SecondShader("./shaders/shader.vs", "./shaders/shader.fs");
+
 	while(!window.Closed())
 	{
 		window.Vsync("Disable");
@@ -25,7 +27,23 @@ int main()
 
 		//CODE HERE
 
+		PrimerShader.MoveTo(glm::vec3(0.5f, -0.5, 0.0f));
+		PrimerShader.UseProgramShader();
 
+		glBegin(GL_TRIANGLES);
+		glVertex3f(-1.0f, -1.0f, 0.0f);
+		glVertex3f( 1.0f, -1.0f, 0.0f);
+		glVertex3f( 0.0f,  1.0f, 0.0f);
+		glEnd();
+
+		SecondShader.MoveTo(glm::vec3(-0.5f, -0.5, 0.0f));
+		SecondShader.UseProgramShader();
+
+		glBegin(GL_TRIANGLES);
+		glVertex3f(-1.0f, -1.0f, 0.0f);
+		glVertex3f(1.0f, -1.0f, 0.0f);
+		glVertex3f(0.0f, 1.0f, 0.0f);
+		glEnd();
 		
 		//
 
