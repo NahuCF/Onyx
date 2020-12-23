@@ -23,7 +23,7 @@ namespace se {namespace graphics {
 	bool Window::Init()
 	{
 		m_LastTime = time(NULL);
-		if (!glfwInit())
+		if(!glfwInit())
 		{
 			std::cout << "Failed to load GLFW :c" << std::endl;
 			return false;
@@ -36,7 +36,7 @@ namespace se {namespace graphics {
 			return false;
 		}
 		glfwMakeContextCurrent(m_Window);
-		if (glewInit() != GLEW_OK)
+		if(glewInit() != GLEW_OK)
 		{
 			std::cout << "Error to initializate GLEW :c" << std::endl;
 			return false;
@@ -75,7 +75,7 @@ namespace se {namespace graphics {
 		}
 	}
 
-	void Window::Vsync(const char *state)
+	void Window::Vsync(const char* state)
 	{
 		if(state == "Enable")
 		{
