@@ -7,7 +7,7 @@
 You will have to configure your compiler to work with 32 bits applications.
 ```
 
-## Capabilites:
+## Capabilities:
 For now only can render textures :c
 
 ## Pendient:
