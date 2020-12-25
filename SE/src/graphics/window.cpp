@@ -12,7 +12,6 @@ namespace se {namespace graphics {
 		m_Width = width;
 		if(!Init())
 			glfwTerminate();
-		glEnable(GL_DEPTH_TEST);
 	};
 	
 	Window::~Window()
