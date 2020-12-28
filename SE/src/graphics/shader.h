@@ -17,10 +17,10 @@ namespace se { namespace graphics {
 		void Añadir(Shader* contenedor[], int index);
 		unsigned int m_ProgramID;
 	public:
-		void MoveRight(Shader* contenedor[], float x);
-		void MoveLeft(Shader* contenedor[], float x);
-		void MoveUp(Shader* contenedor[], float y);
-		void MoveDown(Shader* contenedor[], float y);
+		void MoveRight	(Shader* contenedor[], float x, unsigned int arrayLength);
+		void MoveLeft	(Shader* contenedor[], float x, unsigned int arrayLength);
+		void MoveUp		(Shader* contenedor[], float y, unsigned int arrayLength);
+		void MoveDown	(Shader* contenedor[], float y, unsigned int arrayLength);
 
 		void SetPos(glm::vec3 vecPos);
 	private:
@@ -29,8 +29,8 @@ namespace se { namespace graphics {
 		glm::mat4 m_YAxisMovement;
 		float m_ActualXPos;
 		float m_ActualYPos;
-
 		glm::mat4 m_SetPos;
+
 
 		unsigned int m_VertexID, m_FragmentID;
 		const char* m_VShaderCode;
@@ -42,8 +42,6 @@ namespace se { namespace graphics {
 		std::ifstream m_VShaderFile;
 		std::ifstream m_FShaderFile;
 		std::stringstream m_VShaderStream, m_FShaderStream;
-	private:
-		float m_XMove, m_YMove;
 	};
 
 } }

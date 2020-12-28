@@ -88,31 +88,31 @@ namespace se {namespace graphics {
 		contenedor[index] = this;
 	}
 
-	void Shader::MoveRight(Shader* contenedor[], float x)
+	void Shader::MoveRight(Shader* contenedor[], float x, unsigned int arrayLength)
 	{
-		for(int i = 0; i < sizeof(contenedor) / sizeof(Shader); i++)
+		for(int i = 0; i < arrayLength / 4; i++)
 		{
 			contenedor[i]->UseProgramShader();
-			m_ActualXPos -= x;
-			m_XAxisMovement = glm::mat4(1.0f);
-			m_XAxisMovement = glm::translate(m_XAxisMovement, glm::vec3(m_ActualXPos, m_ActualYPos, 0.0f));
-			glUniformMatrix4fv(glGetUniformLocation(m_ProgramID, "move"), 1, GL_FALSE, &m_XAxisMovement[0][0]);
+			contenedor[i]->m_ActualXPos -= x;
+			contenedor[i]->m_XAxisMovement = glm::mat4(1.0f);
+			contenedor[i]->m_XAxisMovement = glm::translate(contenedor[i]->m_XAxisMovement, glm::vec3(contenedor[i]->m_ActualXPos, contenedor[i]->m_ActualYPos, 0.0f));
+			glUniformMatrix4fv(glGetUniformLocation(contenedor[i]->m_ProgramID, "move"), 1, GL_FALSE, &contenedor[i]->m_XAxisMovement[0][0]);
 		}
 	}
-	void Shader::MoveLeft(Shader* contenedor[], float x)
+	void Shader::MoveLeft(Shader* contenedor[], float x, unsigned int arrayLength)
 	{
-		for (int i = 0; i < sizeof(contenedor) / sizeof(Shader); i++)
+		for (int i = 0; i < arrayLength / 4; i++)
 		{
 			contenedor[i]->UseProgramShader();
 			contenedor[i]->m_ActualXPos += x;
 			contenedor[i]->m_XAxisMovement = glm::mat4(1.0f);
-			contenedor[i]->m_XAxisMovement = glm::translate(contenedor[0]->m_XAxisMovement, glm::vec3(contenedor[0]->m_ActualXPos, contenedor[0]->m_ActualYPos, 0.0f));
-			glUniformMatrix4fv(glGetUniformLocation(contenedor[0]->m_ProgramID, "move"), 1, GL_FALSE, &contenedor[0]->m_XAxisMovement[0][0]);
+			contenedor[i]->m_XAxisMovement = glm::translate(contenedor[i]->m_XAxisMovement, glm::vec3(contenedor[i]->m_ActualXPos, contenedor[i]->m_ActualYPos, 0.0f));
+			glUniformMatrix4fv(glGetUniformLocation(contenedor[i]->m_ProgramID, "move"), 1, GL_FALSE, &contenedor[i]->m_XAxisMovement[0][0]);
 		}
 	}
-	void Shader::MoveUp(Shader* contenedor[], float y)
+	void Shader::MoveUp(Shader* contenedor[], float y, unsigned int arrayLength)
 	{
-		for (int i = 0; i < sizeof(contenedor) / sizeof(Shader); i++)
+		for (int i = 0; i < arrayLength / 4; i++)
 		{
 			contenedor[i]->UseProgramShader();
 			contenedor[i]->m_ActualYPos -= y;
@@ -121,9 +121,9 @@ namespace se {namespace graphics {
 			glUniformMatrix4fv(glGetUniformLocation(contenedor[i]->m_ProgramID, "move"), 1, GL_FALSE, &contenedor[i]->m_YAxisMovement[0][0]);
 		}
 	}
-	void Shader::MoveDown(Shader* contenedor[], float y)
+	void Shader::MoveDown(Shader* contenedor[], float y, unsigned int arrayLength)
 	{
-		for (int i = 0; i < sizeof(contenedor) / sizeof(Shader); i++)
+		for (int i = 0; i < arrayLength / 4; i++)
 		{
 			contenedor[i]->UseProgramShader();
 			contenedor[i]->m_ActualYPos += y;

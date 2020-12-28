@@ -14,7 +14,7 @@ int main()
 {
 	using namespace se;
 	using namespace graphics;
-
+	
 	Window window("SE", 1600, 900);
 	glClearColor(0.3f, 0.3f, 1.0f, 1.0f);
 
@@ -46,19 +46,19 @@ int main()
 		Mario.UseTexture();
 		if (window.IsKeyPressed(GLFW_KEY_W))
 		{
-			MarioShader.MoveUp(contenedor, 0.01f);
+			MarioShader.MoveUp(contenedor, 0.01f, sizeof(contenedor));
 		}
 		if (window.IsKeyPressed(GLFW_KEY_S))
 		{
-			MarioShader.MoveDown(contenedor, 0.01f);
+			MarioShader.MoveDown(contenedor, 0.01f, sizeof(contenedor));
 		}
 		if (window.IsKeyPressed(GLFW_KEY_D))
 		{
-			MarioShader.MoveRight(contenedor, 0.01f);
+			MarioShader.MoveRight(contenedor, 0.01f, sizeof(contenedor));
 		}
 		if (window.IsKeyPressed(GLFW_KEY_A))
 		{
-			MarioShader.MoveLeft(contenedor, 0.01f);
+			MarioShader.MoveLeft(contenedor, 0.01f, sizeof(contenedor));
 		}
 		//
 
