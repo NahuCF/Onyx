@@ -3,7 +3,9 @@
 
 #include "window.h"
 
-namespace se {namespace graphics {
+namespace se { namespace graphics {
+
+	void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 	Window::Window(const char* title, unsigned int width, unsigned int height)
 	{
@@ -12,6 +14,9 @@ namespace se {namespace graphics {
 		m_Width = width;
 		if(!Init())
 			glfwTerminate();
+
+		for (int i = 0; i < 1024; i++)
+			m_Keys[i] = false;
 	};
 	
 	Window::~Window()
@@ -35,6 +40,8 @@ namespace se {namespace graphics {
 			return false;
 		}
 		glfwMakeContextCurrent(m_Window);
+		glfwSetWindowUserPointer(m_Window, this);
+		glfwSetKeyCallback(m_Window, key_callback);
 		if(glewInit() != GLEW_OK)
 		{
 			std::cout << "Error to initializate GLEW :c" << std::endl;
@@ -66,7 +73,7 @@ namespace se {namespace graphics {
 	{
 		m_FPS++;
 		m_CurrentTime = time(NULL);
-		if(m_CurrentTime - m_LastTime > 1)
+		if(m_CurrentTime - m_LastTime >= 1)
 		{
 			m_LastTime = m_CurrentTime;
 			std::cout << "FPS: " << m_FPS << std::endl;
@@ -84,6 +91,17 @@ namespace se {namespace graphics {
 		{
 			glfwSwapInterval(0);
 		}
+	}
+
+	bool Window::IsKeyPressed(unsigned int keyCode)
+	{
+		return m_Keys[keyCode];
+	}
+
+	void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+	{
+		Window* win = (Window*)glfwGetWindowUserPointer(window);
+		win->m_Keys[key] = action != GLFW_RELEASE;
 	}
 
 }}

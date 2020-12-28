@@ -20,44 +20,44 @@ namespace se { namespace graphics {
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 		m_TextureData = stbi_load(texturePath, &m_TextureWidth, &m_TextureHeight, &m_NChannels, 0);
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_TextureWidth, m_TextureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, m_TextureData);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_TextureWidth, m_TextureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, m_TextureData);
 
-		if (!m_TextureData)
+		if(!m_TextureData)	
 			std::cout << "FAILED TO LOAD TEXTURE" << std::endl;
 
 		stbi_image_free(m_TextureData);
+		glBindTexture(GL_TEXTURE_2D, 0);
 
 		//Create VAO
 
 		for(int i = 0; i < 20; i++)
 		{
-			if(i == 1 || i == 3 || i == 4 || i == 8 || i == 19)
+			if( i == 3 || i == 4 || i == 8 || i == 19)
 			{
 				vertices[i] = 1.0f;
 			}
-			if(i == 2 || i == 7 || i == 9 || i == 13 || i == 18 || i == 13 || i == 14 || i == 18)
+			else if(i == 2 || i == 7 || i == 9 || i == 13 || i == 18 || i == 13 || i == 14 || i == 18)
 			{
 				vertices[i] = 0.0f;
 			}
-			if(i == 0 || i == 5)
+			else if(i == 0 || i == 5)
 			{
 				vertices[i] = Width / 2.0f;
 			}
-			if(i == 10 || i == 15)
+			else if(i == 10 || i == 15)
 			{
 				vertices[i] = -(Width / 2.0f);
 			}
-			if(i == 1 || i == 16)
+			else if(i == 1 || i == 16)
 			{
 				vertices[i] = (Height / 2.0f);
 			}
-			if (i == 6 || i == 11)
+			else if (i == 6 || i == 11)
 			{
 				vertices[i] = -(Height / 2.0f);
 			}
@@ -89,6 +89,7 @@ namespace se { namespace graphics {
 
 		glBindBuffer(GL_VERTEX_ARRAY, 0);
 		glBindVertexArray(0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	};
 
 	void Texture::UseTexture()

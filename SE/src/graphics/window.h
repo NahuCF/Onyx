@@ -17,6 +17,8 @@ namespace se {namespace graphics {
 		int Height() const { return m_Height; }
 		void FPS();
 		void Vsync(const char *state);
+	public:
+		bool IsKeyPressed(unsigned int keyCode);
 	private:
 		const char* m_Title;
 		int m_Height, m_Width;
@@ -25,6 +27,8 @@ namespace se {namespace graphics {
 		GLFWwindow* m_Window;
 	private:
 		bool Init();
+		friend void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+		bool m_Keys[1024];
 	};
 
 } }

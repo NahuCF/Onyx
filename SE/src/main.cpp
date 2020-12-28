@@ -18,18 +18,22 @@ int main()
 	Window window("SE", 1600, 900);
 	glClearColor(0.3f, 0.3f, 1.0f, 1.0f);
 
-	Shader MarioShader("./shaders/textureShader.vs", "./shaders/textureShader.fs");
-	Texture Mario("./assets/textures/Mario.png", 0.1f, 0.17f);
+	Shader GeneralTextureShader("./shaders/textureShader.vs", "./shaders/textureShader.fs");
+	Texture Mario("./assets/textures/Mario.png", 1.0f, 1.9f);
 
-	while(!window.Closed())
+	while (!window.Closed())
 	{
-		window.Vsync("Disable");
+		window.Vsync("Enable");
 		window.Clear();
 
 		//CODE HERE
 
-		MarioShader.UseProgramShader();
+		if (window.IsKeyPressed(GLFW_KEY_E))
+			std::cout << "E key presssed PAPU" << std::endl;
+
+		GeneralTextureShader.UseProgramShader();
 		Mario.UseTexture();
+
 
 		//
 
