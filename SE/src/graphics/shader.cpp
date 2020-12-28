@@ -90,18 +90,18 @@ namespace se {namespace graphics {
 
 	void Shader::MoveRight(Shader* contenedor[], float x)
 	{
-		for(int i = 0; i < sizeof(contenedor) / sizeof(contenedor); i++)
+		for(int i = 0; i < sizeof(contenedor) / sizeof(Shader); i++)
 		{
 			contenedor[i]->UseProgramShader();
-			contenedor[i]->m_ActualXPos -= x;
-			contenedor[i]->m_XAxisMovement = glm::mat4(1.0f);
-			contenedor[i]->m_XAxisMovement = glm::translate(contenedor[i]->m_XAxisMovement, glm::vec3(contenedor[i]->m_ActualXPos, contenedor[i]->m_ActualYPos, 0.0f));
-			glUniformMatrix4fv(glGetUniformLocation(contenedor[i]->m_ProgramID, "move"), 1, GL_FALSE, &contenedor[i]->m_XAxisMovement[0][0]);
+			m_ActualXPos -= x;
+			m_XAxisMovement = glm::mat4(1.0f);
+			m_XAxisMovement = glm::translate(m_XAxisMovement, glm::vec3(m_ActualXPos, m_ActualYPos, 0.0f));
+			glUniformMatrix4fv(glGetUniformLocation(m_ProgramID, "move"), 1, GL_FALSE, &m_XAxisMovement[0][0]);
 		}
 	}
 	void Shader::MoveLeft(Shader* contenedor[], float x)
 	{
-		for (int i = 0; i < sizeof(contenedor) / sizeof(contenedor); i++)
+		for (int i = 0; i < sizeof(contenedor) / sizeof(Shader); i++)
 		{
 			contenedor[i]->UseProgramShader();
 			contenedor[i]->m_ActualXPos += x;
@@ -112,7 +112,7 @@ namespace se {namespace graphics {
 	}
 	void Shader::MoveUp(Shader* contenedor[], float y)
 	{
-		for (int i = 0; i < sizeof(contenedor) / sizeof(contenedor); i++)
+		for (int i = 0; i < sizeof(contenedor) / sizeof(Shader); i++)
 		{
 			contenedor[i]->UseProgramShader();
 			contenedor[i]->m_ActualYPos -= y;
@@ -123,7 +123,7 @@ namespace se {namespace graphics {
 	}
 	void Shader::MoveDown(Shader* contenedor[], float y)
 	{
-		for (int i = 0; i < sizeof(contenedor) / sizeof(contenedor); i++)
+		for (int i = 0; i < sizeof(contenedor) / sizeof(Shader); i++)
 		{
 			contenedor[i]->UseProgramShader();
 			contenedor[i]->m_ActualYPos += y;
@@ -133,5 +133,13 @@ namespace se {namespace graphics {
 		}
 	}
 	
+	void Shader::SetPos(glm::vec3 vecPos)
+	{
+		m_ActualYPos = vecPos.y;
+		m_ActualXPos = vecPos.x;
+		m_SetPos = glm::mat4(1.0f);
+		m_SetPos = glm::translate(m_SetPos, vecPos);
+		glUniformMatrix4fv(glGetUniformLocation(this->m_ProgramID, "move"), 1, GL_FALSE, &m_SetPos[0][0]);
+	}
 
 } }

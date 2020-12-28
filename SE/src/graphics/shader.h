@@ -21,12 +21,16 @@ namespace se { namespace graphics {
 		void MoveLeft(Shader* contenedor[], float x);
 		void MoveUp(Shader* contenedor[], float y);
 		void MoveDown(Shader* contenedor[], float y);
+
+		void SetPos(glm::vec3 vecPos);
 	private:
 		glm::mat4 m_DefaultPos;
 		glm::mat4 m_XAxisMovement;
 		glm::mat4 m_YAxisMovement;
 		float m_ActualXPos;
 		float m_ActualYPos;
+
+		glm::mat4 m_SetPos;
 
 		unsigned int m_VertexID, m_FragmentID;
 		const char* m_VShaderCode;
