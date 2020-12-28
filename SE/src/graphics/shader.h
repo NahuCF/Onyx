@@ -14,10 +14,20 @@ namespace se { namespace graphics {
 		Shader(const char* vertexPath, const char* fragmentPath);
 		void UseProgramShader();
 		void SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix);
-		void MoveTo(glm::vec3 vectorPos);
+		void Añadir(Shader* contenedor[], int index);
 		unsigned int m_ProgramID;
+	public:
+		void MoveRight(Shader* contenedor[], float x);
+		void MoveLeft(Shader* contenedor[], float x);
+		void MoveUp(Shader* contenedor[], float y);
+		void MoveDown(Shader* contenedor[], float y);
 	private:
-		glm::mat4 m_Mat2Base;
+		glm::mat4 m_DefaultPos;
+		glm::mat4 m_XAxisMovement;
+		glm::mat4 m_YAxisMovement;
+		float m_ActualXPos;
+		float m_ActualYPos;
+
 		unsigned int m_VertexID, m_FragmentID;
 		const char* m_VShaderCode;
 		const char* m_FShaderCode;
@@ -28,6 +38,8 @@ namespace se { namespace graphics {
 		std::ifstream m_VShaderFile;
 		std::ifstream m_FShaderFile;
 		std::stringstream m_VShaderStream, m_FShaderStream;
+	private:
+		float m_XMove, m_YMove;
 	};
 
 } }
