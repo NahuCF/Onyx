@@ -4,10 +4,10 @@
 
 namespace se { namespace collision {
 
-	class collision
+	class Collision
 	{
 	public:
-		collision(class Windows& clasesita);
+		Collision(class Windows& clasesita);
 		int penegordo;
 	private:
 	};

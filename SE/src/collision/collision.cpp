@@ -3,7 +3,7 @@
 
 namespace se { namespace collision {
 
-	collision::collision(class Windows& clasesita)
+	Collision::Collision(class Windows& clasesita)
 	{
 
 	}

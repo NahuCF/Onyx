@@ -90,7 +90,7 @@ namespace se { namespace graphics {
 		glBindBuffer(GL_VERTEX_ARRAY, 0);
 		glBindVertexArray(0);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	};
+	}
 
 	void Texture::UseTexture()
 	{

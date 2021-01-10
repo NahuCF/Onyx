@@ -21,12 +21,15 @@ int main()
 	Shader MarioShader("./shaders/textureShader.vs", "./shaders/textureShader.fs");
 	Shader PandaShader("./shaders/textureShader.vs", "./shaders/textureShader.fs");
 	Shader PandaShader2("./shaders/textureShader.vs", "./shaders/textureShader.fs");
+	Shader PandaShader3("./shaders/textureShader.vs", "./shaders/textureShader.fs");
 	PandaShader2.SetPos(glm::vec3(-0.5f, -0.5f, 0.0f));
+	PandaShader3.SetPos(glm::vec3(0.5f, -0.5f, 0.0f));
 	Texture Mario("./assets/textures/Mario.png", 0.2f, 0.35f);
 	Texture Panda("./assets/textures/Panda.png", 0.2f, 0.35f);
 	Texture Panda2("./assets/textures/Panda.png", 0.2f, 0.35f);
+	Texture Panda3("./assets/textures/Panda.png", 0.2f, 0.35f);
 
-	Shader* contenedor[2];
+	Shader* contenedor[3];
 
 	while (!window.Closed())
 	{
@@ -41,25 +44,31 @@ int main()
 		PandaShader2.UseProgramShader();
 		PandaShader2.Añadir(contenedor, 1);
 		Panda2.UseTexture();
+	
+		PandaShader3.UseProgramShader();
+		PandaShader3.Añadir(contenedor, 2);
+		Panda3.UseTexture();
 
 		MarioShader.UseProgramShader();
 		Mario.UseTexture();
-		if (window.IsKeyPressed(GLFW_KEY_W))
+		if(window.IsKeyPressed(GLFW_KEY_W))
 		{
 			MarioShader.MoveUp(contenedor, 0.01f, sizeof(contenedor));
 		}
-		if (window.IsKeyPressed(GLFW_KEY_S))
+		if(window.IsKeyPressed(GLFW_KEY_S))
 		{
 			MarioShader.MoveDown(contenedor, 0.01f, sizeof(contenedor));
 		}
-		if (window.IsKeyPressed(GLFW_KEY_D))
+		if(window.IsKeyPressed(GLFW_KEY_D))
 		{
 			MarioShader.MoveRight(contenedor, 0.01f, sizeof(contenedor));
 		}
-		if (window.IsKeyPressed(GLFW_KEY_A))
+		if(window.IsKeyPressed(GLFW_KEY_A))
 		{
 			MarioShader.MoveLeft(contenedor, 0.01f, sizeof(contenedor));
 		}
+
+		std::cout << "X: " << PandaShader3.GetPosX() << " " << "Y: " << PandaShader3.GetPosY() << std::endl;
 		//
 
 		window.Update();
