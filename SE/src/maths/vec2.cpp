@@ -1,4 +1,4 @@
-#include "vec2.h"
+#include "Vec2.h"
 
 namespace se { namespace maths {
 

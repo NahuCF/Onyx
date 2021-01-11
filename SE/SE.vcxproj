@@ -153,19 +153,19 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\collision\collision.cpp" />
-    <ClCompile Include="src\graphics\shader.cpp" />
-    <ClCompile Include="src\graphics\texture.cpp" />
+    <ClCompile Include="src\collision\ColliderBox.cpp" />
+    <ClCompile Include="src\graphics\Shader.cpp" />
+    <ClCompile Include="src\graphics\Texture.cpp" />
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\maths\vec2.cpp" />
-    <ClCompile Include="src\graphics\window.cpp" />
-    <ClCompile Include="src\maths\vec3.cpp" />
-    <ClCompile Include="src\maths\vec4.cpp" />
+    <ClCompile Include="src\maths\Vec2.cpp" />
+    <ClCompile Include="src\graphics\Window.cpp" />
+    <ClCompile Include="src\maths\Vec3.cpp" />
+    <ClCompile Include="src\maths\Vec4.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\collision\collision.h" />
-    <ClInclude Include="src\graphics\shader.h" />
-    <ClInclude Include="src\graphics\texture.h" />
+    <ClInclude Include="src\collision\ColliderBox.h" />
+    <ClInclude Include="src\graphics\Shader.h" />
+    <ClInclude Include="src\graphics\Texture.h" />
     <ClInclude Include="src\maths\glm\common.hpp" />
     <ClInclude Include="src\maths\glm\detail\compute_common.hpp" />
     <ClInclude Include="src\maths\glm\detail\compute_vector_relational.hpp" />
@@ -452,10 +452,10 @@
     <ClInclude Include="src\maths\glm\vec4.hpp" />
     <ClInclude Include="src\maths\glm\vector_relational.hpp" />
     <ClInclude Include="src\maths\maths.h" />
-    <ClInclude Include="src\maths\vec2.h" />
-    <ClInclude Include="src\graphics\window.h" />
-    <ClInclude Include="src\maths\vec3.h" />
-    <ClInclude Include="src\maths\vec4.h" />
+    <ClInclude Include="src\maths\Vec2.h" />
+    <ClInclude Include="src\graphics\Window.h" />
+    <ClInclude Include="src\maths\Vec3.h" />
+    <ClInclude Include="src\maths\Vec4.h" />
     <ClInclude Include="src\stb_image\stb_image.h" />
   </ItemGroup>
   <ItemGroup>

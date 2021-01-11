@@ -1,7 +1,7 @@
 #include <iostream>
 #include <time.h>
 
-#include "window.h"
+#include "Window.h"
 
 namespace se { namespace graphics {
 

@@ -1,7 +1,7 @@
 #include <GL/glew.h>
 #include <iostream>
 
-#include "shader.h"
+#include "Shader.h"
 #include "glm.hpp"
 #include "gtc/matrix_transform.hpp"
 
