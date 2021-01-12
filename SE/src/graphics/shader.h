@@ -5,7 +5,6 @@
 #include <string>
 
 #include "glm.hpp"
-#include "src/collision/ColliderBox.h"
 
 namespace se { namespace graphics {
 

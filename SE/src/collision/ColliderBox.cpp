@@ -1,9 +1,10 @@
 #include "ColliderBox.h"
 #include "src/graphics/window.h"
-
+#include <iostream>
 namespace se { namespace collision {
 
 	ColliderBox::ColliderBox(float width, float height, float posX, float posY)
+		: m_Width(width), m_Height(height)
 	{
 		m_Min.x += posX - width / 2;
 		m_Min.y += posY - height / 2;
@@ -17,16 +18,28 @@ namespace se { namespace collision {
 		contenedor[pos] = this;
 	}
 
-	bool IsColliding(ColliderBox* contendor[], int arraySize, ColliderBox& entity)
+	bool IsColliding(ColliderBox* contendor[], ColliderBox& entityCollider, int arraySize)
+	{
+		//One is the container
+		for(int i = 0; i < arraySize; i++)
+		{
+			bool collisionX = contendor[i]->m_Min.x + contendor[i]->m_Width >= entityCollider.m_Min.x && entityCollider.m_Min.x + entityCollider.m_Width >= contendor[i]->m_Min.x;
+			bool collisionY = contendor[i]->m_Min.y + contendor[i]->m_Height >= entityCollider.m_Min.y && entityCollider.m_Min.y + entityCollider.m_Height >= contendor[i]->m_Min.y;
+
+			if(collisionX && collisionY == true)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	void ActivateCollition(ColliderBox* contenedor[], ColliderBox& entityCollider, int arraySize)
 	{
 		for(int i = 0; i < arraySize; i++)
 		{
 		}
-	}
-
-	void ActivateCollition(ColliderBox* contenedor[], graphics::Shader& entity)
-	{
-
 	}
 
 	void MoveBoxsColliderUp(ColliderBox* contenedor[], float y, int arrayLength)
