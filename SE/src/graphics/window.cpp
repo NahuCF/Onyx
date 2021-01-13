@@ -56,7 +56,7 @@ namespace se { namespace graphics {
 		glViewport(0, 0, m_Width, m_Height);
 		glfwSwapBuffers(m_Window);
 		glfwPollEvents();
-		FPS();
+		//FPS();
 	}
 
 	bool Window::Closed() const
