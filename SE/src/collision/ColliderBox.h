@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../maths/Vec2.h"
+#include "src/graphics/Shader.h"
 
 namespace se { namespace collision {
 
@@ -17,8 +18,9 @@ namespace se { namespace collision {
 		float m_Height;
 	};
 
-	bool IsColliding(ColliderBox* contendor[], ColliderBox& entityCollider, int arraySize);
-	void ActivateCollition(ColliderBox* contenedor[], ColliderBox& entityCollider, int arraySize);
+	bool IsColliding(ColliderBox* contenedor[], ColliderBox& entityCollider, int arrayLength);
+	bool IsGointToCollide(ColliderBox* contenedor[], ColliderBox& entityCollider, int arrayLength, float move);
+	void ActivateCollition(ColliderBox* contenedor[], ColliderBox& entityCollider, graphics::Shader* shaderContenedor[], int contenedorLength, int shaderLength);
 
 	void MoveBoxsColliderUp		(ColliderBox* contenedor[], float y, int arrayLength);
 	void MoveBoxsColliderDown	(ColliderBox* contenedor[], float y, int arrayLength);

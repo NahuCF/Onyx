@@ -149,14 +149,4 @@ namespace se {namespace graphics {
 		glUniformMatrix4fv(glGetUniformLocation(this->m_ProgramID, "move"), 1, GL_FALSE, &m_SetPos[0][0]);
 	}
 
-	float Shader::GetPosX()
-	{
-		return m_CurrentXPos;
-	}
-
-	float Shader::GetPosY()
-	{
-		return m_CurrentYPos;
-	}
-
 } }

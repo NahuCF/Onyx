@@ -23,14 +23,15 @@ namespace se { namespace graphics {
 		void MoveDown	(Shader* contenedor[], float y, unsigned int arrayLength);
 
 		void SetPos(glm::vec3 vecPos);
-		float GetPosX();
-		float GetPosY();
+		float GetPosX() { return m_CurrentXPos; }
+		float GetPosY() { return m_CurrentYPos; }
+	public:
+		float m_ActualXPos;
+		float m_ActualYPos;
 	private:
 		glm::mat4 m_DefaultPos;
 		glm::mat4 m_XAxisMovement;
 		glm::mat4 m_YAxisMovement;
-		float m_ActualXPos;
-		float m_ActualYPos;
 
 		glm::mat4 m_SetPos;
 		float m_CurrentXPos;
