@@ -6,17 +6,23 @@
 namespace se { namespace graphics {
 
 	void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+	void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
+	void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 
 	Window::Window(const char* title, unsigned int width, unsigned int height)
+		: m_Title(title), m_Height(height), m_Width(width)
 	{
-		m_Title = title;
-		m_Height = height;
-		m_Width = width;
 		if(!Init())
 			glfwTerminate();
 
-		for (int i = 0; i < 1024; i++)
+		for(int i = 0; i < 1024; i++)
 			m_Keys[i] = false;
+
+		for(int i = 0; i < 32; i++)
+			m_MouseButtons[i] = false;
+
+		for(int i = 0; i < 32; i++)
+			m_MouseButtonsJustPressed[i] = false;
 	};
 	
 	Window::~Window()
@@ -42,6 +48,8 @@ namespace se { namespace graphics {
 		glfwMakeContextCurrent(m_Window);
 		glfwSetWindowUserPointer(m_Window, this);
 		glfwSetKeyCallback(m_Window, key_callback);
+		glfwSetCursorPosCallback(m_Window, cursor_position_callback);
+		glfwSetMouseButtonCallback(m_Window, mouse_button_callback);
 		if(glewInit() != GLEW_OK)
 		{
 			std::cout << "Error to initializate GLEW :c" << std::endl;
@@ -93,9 +101,67 @@ namespace se { namespace graphics {
 		}
 	}
 
-	bool Window::IsKeyPressed(unsigned int keyCode)
+	bool Window::IsButtomPressed(uint32_t button)
+	{
+		return m_MouseButtons[button];
+	}
+
+	bool Window::IsButtomJustPressed(uint32_t button)
+	{
+		return m_MouseButtonsJustPressed[button];
+	}
+
+	bool Window::IsKeyPressed(uint32_t keyCode)
 	{
 		return m_Keys[keyCode];
+	}
+	
+	void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
+	{
+		Window* win = (Window*)glfwGetWindowUserPointer(window);
+		glfwGetCursorPos(window, &win->m_XMousePos, &win->m_YMousePos);
+
+		////
+
+		if(win->m_XMousePos < win->m_Width / 2) //means that is in the left side
+		{
+			win->m_XMousePos = (-((win->m_Width / 2 - win->m_XMousePos) / win->m_Width)) * 2;
+		}
+		else if(win->m_XMousePos > win->m_Width / 2)
+		{
+			win->m_XMousePos = (-((win->m_Width / 2 - win->m_XMousePos) / win->m_Width)) * 2;
+		}
+		else
+		{
+			win->m_XMousePos = 0;
+		}
+
+		if(win->m_YMousePos < win->m_Height / 2) //means that is in the top side
+		{
+			win->m_YMousePos = ((win->m_Height / 2 - win->m_YMousePos) / win->m_Height) * 2;
+		}
+		else if(win->m_YMousePos > win->m_Height / 2)
+		{
+			win->m_YMousePos = ((win->m_Height / 2 - win->m_YMousePos) / win->m_Height) * 2;
+		}
+		else
+		{
+			win->m_YMousePos = 0;
+		}
+
+		//win->m_XMousePosFloat = (float)win->m_XMousePos;
+		//win->m_YMousePosFloat = (float)win->m_YMousePos;
+
+		////
+	}
+
+	void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+	{
+		Window* win = (Window*)glfwGetWindowUserPointer(window);
+		win->m_MouseButtons[button] = action != GLFW_RELEASE;
+
+	
+		win->m_MouseButtonsJustPressed[button] = action == GLFW_PRESS;
 	}
 
 	void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)

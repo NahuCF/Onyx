@@ -1,5 +1,6 @@
 #include <GL/glew.h>
 #include <iostream>
+#include <vector>
 
 #include "Shader.h"
 #include "glm.hpp"
@@ -83,14 +84,14 @@ namespace se {namespace graphics {
 		glUniformMatrix4fv(glGetUniformLocation(shader.m_ProgramID, transformName), 1, GL_FALSE, &matrix[0][0]);
 	}
 
-	void Shader::Añadir(Shader* contenedor[], int index)
+	void Shader::Añadir(std::vector<Shader*> &contenedor)
 	{
-		contenedor[index] = this;
+		contenedor.push_back(this);
 	}
 
-	void Shader::MoveRight(Shader* contenedor[], float x, unsigned int arrayLength)
+	void Shader::MoveRight(std::vector<Shader*> &contenedor, float x)
 	{
-		for(int i = 0; i < arrayLength / 4; i++)
+		for(int i = 0; i < contenedor.size(); i++)
 		{
 			contenedor[i]->UseProgramShader();
 			contenedor[i]->m_ActualXPos -= x;
@@ -100,9 +101,9 @@ namespace se {namespace graphics {
 		}
 		m_CurrentXPos += x;
 	}
-	void Shader::MoveLeft(Shader* contenedor[], float x, unsigned int arrayLength)
+	void Shader::MoveLeft(std::vector<Shader*> &contenedor, float x)
 	{
-		for (int i = 0; i < arrayLength / 4; i++)
+		for (int i = 0; i < contenedor.size(); i++)
 		{
 			contenedor[i]->UseProgramShader();
 			contenedor[i]->m_ActualXPos += x;
@@ -112,9 +113,9 @@ namespace se {namespace graphics {
 		}
 		m_CurrentXPos -= x;
 	}
-	void Shader::MoveUp(Shader* contenedor[], float y, unsigned int arrayLength)
+	void Shader::MoveUp(std::vector<Shader*> &contenedor, float y)
 	{
-		for (int i = 0; i < arrayLength / 4; i++)
+		for (int i = 0; i < contenedor.size(); i++)
 		{
 			contenedor[i]->UseProgramShader();
 			contenedor[i]->m_ActualYPos -= y;
@@ -124,9 +125,9 @@ namespace se {namespace graphics {
 		}
 		m_CurrentYPos += y;
 	}
-	void Shader::MoveDown(Shader* contenedor[], float y, unsigned int arrayLength)
+	void Shader::MoveDown(std::vector<Shader*> &contenedor, float y)
 	{
-		for (int i = 0; i < arrayLength / 4; i++)
+		for (int i = 0; i < contenedor.size(); i++)
 		{
 			contenedor[i]->UseProgramShader();
 			contenedor[i]->m_ActualYPos += y;

@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "glm.hpp"
 
@@ -14,13 +15,13 @@ namespace se { namespace graphics {
 		Shader(const char* vertexPath, const char* fragmentPath);
 		void UseProgramShader();
 		void SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix);
-		void Añadir(Shader* contenedor[], int index);
+		void Añadir(std::vector<Shader*> &contenedor);
 		unsigned int m_ProgramID;
 	public:
-		void MoveRight	(Shader* contenedor[], float x, unsigned int arrayLength);
-		void MoveLeft	(Shader* contenedor[], float x, unsigned int arrayLength);
-		void MoveUp		(Shader* contenedor[], float y, unsigned int arrayLength);
-		void MoveDown	(Shader* contenedor[], float y, unsigned int arrayLength);
+		void MoveRight	(std::vector<Shader*> &contenedor, float x);
+		void MoveLeft	(std::vector<Shader*> &contenedor, float x);
+		void MoveUp		(std::vector<Shader*> &contenedor, float y);
+		void MoveDown	(std::vector<Shader*> &contenedor, float y);
 
 		void SetPos(glm::vec3 vecPos);
 		float GetPosX() { return m_CurrentXPos; }
