@@ -39,9 +39,6 @@
     <ClCompile Include="src\collision\ColliderBox.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
-    <ClCompile Include="src\graphics\Panda.cpp">
-      <Filter>Archivos de origen</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\maths\maths.h">
@@ -924,9 +921,6 @@
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
     <ClInclude Include="src\collision\ColliderBox.h">
-      <Filter>Archivos de encabezado</Filter>
-    </ClInclude>
-    <ClInclude Include="src\graphics\Panda.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
   </ItemGroup>

@@ -2,7 +2,6 @@
 
 #include <fstream>
 #include <sstream>
-#include <string>
 #include <vector>
 
 #include "glm.hpp"
@@ -13,10 +12,11 @@ namespace se { namespace graphics {
 	{
 	public:
 		Shader(const char* vertexPath, const char* fragmentPath);
+		~Shader();
 		void UseProgramShader();
 		void SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix);
 		void Añadir(std::vector<Shader*> &contenedor);
-		unsigned int m_ProgramID;
+		uint32_t m_ProgramID;
 	public:
 		void MoveRight	(std::vector<Shader*> &contenedor, float x);
 		void MoveLeft	(std::vector<Shader*> &contenedor, float x);
@@ -38,7 +38,7 @@ namespace se { namespace graphics {
 		float m_CurrentXPos;
 		float m_CurrentYPos;
 
-		unsigned int m_VertexID, m_FragmentID;
+		uint32_t m_VertexID, m_FragmentID;
 		const char* m_VShaderCode;
 		const char* m_FShaderCode;
 		int success;

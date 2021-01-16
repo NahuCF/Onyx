@@ -8,7 +8,7 @@ namespace se {namespace graphics {
 	class Window
 	{
 	public:
-		Window(const char* title, unsigned int width, unsigned int height);
+		Window(const char* title = "Engine", uint32_t width = 1280, uint32_t height = 720);
 		~Window();
 		void Update();
 		bool Closed() const;
@@ -38,7 +38,6 @@ namespace se {namespace graphics {
 		bool m_MouseButtons[32];
 		bool m_MouseButtonsJustPressed[32];
 		double m_XMousePos, m_YMousePos;
-		float m_XMousePosFloat, m_YMousePosFloat;
 	};
 
 } }

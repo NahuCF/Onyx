@@ -9,7 +9,7 @@ namespace se { namespace graphics {
 	void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 	void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 
-	Window::Window(const char* title, unsigned int width, unsigned int height)
+	Window::Window(const char* title, uint32_t width, uint32_t height)
 		: m_Title(title), m_Height(height), m_Width(width)
 	{
 		if(!Init())
@@ -64,7 +64,7 @@ namespace se { namespace graphics {
 		glViewport(0, 0, m_Width, m_Height);
 		glfwSwapBuffers(m_Window);
 		glfwPollEvents();
-		//FPS();
+		FPS();
 	}
 
 	bool Window::Closed() const
@@ -148,9 +148,6 @@ namespace se { namespace graphics {
 		{
 			win->m_YMousePos = 0;
 		}
-
-		//win->m_XMousePosFloat = (float)win->m_XMousePos;
-		//win->m_YMousePosFloat = (float)win->m_YMousePos;
 
 		////
 	}

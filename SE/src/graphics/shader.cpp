@@ -74,9 +74,14 @@ namespace se {namespace graphics {
 		glUniformMatrix4fv(glGetUniformLocation(this->m_ProgramID, "move"), 1, GL_FALSE, &m_DefaultPos[0][0]);
 	}
 
+	Shader::~Shader()
+	{
+		glDeleteProgram(m_ProgramID);
+	}
+
 	void Shader::UseProgramShader()
 	{
-		glUseProgram(this->m_ProgramID);
+		glUseProgram(m_ProgramID);
 	}
 
 	void Shader::SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix)

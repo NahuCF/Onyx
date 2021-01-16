@@ -14,25 +14,13 @@
 
 #include "../maths.h"
 
-
-struct PandaPos
-{
-	float x, y;
-
-	PandaPos(float xa, float ya)
-	{
-		x = xa;
-		y = ya;
-	}
-};
-
 int main()
 {
 	using namespace se;
 	using namespace graphics;
 	using namespace collision;
 
-	Window window("SE", 1600, 900);
+	Window window("SE", 1280, 720);
 	glClearColor(0.3f, 0.3f, 1.0f, 1.0f);
 
 	std::vector<Shader*> contenedorr;
@@ -70,21 +58,24 @@ int main()
 
 	while (!window.Closed())
 	{
-		window.Vsync("Enable");
+		window.Vsync("Disable");
 		window.Clear();
-
-		for(int i = 0; i < tuputamadre.size(); i++)
-		{ 
-			ShaderPandaTemplate.UseProgramShader();
-			TexturePandaTemplate.UseTexture();
+		std::cout << sizeof(Shader) << std::endl;
+		for(int i = 0; i < contenedorr.size(); i++)
+		{
+			if(MarioShader.GetPosX() - contenedorr[i]->GetPosX() < 1)
+			{
+				contenedorr[i]->UseProgramShader();
+				TexturePandaTemplate.UseTexture();
+			}
 		}
 		if(window.IsButtomJustPressed(GLFW_MOUSE_BUTTON_RIGHT))
 		{
-			Shader ShaderPandaTemplatee("./shaders/textureShader.vs", "./shaders/textureShader.fs");
-			ShaderPandaTemplatee.SetPos(glm::vec3((float)window.GetMousePosX(), (float)window.GetMousePosY(), 0.0f));
-			tuputamadre.push_back(ShaderPandaTemplatee);
+			Shader* ShaderPandaTemplatee = new Shader("./shaders/textureShader.vs", "./shaders/textureShader.fs");
+			ShaderPandaTemplatee->SetPos(glm::vec3((float)window.GetMousePosX(), (float)window.GetMousePosY(), 0.0f));
+			contenedorr.push_back(ShaderPandaTemplatee);
 		}
-		
+
 		//CODE HERE
 		PandaShader.UseProgramShader();
 		PandaCollider.AddCollider(boxContenedor, 0);
@@ -93,7 +84,7 @@ int main()
 		PandaShader2.UseProgramShader();
 		PandaCollider2.AddCollider(boxContenedor, 1);
 		Panda2.UseTexture();
-	
+
 		PandaShader3.UseProgramShader();
 		PandaCollider3.AddCollider(boxContenedor, 2);
 		Panda3.UseTexture();
@@ -130,7 +121,7 @@ int main()
 		}
 		//
 		//std::cout << boxContenedor[0]->m_Min.y << " " << MarioCollider.m_Min.y << std::endl;
-		
+
 		window.Update();
 	}
 }

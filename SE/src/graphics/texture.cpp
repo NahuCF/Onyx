@@ -92,10 +92,17 @@ namespace se { namespace graphics {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	}
 
-	void Texture::UseTexture()
+	Texture::~Texture()
+	{
+		glDeleteVertexArrays(1, &m_VAO);
+		glDeleteBuffers(1, &m_VBO);
+		glDeleteBuffers(1, &m_EBO);
+	}
+
+	void Texture::UseTexture() const 
 	{
 		glBindTexture(GL_TEXTURE_2D, m_TextureID);
-		glBindVertexArray(this->m_VAO);
+		glBindVertexArray(m_VAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	}
 
