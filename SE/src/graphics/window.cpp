@@ -95,7 +95,7 @@ namespace se { namespace graphics {
 		{
 			glfwSwapInterval(1);
 		}
-		else if (state == "Disable")
+		else
 		{
 			glfwSwapInterval(0);
 		}

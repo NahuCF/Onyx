@@ -13,8 +13,6 @@ namespace se { namespace graphics {
 		unsigned char* m_TextureData;
 		int m_TextureWidth, m_TextureHeight, m_NChannels;
 		uint32_t m_VAO, m_VBO, m_EBO;
-		float vertices[20];
-		uint32_t indices[6];
 	};
 
 }}

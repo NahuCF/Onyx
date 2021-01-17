@@ -15,17 +15,17 @@ namespace se { namespace collision {
 		m_Max.y += posY + height / 2;
 	}
 
-	void ColliderBox::AddCollider(ColliderBox* contenedor[], int pos)
+	void ColliderBox::AddCollider(std::vector<ColliderBox*> &colliderContenedor)
 	{
-		contenedor[pos] = this;
+		colliderContenedor.push_back(this);
 	}
 
-	bool IsColliding(ColliderBox* contenedor[], ColliderBox& entityCollider, int arrayLength)
+	bool IsColliding(std::vector<ColliderBox*> &colliderContenedor, ColliderBox& entityCollider)
 	{
-		for(int i = 0; i < arrayLength; i++)
+		for(int i = 0; i < colliderContenedor.size(); i++)
 		{
-			bool collisionX = contenedor[i]->m_Min.x + contenedor[i]->m_Width >= entityCollider.m_Min.x && entityCollider.m_Min.x + entityCollider.m_Width >= contenedor[i]->m_Min.x;
-			bool collisionY = contenedor[i]->m_Min.y + contenedor[i]->m_Height >= entityCollider.m_Min.y && entityCollider.m_Min.y + entityCollider.m_Height >= contenedor[i]->m_Min.y;
+			bool collisionX = colliderContenedor[i]->m_Min.x + colliderContenedor[i]->m_Width >= entityCollider.m_Min.x && entityCollider.m_Min.x + entityCollider.m_Width >= colliderContenedor[i]->m_Min.x;
+			bool collisionY = colliderContenedor[i]->m_Min.y + colliderContenedor[i]->m_Height >= entityCollider.m_Min.y && entityCollider.m_Min.y + entityCollider.m_Height >= colliderContenedor[i]->m_Min.y;
 
 			if(collisionX && collisionY == true)
 			{
@@ -36,12 +36,12 @@ namespace se { namespace collision {
 		return false;
 	}
 
-	bool IsGointToCollide(ColliderBox* contenedor[], ColliderBox& entityCollider, int arrayLength, float move)
+	bool IsGointToCollide(std::vector<ColliderBox*> &colliderContenedor, ColliderBox& entityCollider, float move)
 	{
-		for(int i = 0; i < arrayLength; i++)
+		for(int i = 0; i < colliderContenedor.size(); i++)
 		{
-			bool collisionX = contenedor[i]->m_Min.x + contenedor[i]->m_Width >= entityCollider.m_Min.x && entityCollider.m_Min.x + entityCollider.m_Width - move >= contenedor[i]->m_Min.x;
-			bool collisionY = contenedor[i]->m_Min.y + contenedor[i]->m_Height >= entityCollider.m_Min.y && entityCollider.m_Min.y + entityCollider.m_Height - move >= contenedor[i]->m_Min.y;
+			bool collisionX = colliderContenedor[i]->m_Min.x + colliderContenedor[i]->m_Width >= entityCollider.m_Min.x && entityCollider.m_Min.x + entityCollider.m_Width - move >= colliderContenedor[i]->m_Min.x;
+			bool collisionY = colliderContenedor[i]->m_Min.y + colliderContenedor[i]->m_Height >= entityCollider.m_Min.y && entityCollider.m_Min.y + entityCollider.m_Height - move >= colliderContenedor[i]->m_Min.y;
 
 			if(collisionX && collisionY == true)
 			{
@@ -52,92 +52,92 @@ namespace se { namespace collision {
 		return false;
 	}
 
-	void ActivateCollition(ColliderBox* contenedor[], ColliderBox& entityCollider, graphics::Shader* shaderContenedor[], int contenedorLength, int shaderLength)
+	void ActivateCollition(std::vector<ColliderBox*> &colliderContenedor, ColliderBox& entityCollider, graphics::Shader* shaderContenedor[], int contenedorLength, int shaderLength)
 	{
 		for(int i = 0; i < contenedorLength; i++)
 		{
 			//Left
-			if(entityCollider.m_Min.x + entityCollider.m_Width >= contenedor[i]->m_Min.x && entityCollider.m_Min.x <= contenedor[i]->m_Min.x)
+			if(entityCollider.m_Min.x + entityCollider.m_Width >= colliderContenedor[i]->m_Min.x && entityCollider.m_Min.x <= colliderContenedor[i]->m_Min.x)
 			{
-				float distanceSeparate = entityCollider.m_Width / 2 - contenedor[i]->m_Min.x;
+				float distanceSeparate = entityCollider.m_Width / 2 - colliderContenedor[i]->m_Min.x;
 				for(int i = 0; i < shaderLength; i++)
 				{
-					shaderContenedor[i]->SetPos(glm::vec3(shaderContenedor[i]->m_ActualXPos + distanceSeparate, shaderContenedor[i]->m_ActualYPos, 0));
+					//shadercolliderContenedor[i]->SetPos(glm::vec3(shadercolliderContenedor[i]->m_ActualXPos + distanceSeparate, shadercolliderContenedor[i]->m_ActualYPos, 0));
 
 				}
 				for(int i = 0; i < contenedorLength; i++)
 				{
-					contenedor[i]->m_Min.x += distanceSeparate;
-					contenedor[i]->m_Max.x += distanceSeparate;
+					colliderContenedor[i]->m_Min.x += distanceSeparate;
+					colliderContenedor[i]->m_Max.x += distanceSeparate;
 				}
 			}
 			//Right
-			//if(contenedor[i]->m_Min.x + contenedor[i]->m_Width >= entityCollider.m_Min.x && entityCollider.m_Min.x >= contenedor[i]->m_Min.x )
+			//if(colliderContenedor[i]->m_Min.x + colliderContenedor[i]->m_Width >= entityCollider.m_Min.x && entityCollider.m_Min.x >= colliderContenedor[i]->m_Min.x )
 			//{
-			//	float distanceSeparate = contenedor[i]->m_Min.x + contenedor[i]->m_Width - entityCollider.m_Min.x;
+			//	float distanceSeparate = colliderContenedor[i]->m_Min.x + colliderContenedor[i]->m_Width - entityCollider.m_Min.x;
 			//	for(int i = 0; i < shaderLength; i++)
 			//	{
-			//		shaderContenedor[i]->SetPos(glm::vec3(shaderContenedor[i]->m_ActualXPos - distanceSeparate, shaderContenedor[i]->m_ActualYPos, 0));
+			//		shadercolliderContenedor[i]->SetPos(glm::vec3(shadercolliderContenedor[i]->m_ActualXPos - distanceSeparate, shadercolliderContenedor[i]->m_ActualYPos, 0));
 
 			//	}
 			//	for(int i = 0; i < contenedorLength; i++)
 			//	{
-			//		contenedor[i]->m_Min.x -= distanceSeparate;
-			//		contenedor[i]->m_Max.x -= distanceSeparate;
+			//		colliderContenedor[i]->m_Min.x -= distanceSeparate;
+			//		colliderContenedor[i]->m_Max.x -= distanceSeparate;
 			//	}
 			//}
 			////Bottom
-			//if(entityCollider.m_Min.y + entityCollider.m_Height >= contenedor[i]->m_Min.y && entityCollider.m_Min.y >= contenedor[i]->m_Min.y)
+			//if(entityCollider.m_Min.y + entityCollider.m_Height >= colliderContenedor[i]->m_Min.y && entityCollider.m_Min.y >= colliderContenedor[i]->m_Min.y)
 			//{
 			//	std::cout << "Bottom" << std::endl;
-			//	float distanceSeparate = entityCollider.m_Min.y + entityCollider.m_Height - contenedor[i]->m_Min.y;
+			//	float distanceSeparate = entityCollider.m_Min.y + entityCollider.m_Height - colliderContenedor[i]->m_Min.y;
 			//	for(int i = 0; i < shaderLength; i++)
 			//	{
-			//		shaderContenedor[i]->SetPos(glm::vec3(shaderContenedor[i]->m_ActualXPos, shaderContenedor[i]->m_ActualYPos + distanceSeparate, 0));
+			//		shadercolliderContenedor[i]->SetPos(glm::vec3(shadercolliderContenedor[i]->m_ActualXPos, shadercolliderContenedor[i]->m_ActualYPos + distanceSeparate, 0));
 
 			//	}
 			//	for(int i = 0; i < contenedorLength; i++)
 			//	{
-			//		contenedor[i]->m_Min.y += distanceSeparate;
-			//		contenedor[i]->m_Max.y += distanceSeparate;
+			//		colliderContenedor[i]->m_Min.y += distanceSeparate;
+			//		colliderContenedor[i]->m_Max.y += distanceSeparate;
 			//	}
 			//}
 		}
 	}
 	
-	void MoveBoxsColliderUp(ColliderBox* contenedor[], float y, int arrayLength)
+	void MoveBoxsColliderUp(std::vector<ColliderBox*> &colliderContenedor, float y)
 	{
-		for(int i = 0; i < arrayLength; i++)
+		for(int i = 0; i < colliderContenedor.size(); i++)
 		{
-			contenedor[i]->m_Min.y -= y;
-			contenedor[i]->m_Max.y -= y;
+			colliderContenedor[i]->m_Min.y -= y;
+			colliderContenedor[i]->m_Max.y -= y;
 		}
 	}
 
-	void MoveBoxsColliderDown(ColliderBox* contenedor[], float y, int arrayLength)
+	void MoveBoxsColliderDown(std::vector<ColliderBox*> &colliderContenedor, float y)
 	{
-		for(int i = 0; i < arrayLength; i++)
+		for(int i = 0; i < colliderContenedor.size(); i++)
 		{
-			contenedor[i]->m_Min.y += y;
-			contenedor[i]->m_Max.y += y;
+			colliderContenedor[i]->m_Min.y += y;
+			colliderContenedor[i]->m_Max.y += y;
 		}
 	}
 
-	void MoveBoxsColliderRight(ColliderBox* contenedor[], float x, int arrayLength)
+	void MoveBoxsColliderRight(std::vector<ColliderBox*> &colliderContenedor, float x)
 	{
-		for(int i = 0; i < arrayLength; i++)
+		for(int i = 0; i < colliderContenedor.size(); i++)
 		{
-			contenedor[i]->m_Min.x -= x;
-			contenedor[i]->m_Max.x -= x;
+			colliderContenedor[i]->m_Min.x -= x;
+			colliderContenedor[i]->m_Max.x -= x;
 		}
 	}
 
-	void MoveBoxsColliderLeft(ColliderBox* contenedor[], float x, int arrayLength)
+	void MoveBoxsColliderLeft(std::vector<ColliderBox*> &colliderContenedor, float x)
 	{
-		for(int i = 0; i < arrayLength; i++)
+		for(int i = 0; i < colliderContenedor.size(); i++)
 		{
-			contenedor[i]->m_Min.x += x;
-			contenedor[i]->m_Max.x += x;
+			colliderContenedor[i]->m_Min.x += x;
+			colliderContenedor[i]->m_Max.x += x;
 		}
 	}
 

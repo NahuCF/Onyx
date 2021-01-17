@@ -10,11 +10,14 @@ namespace se {namespace graphics {
 	public:
 		Window(const char* title = "Engine", uint32_t width = 1280, uint32_t height = 720);
 		~Window();
+
 		void Update();
 		bool Closed() const;
 		void Clear() const;
+
 		int Width() const { return m_Width;  }
 		int Height() const { return m_Height; }
+
 		void FPS();
 		void Vsync(const char *state);
 	public:

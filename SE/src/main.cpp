@@ -23,70 +23,68 @@ int main()
 	Window window("SE", 1280, 720);
 	glClearColor(0.3f, 0.3f, 1.0f, 1.0f);
 
-	std::vector<Shader*> contenedorr;
+	std::vector<Shader*> shaderCotenedor;
+	std::vector<ColliderBox*> colliderContenedor;
 
-	std::vector<Shader> tuputamadre;
+	const char* vShaderPath = "./shaders/textureShader.vs";
+	const char* fShaderPath = "./shaders/textureShader.fs";
 
-	Shader MarioShader("./shaders/textureShader.vs", "./shaders/textureShader.fs");
+	Shader MarioShader(vShaderPath, fShaderPath);
 	Texture Mario("./assets/textures/Mario.png", 0.2f, 0.35f);
 	ColliderBox MarioCollider(0.2f, 0.35f, 0.0f, 0.0f);
 
-	Shader PandaShader("./shaders/textureShader.vs", "./shaders/textureShader.fs");
-	PandaShader.Añadir(contenedorr);
+	Shader PandaShader(vShaderPath, fShaderPath);
+	PandaShader.Añadir(shaderCotenedor);
 	Texture Panda("./assets/textures/Panda.png", 0.2f, 0.35f);
 	ColliderBox PandaCollider(0.2f, 0.35f, 0.0f, 0.0f);
 
-	Shader PandaShader2("./shaders/textureShader.vs", "./shaders/textureShader.fs");
-	PandaShader2.Añadir(contenedorr);
+	Shader PandaShader2(vShaderPath, fShaderPath);
+	PandaShader2.Añadir(shaderCotenedor);
 	Texture Panda2("./assets/textures/Panda.png", 0.2f, 0.35f);
 	ColliderBox PandaCollider2(0.2f, 0.35f, -0.5f, -0.5f);
 
-	Shader PandaShader3("./shaders/textureShader.vs", "./shaders/textureShader.fs");
-	PandaShader3.Añadir(contenedorr);
+	Shader PandaShader3(vShaderPath, fShaderPath);
+	PandaShader3.Añadir(shaderCotenedor);
 	Texture Panda3("./assets/textures/Panda.png", 0.2f, 0.35f);
 	ColliderBox PandaCollider3(0.2f, 0.35f, 0.5f, -0.5f);
 
-	Shader ShaderPandaTemplate("./shaders/textureShader.vs", "./shaders/textureShader.fs");
+	Shader ShaderPandaTemplate(vShaderPath, fShaderPath);
 	Texture TexturePandaTemplate("./assets/textures/Panda.png", 0.2f, 0.35f);
 
 	PandaShader2.SetPos(glm::vec3(-0.5f, -0.5f, 0.0f));
 	PandaShader3.SetPos(glm::vec3(0.5f, -0.5f, 0.0f));
 
-	const int boxColliderContenedorLength = 3;
-
-	ColliderBox* boxContenedor[boxColliderContenedorLength];
-
-	while (!window.Closed())
+	while(!window.Closed())
 	{
 		window.Vsync("Disable");
 		window.Clear();
-		std::cout << sizeof(Shader) << std::endl;
-		for(int i = 0; i < contenedorr.size(); i++)
+
+		for(int i = 0; i < shaderCotenedor.size(); i++)
 		{
-			if(MarioShader.GetPosX() - contenedorr[i]->GetPosX() < 1)
+			if(MarioShader.GetPosX() - shaderCotenedor[i]->GetPosX() < 1)
 			{
-				contenedorr[i]->UseProgramShader();
+				shaderCotenedor[i]->UseProgramShader();
 				TexturePandaTemplate.UseTexture();
 			}
 		}
 		if(window.IsButtomJustPressed(GLFW_MOUSE_BUTTON_RIGHT))
 		{
-			Shader* ShaderPandaTemplatee = new Shader("./shaders/textureShader.vs", "./shaders/textureShader.fs");
+			Shader* ShaderPandaTemplatee = new Shader(vShaderPath, fShaderPath);
 			ShaderPandaTemplatee->SetPos(glm::vec3((float)window.GetMousePosX(), (float)window.GetMousePosY(), 0.0f));
-			contenedorr.push_back(ShaderPandaTemplatee);
+			shaderCotenedor.push_back(ShaderPandaTemplatee);
 		}
 
 		//CODE HERE
 		PandaShader.UseProgramShader();
-		PandaCollider.AddCollider(boxContenedor, 0);
+		PandaCollider.AddCollider(colliderContenedor);
 		Panda.UseTexture();
 
 		PandaShader2.UseProgramShader();
-		PandaCollider2.AddCollider(boxContenedor, 1);
+		PandaCollider2.AddCollider(colliderContenedor);
 		Panda2.UseTexture();
 
 		PandaShader3.UseProgramShader();
-		PandaCollider3.AddCollider(boxContenedor, 2);
+		PandaCollider3.AddCollider(colliderContenedor);
 		Panda3.UseTexture();
 
 
@@ -94,33 +92,24 @@ int main()
 		Mario.UseTexture();
 		if(window.IsKeyPressed(GLFW_KEY_W))
 		{
-			std::cout << contenedorr.size() << std::endl;
-			MarioShader.MoveUp(contenedorr, 0.017f);
-			//MoveBoxsColliderUp(boxContenedor, 0.017f, boxColliderContenedorLength);
+			MarioShader.MoveUp(shaderCotenedor, 0.017f);
+			//MoveBoxsColliderUp(shaderCotenedor, 0.017f, boxColliderContenedorLength);
 		}
 		if(window.IsKeyPressed(GLFW_KEY_S))
 		{
-			MarioShader.MoveDown(contenedorr, 0.017f);
-			//MoveBoxsColliderDown(boxContenedor, 0.017f, boxColliderContenedorLength);
+			MarioShader.MoveDown(shaderCotenedor, 0.017f);
+			//MoveBoxsColliderDown(shaderCotenedor, 0.017f, boxColliderContenedorLength);
 		}
 		if(window.IsKeyPressed(GLFW_KEY_D))
 		{
-			MarioShader.MoveRight(contenedorr, 0.01f);
-			//MoveBoxsColliderRight(boxContenedor, 0.01f, boxColliderContenedorLength);
+			MarioShader.MoveRight(shaderCotenedor, 0.01f);
+			//MoveBoxsColliderRight(shaderCotenedor, 0.01f, boxColliderContenedorLength);
 		}
 		if(window.IsKeyPressed(GLFW_KEY_A))
 		{
-			MarioShader.MoveLeft(contenedorr, 0.01f);
-			//MoveBoxsColliderLeft(boxContenedor, 0.01f, boxColliderContenedorLength);
+			MarioShader.MoveLeft(shaderCotenedor, 0.01f);
+			//MoveBoxsColliderLeft(shaderCotenedor, 0.01f, boxColliderContenedorLength);
 		}
-
-		if(IsColliding(boxContenedor, MarioCollider, boxColliderContenedorLength))
-		{
-			//std::cout << "colliding..." << std::endl;
-			//ActivateCollition(boxContenedor, MarioCollider, contenedor, 3, 4);	
-		}
-		//
-		//std::cout << boxContenedor[0]->m_Min.y << " " << MarioCollider.m_Min.y << std::endl;
 
 		window.Update();
 	}

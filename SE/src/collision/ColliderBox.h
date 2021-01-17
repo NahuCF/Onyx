@@ -9,7 +9,7 @@ namespace se { namespace collision {
 	struct ColliderBox
 	{
 		ColliderBox(float width, float height, float posX, float posY);
-		void AddCollider(ColliderBox* contenedor[], int pos);
+		void AddCollider(std::vector<ColliderBox*> &colliderContenedor);
 
 		maths::vec2 m_Min;
 		maths::vec2 m_Max;
@@ -18,13 +18,14 @@ namespace se { namespace collision {
 		float m_Height;
 	};
 
-	bool IsColliding(ColliderBox* contenedor[], ColliderBox& entityCollider, int arrayLength);
-	bool IsGointToCollide(ColliderBox* contenedor[], ColliderBox& entityCollider, int arrayLength, float move);
-	void ActivateCollition(ColliderBox* contenedor[], ColliderBox& entityCollider, graphics::Shader* shaderContenedor[], int contenedorLength, int shaderLength);
+	bool IsColliding(std::vector<ColliderBox*> &colliderContenedor, ColliderBox& entityCollider);
+	bool IsGointToCollide(std::vector<ColliderBox*> &colliderContenedor, ColliderBox& entityCollider, float move);
 
-	void MoveBoxsColliderUp		(ColliderBox* contenedor[], float y, int arrayLength);
-	void MoveBoxsColliderDown	(ColliderBox* contenedor[], float y, int arrayLength);
-	void MoveBoxsColliderRight	(ColliderBox* contenedor[], float x, int arrayLength);
-	void MoveBoxsColliderLeft	(ColliderBox* contenedor[], float x, int arrayLength);
+	void ActivateCollition(std::vector<ColliderBox*> &colliderContenedor, ColliderBox& entityCollider, graphics::Shader* shaderContenedor[], int contenedorLength, int shaderLength);
+
+	void MoveBoxsColliderUp		(std::vector<ColliderBox*> &colliderContenedor, float y);
+	void MoveBoxsColliderDown	(std::vector<ColliderBox*> &colliderContenedor, float y);
+	void MoveBoxsColliderRight	(std::vector<ColliderBox*> &colliderContenedor, float x);
+	void MoveBoxsColliderLeft	(std::vector<ColliderBox*> &colliderContenedor, float x);
 
 }}

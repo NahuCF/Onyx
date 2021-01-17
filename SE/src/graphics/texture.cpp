@@ -35,40 +35,20 @@ namespace se { namespace graphics {
 
 		//Create VAO
 
-		for(int i = 0; i < 20; i++)
+		float vertices[20] =
 		{
-			if( i == 3 || i == 4 || i == 8 || i == 19)
-			{
-				vertices[i] = 1.0f;
-			}
-			else if(i == 2 || i == 7 || i == 9 || i == 13 || i == 18 || i == 13 || i == 14 || i == 18)
-			{
-				vertices[i] = 0.0f;
-			}
-			else if(i == 0 || i == 5)
-			{
-				vertices[i] = Width / 2.0f;
-			}
-			else if(i == 10 || i == 15)
-			{
-				vertices[i] = -(Width / 2.0f);
-			}
-			else if(i == 1 || i == 16)
-			{
-				vertices[i] = (Height / 2.0f);
-			}
-			else if (i == 6 || i == 11)
-			{
-				vertices[i] = -(Height / 2.0f);
-			}
-		}
+			Width / 2,  Height / 2, 0.0f,  1.0f, 1.0f,
+			Width / 2, -Height / 2, 0.0f,  1.0f, 0.0f,
+		   -Width / 2, -Height / 2, 0.0f,  0.0f, 0.0f,
+		   -Width / 2,  Height / 2, 0.0f,  0.0f, 1.0f
 
-		indices[0] = { 0 };
-		indices[1] = { 1 };
-		indices[2] = { 3 };
-		indices[3] = { 1 };
-		indices[4] = { 2 };
-		indices[5] = { 3 };
+		};
+
+		uint32_t indices[6] =
+		{
+			0, 1, 3,
+			1, 2, 3
+		};
 
 		glGenVertexArrays(1, &m_VAO);
 		glGenBuffers(1, &m_VBO);
