@@ -15,7 +15,7 @@ namespace se { namespace graphics {
 		~Shader();
 		void UseProgramShader();
 		void SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix);
-		void Añadir(std::vector<Shader*> &contenedor);
+		void AddShader(std::vector<Shader*> &contenedor);
 		uint32_t m_ProgramID;
 	public:
 		void MoveRight	(std::vector<Shader*> &contenedor, float x);
@@ -24,17 +24,16 @@ namespace se { namespace graphics {
 		void MoveDown	(std::vector<Shader*> &contenedor, float y);
 
 		void SetPos(glm::vec3 vecPos);
-		float GetPosX() { return m_CurrentXPos; }
-		float GetPosY() { return m_CurrentYPos; }
-	public:
-		float m_ActualXPos;
-		float m_ActualYPos;
+		float GetPosX() const { return m_CurrentXPos; }
+		float GetPosY() const { return m_CurrentYPos; }	
 	private:
 		glm::mat4 m_DefaultPos;
 		glm::mat4 m_XAxisMovement;
 		glm::mat4 m_YAxisMovement;
 
 		glm::mat4 m_SetPos;
+		float m_RealXPos;
+		float m_RealYPos;
 		float m_CurrentXPos;
 		float m_CurrentYPos;
 

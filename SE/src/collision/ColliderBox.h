@@ -19,7 +19,7 @@ namespace se { namespace collision {
 	};
 
 	bool IsColliding(std::vector<ColliderBox*> &colliderContenedor, ColliderBox& entityCollider);
-	bool IsGointToCollide(std::vector<ColliderBox*> &colliderContenedor, ColliderBox& entityCollider, float move);
+	bool IsGointToCollide(std::vector<ColliderBox*> &colliderContenedor, ColliderBox& entityCollider, float xMove, float yMove);
 
 	void ActivateCollition(std::vector<ColliderBox*> &colliderContenedor, ColliderBox& entityCollider, graphics::Shader* shaderContenedor[], int contenedorLength, int shaderLength);
 
