@@ -89,29 +89,25 @@ namespace se { namespace graphics {
 		}
 	}
 
-	void Window::Vsync(const char* state)
+	void Window::SetVSync(bool enabled) const
 	{
-		if(state == "Enable")
-		{
+		if(enabled)
 			glfwSwapInterval(1);
-		}
 		else
-		{
 			glfwSwapInterval(0);
-		}
 	}
 
-	bool Window::IsButtomPressed(uint32_t button)
+	bool Window::IsButtomPressed(uint32_t button) const
 	{
 		return m_MouseButtons[button];
 	}
 
-	bool Window::IsButtomJustPressed(uint32_t button)
+	bool Window::IsButtomJustPressed(uint32_t button) const
 	{
 		return m_MouseButtonsJustPressed[button];
 	}
 
-	bool Window::IsKeyPressed(uint32_t keyCode)
+	bool Window::IsKeyPressed(uint32_t keyCode) const
 	{
 		return m_Keys[keyCode];
 	}

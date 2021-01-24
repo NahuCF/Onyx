@@ -23,9 +23,16 @@ namespace se { namespace graphics {
 		void MoveUp		(std::vector<Shader*> &contenedor, float y);
 		void MoveDown	(std::vector<Shader*> &contenedor, float y);
 
+		void MoveShaderAxisY(float y);
+		void MoveShaderRight(float x);
+		void MoveShaderLeft(float x);
+
 		void SetPos(glm::vec3 vecPos);
 		float GetPosX() const { return m_CurrentXPos; }
 		float GetPosY() const { return m_CurrentYPos; }	
+
+		float GetRealPosX() const { return m_RealXPos; };
+		float GetRealPosY() const { return m_RealYPos; };
 	private:
 		glm::mat4 m_DefaultPos;
 		glm::mat4 m_XAxisMovement;

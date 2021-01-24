@@ -10,6 +10,7 @@ namespace se { namespace collision {
 	{
 		ColliderBox(float width, float height, float posX, float posY);
 		void AddCollider(std::vector<ColliderBox*> &colliderContenedor);
+		void MoveCollider(float x, float y);
 
 		maths::vec2 m_Min;
 		maths::vec2 m_Max;
@@ -20,8 +21,6 @@ namespace se { namespace collision {
 
 	bool IsColliding(std::vector<ColliderBox*> &colliderContenedor, ColliderBox& entityCollider);
 	bool IsGointToCollide(std::vector<ColliderBox*> &colliderContenedor, ColliderBox& entityCollider, float xMove, float yMove);
-
-	void ActivateCollition(std::vector<ColliderBox*> &colliderContenedor, ColliderBox& entityCollider, graphics::Shader* shaderContenedor[], int contenedorLength, int shaderLength);
 
 	void MoveBoxsColliderUp		(std::vector<ColliderBox*> &colliderContenedor, float y);
 	void MoveBoxsColliderDown	(std::vector<ColliderBox*> &colliderContenedor, float y);

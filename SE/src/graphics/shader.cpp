@@ -142,7 +142,34 @@ namespace se {namespace graphics {
 		}
 		m_CurrentYPos -= y;
 	}
+
+	void Shader::MoveShaderAxisY(float y)
+	{
+		this->UseProgramShader();
+		this->m_RealYPos += y;
+		this->m_YAxisMovement = glm::mat4(1.0f);
+		this->m_YAxisMovement = glm::translate(this->m_YAxisMovement, glm::vec3(this->m_RealXPos, this->m_RealYPos, 0.0f));
+		glUniformMatrix4fv(glGetUniformLocation(this->m_ProgramID, "move"), 1, GL_FALSE, &this->m_YAxisMovement[0][0]);
+	}
+
+	void Shader::MoveShaderRight(float x)
+	{
+		this->UseProgramShader();
+		this->m_RealXPos += x;
+		this->m_XAxisMovement = glm::mat4(1.0f);
+		this->m_XAxisMovement = glm::translate(this->m_XAxisMovement, glm::vec3(this->m_RealXPos, this->m_RealYPos, 0.0f));
+		glUniformMatrix4fv(glGetUniformLocation(this->m_ProgramID, "move"), 1, GL_FALSE, &this->m_XAxisMovement[0][0]);
+	}
 	
+	void Shader::MoveShaderLeft(float x)
+	{
+		this->UseProgramShader();
+		this->m_RealXPos -= x;
+		this->m_XAxisMovement = glm::mat4(1.0f);
+		this->m_XAxisMovement = glm::translate(this->m_XAxisMovement, glm::vec3(this->m_RealXPos, this->m_RealYPos, 0.0f));
+		glUniformMatrix4fv(glGetUniformLocation(this->m_ProgramID, "move"), 1, GL_FALSE, &this->m_XAxisMovement[0][0]);
+	}
+
 	void Shader::SetPos(glm::vec3 vecPos)
 	{
 		UseProgramShader();

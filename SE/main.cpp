@@ -1,9 +1,8 @@
 #include <iostream>
-#include <cmath>
 
-#include "graphics/window.h"
-#include "graphics/shader.h"
-#include "graphics/texture.h"
+#include "graphics/Window.h"
+#include "graphics/Shader.h"
+#include "graphics/Texture.h"
 #include "src/collision/ColliderBox.h"
 
 #include "GLFW/glfw3.h"
@@ -12,7 +11,9 @@
 #include "gtc/matrix_transform.hpp"
 #include "gtc/type_ptr.hpp"
 
-#include "../maths.h"
+#include "src/Vendor/ImGui/imgui.h"
+#include "src/Vendor/ImGui/imgui_impl_opengl3.h"
+#include "src/Vendor/ImGui/imgui_impl_glfw.h"
 
 int main()
 {
@@ -20,8 +21,8 @@ int main()
 	using namespace graphics;
 	using namespace collision;
 
-	Window window("SE", 1280, 720);
-	glClearColor(0.3f, 0.3f, 1.0f, 1.0f);
+	Window Window("SE", 1024, 672);
+	glClearColor(0.364f, 0.580f, 0.984f, 1.0f);
 
 	std::vector<Shader*> shaderContenedor;
 	std::vector<ColliderBox*> colliderContenedor;
@@ -30,68 +31,113 @@ int main()
 	const char* fShaderPath = "./shaders/textureShader.fs";
 
 	Shader MarioShader(vShaderPath, fShaderPath);
-	Texture Mario("./assets/textures/Mario.png", 0.2f, 0.35f);
-	ColliderBox MarioCollider(0.2f, 0.35f, 0.0f, 0.0f);
+	Texture Mario("./assets/textures/Mario.png", 0.12f, 0.13f);
+	ColliderBox MarioCollider(0.12f, 0.15f, 0.0f, 0.0f);
 
-	Shader PandaShader(vShaderPath, fShaderPath);
-	PandaShader.SetPos(glm::vec3(-0.5f, 0.5f, 0.0f));
-	PandaShader.AddShader(shaderContenedor);
-	Texture Panda("./assets/textures/Panda.png", 0.2f, 0.35f);
-	ColliderBox PandaCollider(0.2f, 0.35f, -0.5f, 0.5f);
-	PandaCollider.AddCollider(colliderContenedor);
+	Shader oneWord(vShaderPath, fShaderPath);
+	oneWord.SetPos(glm::vec3(0.0f, 0.0f, 0.0f));
+	oneWord.AddShader(shaderContenedor);
+	Texture oneWordTexture("./assets/textures/1.png", 2.0f, 2.0f);
+	ColliderBox oneWordCollider(2.0f, 0.4f, 0.0f, -1.0f);
+	oneWordCollider.AddCollider(colliderContenedor);
 
-	Shader PandaShader2(vShaderPath, fShaderPath);
-	PandaShader2.SetPos(glm::vec3(-0.5f, -0.5f, 0.0f));
-	PandaShader2.AddShader(shaderContenedor);
-	Texture Panda2("./assets/textures/Panda.png", 0.2f, 0.35f);
-	ColliderBox PandaCollider2(0.2f, 0.35f, -0.5f, -0.5f);
-	PandaCollider2.AddCollider(colliderContenedor);
+	Shader twoWord(vShaderPath, fShaderPath);
+	twoWord.SetPos(glm::vec3(2.0f, 0.0f, 0.0f));
+	twoWord.AddShader(shaderContenedor);
+	Texture twoWordTexture("./assets/textures/2.png", 2.0f, 2.0f);
+	ColliderBox twoWordCollider(2.0f, 0.4f, 2.0f, -1.0f);
+	twoWordCollider.AddCollider(colliderContenedor);
 
-	Shader PandaShader3(vShaderPath, fShaderPath);
-	PandaShader3.AddShader(shaderContenedor);
-	PandaShader3.SetPos(glm::vec3(0.5f, -0.5f, 0.0f));
-	Texture Panda3("./assets/textures/Panda.png", 0.2f, 0.35f);
-	ColliderBox PandaCollider3(0.2f, 0.35f, 0.5f, -0.5f);
-	PandaCollider3.AddCollider(colliderContenedor);
 
-	Shader ShaderPandaTemplate(vShaderPath, fShaderPath);
-	Texture TexturePandaTemplate("./assets/textures/Panda.png", 0.2f, 0.35f);
+	ColliderBox FirstTube(0.22f, 0.24f, 2.62f, -0.64f);
+	FirstTube.AddCollider(colliderContenedor);
 
-	window.Vsync("Disable");
-	
-	while(!window.Closed())
+	Window.SetVSync(0);
+
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGui::StyleColorsDark();
+	ImGui_ImplGlfw_InitForOpenGL(Window.WindowGUI(), true);
+	ImGui_ImplOpenGL3_Init((char*)glGetString(GL_NUM_SHADING_LANGUAGE_VERSIONS));
+
+	char palabra[20] = {0};
+	float f = 0.0f;
+	bool my_tool_active = true;
+	while(!Window.Closed())
 	{
-		window.Clear();
+		Window.Clear();
 
-		for(int i = 0; i < shaderContenedor.size(); i++)
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		ImGui::Begin("My First Tool", &my_tool_active, ImGuiWindowFlags_MenuBar);
+		if (ImGui::BeginMenuBar())
 		{
-			shaderContenedor[i]->UseProgramShader();
-			TexturePandaTemplate.UseTexture();
+			if (ImGui::BeginMenu("File"))
+			{
+				if (ImGui::MenuItem("Open..", "Ctrl+O")) { /* Do stuff */ }
+				if (ImGui::MenuItem("Save", "Ctrl+S")) { /* Do stuff */ }
+				if (ImGui::MenuItem("Close", "Ctrl+W")) { my_tool_active = false; }
+				ImGui::EndMenu();
+			}
+			ImGui::EndMenuBar();
 		}
+
+		ImGui::Text("Que onda wacho");
+		ImGui::InputText("string", palabra, IM_ARRAYSIZE(palabra));
+		if (ImGui::Button("Print"))
+			std::cout << f << std::endl;
+		ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
+		ImGui::End();
+
+
+		oneWord.UseProgramShader();
+		oneWordTexture.UseTexture();
+
+		twoWord.UseProgramShader();
+		twoWordTexture.UseTexture();
 
 		MarioShader.UseProgramShader();
 		Mario.UseTexture();
-		if(window.IsKeyPressed(GLFW_KEY_W) && !IsGointToCollide(colliderContenedor, MarioCollider, 0, 0.017f))
+		if(Window.IsKeyPressed(GLFW_KEY_W) && !IsGointToCollide(colliderContenedor, MarioCollider, 0.0f, 0.085f))
 		{
-			MarioShader.MoveUp(shaderContenedor, 0.017f);
-			MoveBoxsColliderUp(colliderContenedor, 0.017f);
+			MarioShader.MoveShaderAxisY(0.085f);
+			MarioCollider.MoveCollider(-0.0f, 0.085f);
 		}
-		if(window.IsKeyPressed(GLFW_KEY_S) && !IsGointToCollide(colliderContenedor, MarioCollider, 0, -0.017f))
+		if(Window.IsKeyPressed(GLFW_KEY_D) && !IsGointToCollide(colliderContenedor, MarioCollider, 0.01f, 0.0f))
 		{
-			MarioShader.MoveDown(shaderContenedor, 0.017f);
-			MoveBoxsColliderDown(colliderContenedor, 0.017f);
+			if(MarioShader.GetRealPosX() > 0.2f)
+			{
+				MarioShader.MoveRight(shaderContenedor, 0.01f);
+				MarioCollider.MoveCollider(0.01f, 0.0f);
+			}
+			else
+			{
+				MarioShader.MoveShaderRight(0.01f);
+				MarioCollider.MoveCollider(0.01f, 0.0f);
+			}
 		}
-		if(window.IsKeyPressed(GLFW_KEY_D) && !IsGointToCollide(colliderContenedor, MarioCollider, 0.01f, 0))
+		if(Window.IsKeyPressed(GLFW_KEY_A) && !IsGointToCollide(colliderContenedor, MarioCollider, -0.01f, 0.0f))
 		{
-			MarioShader.MoveRight(shaderContenedor, 0.01f);
-			MoveBoxsColliderRight(colliderContenedor, 0.01f);
-		}
-		if(window.IsKeyPressed(GLFW_KEY_A) && !IsGointToCollide(colliderContenedor, MarioCollider, -0.01f, 0))
-		{
-			MarioShader.MoveLeft(shaderContenedor, 0.01f);
-			MoveBoxsColliderLeft(colliderContenedor, 0.01f);
+			MarioShader.MoveShaderLeft(0.01f);
+			MarioCollider.MoveCollider(-0.01f, 0.0f);
 		}
 
-		window.Update();
+		//Gravity
+		if(!IsGointToCollide(colliderContenedor, MarioCollider, 0, -0.01f))
+		{
+			MarioShader.MoveShaderAxisY(-0.01f);
+			MarioCollider.MoveCollider(0.0f, -0.01f);;
+		}
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+		Window.Update();
 	}
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 }

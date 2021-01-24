@@ -2,7 +2,7 @@
 
 #include "GL/glew.h"
 #include "GLFW/glfw3.h"
-#include "src/stb_image/stb_image.h"
+#include "src/Vendor/stb_image/stb_image.h"
 
 #include "texture.h"
 

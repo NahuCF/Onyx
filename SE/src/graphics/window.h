@@ -19,13 +19,15 @@ namespace se {namespace graphics {
 		int Height() const { return m_Height; }
 
 		void FPS();
-		void Vsync(const char *state);
+		void SetVSync(bool enabled = 0) const;
+		GLFWwindow* WindowGUI() { return m_Window; }
 	public:
-		bool IsKeyPressed(uint32_t keyCode);
-		bool IsButtomPressed(uint32_t button);
-		bool IsButtomJustPressed(uint32_t button);
-		double GetMousePosX() { return m_XMousePos; }
-		double GetMousePosY() { return m_YMousePos; }
+		bool IsKeyPressed(uint32_t keyCode) const;
+		bool IsButtomPressed(uint32_t button) const;
+		bool IsButtomJustPressed(uint32_t button) const;
+
+		double GetMousePosX() const { return m_XMousePos; }
+		double GetMousePosY() const { return m_YMousePos; }
 	private:
 		const char* m_Title;
 		int m_Height, m_Width;
