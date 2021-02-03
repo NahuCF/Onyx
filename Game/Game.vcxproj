@@ -13,6 +13,11 @@
   <ItemGroup>
     <ClCompile Include="Source\Game.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SE\SE.vcxproj">
+      <Project>{a1616ba3-3485-4bea-8150-16823833011c}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -62,7 +67,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>SE_PLATFORM_WINDOWS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)SE\Source\SE.h</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)SE\Source</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -79,7 +84,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>SE_PLATFORM_WINDOWS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)SE\Source\SE.h</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)SE\Source</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

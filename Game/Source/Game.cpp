@@ -1,6 +1,7 @@
 #include "SE.H"
+#include <iostream>
 
-namespace SE {
+namespace se {
 
 	__declspec(dllimport) void Print();
 
@@ -8,5 +9,6 @@ namespace SE {
 
 int main()
 {
-	SE::Print();
+	se::Print();
+	std::cin.get();
 }
