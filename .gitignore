@@ -1,11 +1,11 @@
 #Folders
 
-Debug/
-Release/
+Bin/
+Bin-Int/
 
 #Files
 
-.SE/imgui.ini
+SE/imgui.ini
 
 #Visual studio folder
 
