@@ -1,0 +1,14 @@
+﻿  ColliderBox.cpp
+  Animation.cpp
+  Shader.cpp
+  Texture.cpp
+  Window.cpp
+C:\Users\nahue\Desktop\Things\Engines\SE\SE\Source\Graphics\Window.cpp(39,20): warning C4244: '=': conversion from 'time_t' to 'int', possible loss of data
+C:\Users\nahue\Desktop\Things\Engines\SE\SE\Source\Graphics\Window.cpp(87,23): warning C4244: '=': conversion from 'time_t' to 'int', possible loss of data
+  Vector2D.cpp
+  Generating Code...
+     Creating library C:\Users\nahue\Desktop\Things\Engines\SE\Bin\Debug-x64\SE\SE.lib and object C:\Users\nahue\Desktop\Things\Engines\SE\Bin\Debug-x64\SE\SE.exp
+LINK : warning LNK4098: defaultlib 'LIBCMT' conflicts with use of other libs; use /NODEFAULTLIB:library
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library
+glew32s.lib(glew.obj) : warning LNK4099: PDB 'vc120.pdb' was not found with 'glew32s.lib(glew.obj)' or at 'C:\Users\nahue\Desktop\Things\Engines\SE\Bin\Debug-x64\SE\vc120.pdb'; linking object as if no debug info
+  SE.vcxproj -> C:\Users\nahue\Desktop\Things\Engines\SE\Bin\Debug-x64\SE\SE.dll

@@ -1,6 +1,6 @@
 # SHITTY ENGINE (SE)
 
-![Preview-Engine-Capabilities](./imgs/img.png)
+![Preview-Engine-Capabilities](./Img.png)
 
 ## Compiler configuration:
 ```

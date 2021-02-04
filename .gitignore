@@ -1,7 +1,11 @@
-# Folders
+#Folders
 
 Debug/
 Release/
+
+#Files
+
+.SE/imgui.ini
 
 #Visual studio folder
 
