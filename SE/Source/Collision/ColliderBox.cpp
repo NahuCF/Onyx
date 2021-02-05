@@ -1,8 +1,9 @@
+#include "pch.h"
+
 #include "ColliderBox.h"
 #include "Source/graphics/window.h"
 #include "glm.hpp"
 
-#include <iostream>
 namespace se {
 
 	ColliderBox::ColliderBox(float width, float height, float posX, float posY)

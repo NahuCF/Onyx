@@ -33,6 +33,9 @@
     <ClCompile Include="Source\Graphics\Animation.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
+    <ClCompile Include="Source\pch.cpp">
+      <Filter>Archivos de origen</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\stb_image\stb_image.h">
@@ -920,12 +923,11 @@
     <ClInclude Include="Source\SE.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
+    <ClInclude Include="Source\pch.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Shaders\shader.fs" />
-    <None Include="Shaders\shader.vs" />
-    <None Include="Shaders\textureShader.fs" />
-    <None Include="Shaders\textureShader.vs" />
     <None Include="Source\Maths\glm\detail\func_common.inl">
       <Filter>Archivos de encabezado</Filter>
     </None>
@@ -1340,6 +1342,10 @@
     <None Include="Source\Maths\glm\gtx\wrap.inl">
       <Filter>Archivos de encabezado</Filter>
     </None>
+    <None Include="shaders\Shader.fs" />
+    <None Include="shaders\Shader.vs" />
+    <None Include="shaders\TextureShader.fs" />
+    <None Include="shaders\TextureShader.vs" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\Textures\1.png">

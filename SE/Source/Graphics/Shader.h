@@ -1,8 +1,6 @@
 #pragma once
 
-#include <fstream>
-#include <sstream>
-#include <vector>
+#include "pch.h"
 
 #include "glm.hpp"
 

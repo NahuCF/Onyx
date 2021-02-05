@@ -1,6 +1,5 @@
+#include "pch.h"
 #include <GL/glew.h>
-#include <iostream>
-#include <vector>
 
 #include "Shader.h"
 #include "glm.hpp"

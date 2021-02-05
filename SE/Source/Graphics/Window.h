@@ -5,7 +5,7 @@
 
 namespace se {
 
-	__declspec(dllexport) void Print();
+	void Print();
 
 	class Window
 	{
