@@ -5,16 +5,14 @@
 
 namespace se {
 
-	void Print();
-
 	class Window
 	{
 	public:
 		Window(const char* title = "Engine", uint32_t width = 1280, uint32_t height = 720);
 		~Window();
 
-		void Update();
 		bool Closed() const;
+		void Update();
 		void Clear() const;
 
 		int Width() const { return m_Width;  }

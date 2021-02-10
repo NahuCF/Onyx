@@ -1,9 +1,8 @@
 #pragma once
 
-#ifdef SE_PLATFORM_WINDOWS
-	#ifdef SE_BUILD_DLL
-		#define SE_API __dclspect(dllexport)
-	#else
-		#define SE_API __dclspect(dllimport)
+#ifdef _DEBUG
+	#ifdef __cplusplus 
+		#define STATIC_ASSERT(expr)\
+		static_assert(expr, "Tumadre" #expr)
 	#endif
 #endif

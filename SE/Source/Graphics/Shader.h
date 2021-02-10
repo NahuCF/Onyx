@@ -13,13 +13,13 @@ namespace se {
 		~Shader();
 		void UseProgramShader();
 		void SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix);
-		void AddShader(std::vector<Shader*> &contenedor);
+		void AddShader(std::vector<Shader*>& contenedor);
 		uint32_t m_ProgramID;
 	public:
-		void MoveRight	(std::vector<Shader*> &contenedor, float x);
-		void MoveLeft	(std::vector<Shader*> &contenedor, float x);
-		void MoveUp		(std::vector<Shader*> &contenedor, float y);
-		void MoveDown	(std::vector<Shader*> &contenedor, float y);
+		void MoveRight	(std::vector<Shader*>& contenedor, float x);
+		void MoveLeft	(std::vector<Shader*>& contenedor, float x);
+		void MoveUp		(std::vector<Shader*>& contenedor, float y);
+		void MoveDown	(std::vector<Shader*>& contenedor, float y);
 
 		void MoveShaderAxisY(float y);
 		void MoveShaderRight(float x);

@@ -9,10 +9,6 @@ namespace se {
 	void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 	void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 
-	void Print()
-	{
-		std::cout << "Pene" << std::endl;
-	}
 	Window::Window(const char* title, uint32_t width, uint32_t height)
 		: m_Title(title), m_Height(height), m_Width(width)
 	{
@@ -118,8 +114,6 @@ namespace se {
 		Window* win = (Window*)glfwGetWindowUserPointer(window);
 		glfwGetCursorPos(window, &win->m_XMousePos, &win->m_YMousePos);
 
-		////
-
 		if(win->m_XMousePos < win->m_Width / 2) //means that is in the left side
 		{
 			win->m_XMousePos = (-((win->m_Width / 2 - win->m_XMousePos) / win->m_Width)) * 2;
@@ -145,8 +139,6 @@ namespace se {
 		{
 			win->m_YMousePos = 0;
 		}
-
-		////
 	}
 
 	void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
