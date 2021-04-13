@@ -4,19 +4,21 @@
 
 ## Compiler configuration:
 ```
-You will have to configure your compiler to work with 32 bits applications.
+You will have to configure your compiler to work with 64 bits applications.
 ```
 
 ## Capabilities:
-For now only can render textures :c
+For now only can render textures, make AABB collisions and keyboard/mouse events :c
 
 ## Pendient:
 
 +  Hight Priority 
-   * Input Events
-   * Collision
+   * Custom math library
+   * Custom data structures
    * Sound
   
 + Low Priority
    * Editor
    * Visual Scripting
+
+License under [MIT LICENSE](LICENSE)

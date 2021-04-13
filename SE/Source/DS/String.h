@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ostream>
+//#include <ostream>
 
 namespace se {
 
@@ -10,7 +10,12 @@ namespace se {
 		String(const char* text);
 	private:
 		const char* m_TextContent;
-		friend std::ostream& operator<<(std::ostream& stream, se::String& text);
+		char* m_NewTextContent;
+		int m_SizeString;
+		int m_NewSizeString;
+
+		friend std::ostream& operator<<(std::ostream& stream, const se::String& text);
+		char* operator+(char* text);
 	};
 
 }

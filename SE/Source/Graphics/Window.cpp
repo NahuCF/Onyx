@@ -15,6 +15,8 @@ namespace se {
 		if(!Init())
 			glfwTerminate();
 
+		SetVSync(1); 
+
 		for(int i = 0; i < 1024; i++)
 			m_Keys[i] = false;
 
@@ -55,6 +57,7 @@ namespace se {
 			std::cout << "Error to initializate GLEW :c" << std::endl;
 			return false;
 		}
+		glEnable(GL_DEPTH_TEST);
 		return true;
 	}
 

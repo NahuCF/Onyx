@@ -119,6 +119,8 @@
     <ClInclude Include="Source\Collision\ColliderBox.h" />
     <ClInclude Include="Source\DS\String.h" />
     <ClInclude Include="Source\Graphics\Animation.h" />
+    <ClInclude Include="Source\Maths\Functions.h" />
+    <ClInclude Include="Source\Maths\Maths.h" />
     <ClInclude Include="Source\OpenGL\OpenGLFunctions.h" />
     <ClInclude Include="Source\Graphics\Shader.h" />
     <ClInclude Include="Source\Graphics\Texture.h" />

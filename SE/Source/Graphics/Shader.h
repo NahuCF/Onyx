@@ -14,7 +14,6 @@ namespace se {
 		void UseProgramShader();
 		void SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix);
 		void AddShader(std::vector<Shader*>& contenedor);
-		uint32_t m_ProgramID;
 	public:
 		void MoveRight	(std::vector<Shader*>& contenedor, float x);
 		void MoveLeft	(std::vector<Shader*>& contenedor, float x);
@@ -39,9 +38,12 @@ namespace se {
 		glm::mat4 m_SetPos;
 		float m_RealXPos;
 		float m_RealYPos;
+		float m_RealZPos;
 		float m_CurrentXPos;
 		float m_CurrentYPos;
+		float m_CurrentZPos;
 
+		uint32_t m_ProgramID;
 		uint32_t m_VertexID, m_FragmentID;
 		const char* m_VShaderCode;
 		const char* m_FShaderCode;

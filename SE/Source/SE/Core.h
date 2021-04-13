@@ -2,7 +2,6 @@
 
 #ifdef _DEBUG
 	#ifdef __cplusplus 
-		#define STATIC_ASSERT(expr)\
-		static_assert(expr, "Tumadre" #expr)
+		#define check(number) { if(number) { std::cout << "Yes" << std::endl; } }
 	#endif
 #endif

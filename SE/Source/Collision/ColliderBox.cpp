@@ -34,7 +34,7 @@ namespace se {
 			bool collisionX = colliderContenedor[i]->m_Min.x + colliderContenedor[i]->m_Width >= entityCollider.m_Min.x && entityCollider.m_Min.x + entityCollider.m_Width >= colliderContenedor[i]->m_Min.x;
 			bool collisionY = colliderContenedor[i]->m_Min.y + colliderContenedor[i]->m_Height >= entityCollider.m_Min.y && entityCollider.m_Min.y + entityCollider.m_Height >= colliderContenedor[i]->m_Min.y;
 
-			if(collisionX && collisionY == true)
+			if(collisionX && collisionY)
 			{
 				return true;
 			}
@@ -50,7 +50,7 @@ namespace se {
 			bool collisionX = colliderContenedor[i]->m_Min.x + colliderContenedor[i]->m_Width - xMove >= entityCollider.m_Min.x && entityCollider.m_Min.x + entityCollider.m_Width >= colliderContenedor[i]->m_Min.x - xMove;
 			bool collisionY = colliderContenedor[i]->m_Min.y + colliderContenedor[i]->m_Height - yMove >= entityCollider.m_Min.y && entityCollider.m_Min.y + entityCollider.m_Height >= colliderContenedor[i]->m_Min.y - yMove;
 
-			if(collisionX && collisionY == true)
+			if(collisionX && collisionY)
 			{
 				return true;
 			}
