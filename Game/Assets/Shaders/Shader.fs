@@ -1,9 +1,11 @@
 #version 330 core
 
-in vec4 colorsito;
 out vec4 color;
+
+uniform vec2 u_MouseC;
 
 void main()
 {
-	color = vec4(0.4f, 0.3f, 0.5f, 1.0f);
+	vec2 st = gl_FragCoord.xy/800;
+	color = vec4(st.x, st.y, 0.0f, 1.0f);
 }

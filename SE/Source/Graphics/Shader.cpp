@@ -34,7 +34,7 @@ namespace se {
 		glCompileShader(m_VertexID);
 
 		glGetShaderiv(m_VertexID, GL_COMPILE_STATUS, &success);
-		if (!success)
+		if(!success)
 		{
 			glGetShaderInfoLog(m_VertexID, 512, NULL, infoLog);
 			std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
@@ -44,7 +44,7 @@ namespace se {
 		glCompileShader(m_FragmentID);
 
 		glGetShaderiv(m_FragmentID, GL_COMPILE_STATUS, &success);
-		if (!success)
+		if(!success)
 		{
 			glGetShaderInfoLog(m_FragmentID, 512, NULL, infoLog);
 			std::cout << "ERROR::SHADER::FFRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;

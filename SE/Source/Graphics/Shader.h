@@ -30,6 +30,8 @@ namespace se {
 
 		float GetRealPosX() const { return m_RealXPos; };
 		float GetRealPosY() const { return m_RealYPos; };
+
+		uint32_t GetProgramID() const { return m_ProgramID; }
 	private:
 		glm::mat4 m_DefaultPos;
 		glm::mat4 m_XAxisMovement;

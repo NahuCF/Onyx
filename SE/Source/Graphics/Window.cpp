@@ -35,34 +35,44 @@ namespace se {
 	bool Window::Init()
 	{
 		m_LastTime = time(NULL);
+
 		if(!glfwInit())
 		{
 			std::cout << "Failed to load GLFW :c" << std::endl;
 			return false;
 		}
+
 		m_Window = glfwCreateWindow(m_Width, m_Height, m_Title, NULL, NULL);
+
 		if(!m_Window)
 		{
 			glfwTerminate();
 			std::cout << "Fail to create GLFW wondow :c" << std::endl;
 			return false;
 		}
+
 		glfwMakeContextCurrent(m_Window);
 		glfwSetWindowUserPointer(m_Window, this);
 		glfwSetKeyCallback(m_Window, key_callback);
 		glfwSetCursorPosCallback(m_Window, cursor_position_callback);
 		glfwSetMouseButtonCallback(m_Window, mouse_button_callback);
+
 		if(glewInit() != GLEW_OK)
 		{
 			std::cout << "Error to initializate GLEW :c" << std::endl;
 			return false;
 		}
+
 		glEnable(GL_DEPTH_TEST);
+
 		return true;
 	}
 
 	void Window::Update() 
 	{
+		for(int i = 0; i < 32; i++)
+			m_MouseButtonsJustPressed[i] = false;
+
 		glfwGetFramebufferSize(m_Window, &m_Width, &m_Height);
 		glViewport(0, 0, m_Width, m_Height);
 		glfwSwapBuffers(m_Window);
@@ -117,39 +127,38 @@ namespace se {
 		Window* win = (Window*)glfwGetWindowUserPointer(window);
 		glfwGetCursorPos(window, &win->m_XMousePos, &win->m_YMousePos);
 
-		if(win->m_XMousePos < win->m_Width / 2) //means that is in the left side
-		{
-			win->m_XMousePos = (-((win->m_Width / 2 - win->m_XMousePos) / win->m_Width)) * 2;
-		}
-		else if(win->m_XMousePos > win->m_Width / 2)
-		{
-			win->m_XMousePos = (-((win->m_Width / 2 - win->m_XMousePos) / win->m_Width)) * 2;
-		}
-		else
-		{
-			win->m_XMousePos = 0;
-		}
+		//if(win->m_XMousePos < win->m_Width / 2) //means that is in the left side
+		//{
+		//	win->m_XMousePos = (-((win->m_Width / 2 - win->m_XMousePos) / win->m_Width)) * 2;
+		//}
+		//else if(win->m_XMousePos > win->m_Width / 2)
+		//{
+		//	win->m_XMousePos = (-((win->m_Width / 2 - win->m_XMousePos) / win->m_Width)) * 2;
+		//}
+		//else
+		//{
+		//	win->m_XMousePos = 0;
+		//}
 
-		if(win->m_YMousePos < win->m_Height / 2) //means that is in the top side
-		{
-			win->m_YMousePos = ((win->m_Height / 2 - win->m_YMousePos) / win->m_Height) * 2;
-		}
-		else if(win->m_YMousePos > win->m_Height / 2)
-		{
-			win->m_YMousePos = ((win->m_Height / 2 - win->m_YMousePos) / win->m_Height) * 2;
-		}
-		else
-		{
-			win->m_YMousePos = 0;
-		}
+		//if(win->m_YMousePos < win->m_Height / 2) //means that is in the top side
+		//{
+		//	win->m_YMousePos = ((win->m_Height / 2 - win->m_YMousePos) / win->m_Height) * 2;
+		//}
+		//else if(win->m_YMousePos > win->m_Height / 2)
+		//{
+		//	win->m_YMousePos = ((win->m_Height / 2 - win->m_YMousePos) / win->m_Height) * 2;
+		//}
+		//else
+		//{
+		//	win->m_YMousePos = 0;
+		//}
 	}
 
 	void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 	{
 		Window* win = (Window*)glfwGetWindowUserPointer(window);
-		win->m_MouseButtons[button] = action != GLFW_RELEASE;
 
-	
+		win->m_MouseButtons[button] = action == GLFW_PRESS;
 		win->m_MouseButtonsJustPressed[button] = action == GLFW_PRESS;
 	}
 

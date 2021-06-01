@@ -3,12 +3,14 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include "Maths/Maths.h"
+
 namespace se {
 
 	class Window
 	{
 	public:
-		Window(const char* title = "Engine", uint32_t width = 1280, uint32_t height = 720);
+		Window(const char* title = "SE", uint32_t width = 1280, uint32_t height = 720);
 		~Window();
 
 		bool Closed() const;
@@ -26,6 +28,7 @@ namespace se {
 		bool IsButtomPressed(uint32_t button) const;
 		bool IsButtomJustPressed(uint32_t button) const;
 
+		lptm::Vector2D GetMousePos() const { return lptm::Vector2D(m_XMousePos, m_YMousePos); };
 		double GetMouseX() const { return m_XMousePos; }
 		double GetMouseY() const { return m_YMousePos; }
 	private:
