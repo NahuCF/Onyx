@@ -22,6 +22,7 @@ namespace se {
 
 		void FPS();
 		void SetVSync(bool value = 0) const;
+		void CloseWindow() const;
 		GLFWwindow* WindowGUI() { return m_Window; }
 	public:
 		bool IsKeyPressed(uint32_t keyCode) const;

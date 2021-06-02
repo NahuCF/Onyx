@@ -107,6 +107,11 @@ namespace se {
 		glfwSwapInterval(value);
 	}
 
+	void Window::CloseWindow() const
+	{
+		glfwTerminate();
+	}
+
 	bool Window::IsButtomPressed(uint32_t button) const
 	{
 		return m_MouseButtons[button];
