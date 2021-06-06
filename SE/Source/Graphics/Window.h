@@ -15,12 +15,13 @@ namespace se {
 
 		bool Closed() const;
 		void Update();
-		void Clear() const;
+		void Clear();
 
 		int Width() const { return m_Width;  }
 		int Height() const { return m_Height; }
 
-		int GetFPS() const { return m_LastFPS; }
+		float GetSeconds() const { return m_CurrentTime - m_LastTime; }
+		float GetMilliseconds() const { return (m_CurrentTime - m_LastTime) * 1000; }
 		void ShowFPS(bool value = 0);
 		void SetVSync(bool value = 0) const;
 		void CloseWindow() const;
@@ -36,19 +37,19 @@ namespace se {
 	private:
 		const char* m_Title;
 		int m_Height, m_Width;
-		int m_LastTime, m_CurrentTime, m_CurrentFPS, m_LastFPS;
+		float m_LastTime = 0.0f, m_CurrentTime = 0.0f;
 		bool m_ShowFPS = false;
 		bool m_Closed;
 		GLFWwindow* m_Window;
 	private:
 		bool Init();
+
 		friend void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 		friend void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 		friend void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 		bool m_Keys[1024];
 		bool m_MouseButtons[32];
 		bool m_MouseButtonsJustPressed[32];
-
 		double m_XMousePos, m_YMousePos;
 	};
 

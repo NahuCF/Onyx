@@ -1,6 +1,6 @@
 #include "pch.h"
 #include <time.h>
-
+#include <chrono>
 #include "Window.h"
 
 namespace se {
@@ -47,7 +47,7 @@ namespace se {
 		if(!m_Window)
 		{
 			glfwTerminate();
-			std::cout << "Fail to create GLFW wondow :c" << std::endl;
+			std::cout << "Fail to create GLFW window :c" << std::endl;
 			return false;
 		}
 
@@ -70,6 +70,8 @@ namespace se {
 
 	void Window::Update() 
 	{
+		m_LastTime = (float)glfwGetTime();
+
 		for(int i = 0; i < 32; i++)
 			m_MouseButtonsJustPressed[i] = false;
 
@@ -77,17 +79,6 @@ namespace se {
 		glViewport(0, 0, m_Width, m_Height);
 		glfwSwapBuffers(m_Window);
 		glfwPollEvents();
-		
-		m_CurrentFPS++;
-		m_CurrentTime = time(NULL);
-		if(m_CurrentTime - m_LastTime >= 1)
-		{
-			m_LastTime = m_CurrentTime;
-			m_LastFPS = m_CurrentFPS;
-			if(m_ShowFPS)
-				std::cout << "FPS: " << m_LastFPS << " ms: " << 1000 / (float)m_LastFPS << std::endl;
-			m_CurrentFPS = 0;
-		}
 	}
 
 	bool Window::Closed() const
@@ -95,9 +86,10 @@ namespace se {
 		return glfwWindowShouldClose(m_Window);
 	}
 
-	void Window::Clear() const
+	void Window::Clear()
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		m_CurrentTime = (float)glfwGetTime();
 	}
 
 	void Window::ShowFPS(bool value)
