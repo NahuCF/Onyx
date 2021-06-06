@@ -20,7 +20,8 @@ namespace se {
 		int Width() const { return m_Width;  }
 		int Height() const { return m_Height; }
 
-		void FPS();
+		int GetFPS() const { return m_LastFPS; }
+		void ShowFPS(bool value = 0);
 		void SetVSync(bool value = 0) const;
 		void CloseWindow() const;
 		GLFWwindow* WindowGUI() { return m_Window; }
@@ -35,7 +36,8 @@ namespace se {
 	private:
 		const char* m_Title;
 		int m_Height, m_Width;
-		int m_LastTime, m_CurrentTime, m_FPS;
+		int m_LastTime, m_CurrentTime, m_CurrentFPS, m_LastFPS;
+		bool m_ShowFPS = false;
 		bool m_Closed;
 		GLFWwindow* m_Window;
 	private:

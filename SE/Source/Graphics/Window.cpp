@@ -77,7 +77,17 @@ namespace se {
 		glViewport(0, 0, m_Width, m_Height);
 		glfwSwapBuffers(m_Window);
 		glfwPollEvents();
-		FPS();
+		
+		m_CurrentFPS++;
+		m_CurrentTime = time(NULL);
+		if(m_CurrentTime - m_LastTime >= 1)
+		{
+			m_LastTime = m_CurrentTime;
+			m_LastFPS = m_CurrentFPS;
+			if(m_ShowFPS)
+				std::cout << "FPS: " << m_LastFPS << " ms: " << 1000 / (float)m_LastFPS << std::endl;
+			m_CurrentFPS = 0;
+		}
 	}
 
 	bool Window::Closed() const
@@ -90,16 +100,9 @@ namespace se {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 
-	void Window::FPS()
+	void Window::ShowFPS(bool value)
 	{
-		m_FPS++;
-		m_CurrentTime = time(NULL);
-		if(m_CurrentTime - m_LastTime >= 1)
-		{
-			m_LastTime = m_CurrentTime;
-			std::cout << "FPS: " << m_FPS << std::endl;
-			m_FPS = 0;
-		}
+		m_ShowFPS = value;
 	}
 
 	void Window::SetVSync(bool value) const
