@@ -10,7 +10,7 @@ namespace se {
 	class Window
 	{
 	public:
-		Window(const char* title = "SE", uint32_t width = 1280, uint32_t height = 720);
+		Window(const char* title = "Temporal name", uint32_t width = 1280, uint32_t height = 720);
 		~Window();
 
 		bool Closed() const;
@@ -34,6 +34,9 @@ namespace se {
 		lptm::Vector2D GetMousePos() const { return lptm::Vector2D(m_XMousePos, m_YMousePos); };
 		double GetMouseX() const { return m_XMousePos; }
 		double GetMouseY() const { return m_YMousePos; }
+
+		void SetOffsets(lptm::Vector2D offset);
+		lptm::Vector2D GetOffsets() const { return lptm::Vector2D(m_OffsetX, m_OffsetY); };
 	private:
 		const char* m_Title;
 		int m_Height, m_Width;
@@ -51,6 +54,7 @@ namespace se {
 		bool m_MouseButtons[32];
 		bool m_MouseButtonsJustPressed[32];
 		double m_XMousePos, m_YMousePos;
+		double m_OffsetX = 0, m_OffsetY = 0; // For the tilemap
 	};
 
 } 

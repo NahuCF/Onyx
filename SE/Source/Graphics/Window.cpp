@@ -1,6 +1,5 @@
 #include "pch.h"
-#include <time.h>
-#include <chrono>
+
 #include "Window.h"
 
 namespace se {
@@ -112,46 +111,26 @@ namespace se {
 		return m_MouseButtons[button];
 	}
 
+	bool Window::IsKeyPressed(uint32_t keyCode) const
+	{
+		return m_Keys[keyCode];
+	}
+
 	bool Window::IsButtomJustPressed(uint32_t button) const
 	{
 		return m_MouseButtonsJustPressed[button];
 	}
 
-	bool Window::IsKeyPressed(uint32_t keyCode) const
+	void Window::SetOffsets(lptm::Vector2D offset)
 	{
-		return m_Keys[keyCode];
+		m_OffsetX = offset.x;
+		m_OffsetY = offset.y;
 	}
 	
 	void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 	{
 		Window* win = (Window*)glfwGetWindowUserPointer(window);
 		glfwGetCursorPos(window, &win->m_XMousePos, &win->m_YMousePos);
-
-		//if(win->m_XMousePos < win->m_Width / 2) //means that is in the left side
-		//{
-		//	win->m_XMousePos = (-((win->m_Width / 2 - win->m_XMousePos) / win->m_Width)) * 2;
-		//}
-		//else if(win->m_XMousePos > win->m_Width / 2)
-		//{
-		//	win->m_XMousePos = (-((win->m_Width / 2 - win->m_XMousePos) / win->m_Width)) * 2;
-		//}
-		//else
-		//{
-		//	win->m_XMousePos = 0;
-		//}
-
-		//if(win->m_YMousePos < win->m_Height / 2) //means that is in the top side
-		//{
-		//	win->m_YMousePos = ((win->m_Height / 2 - win->m_YMousePos) / win->m_Height) * 2;
-		//}
-		//else if(win->m_YMousePos > win->m_Height / 2)
-		//{
-		//	win->m_YMousePos = ((win->m_Height / 2 - win->m_YMousePos) / win->m_Height) * 2;
-		//}
-		//else
-		//{
-		//	win->m_YMousePos = 0;
-		//}
 	}
 
 	void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
