@@ -33,8 +33,6 @@ namespace se {
 
 	bool Window::Init()
 	{
-		m_LastTime = time(NULL);
-
 		if(!glfwInit())
 		{
 			std::cout << "Failed to load GLFW :c" << std::endl;
@@ -70,6 +68,7 @@ namespace se {
 	void Window::Update() 
 	{
 		m_LastTime = (float)glfwGetTime();
+		m_IsMouseMoving = false;
 
 		for(int i = 0; i < 32; i++)
 			m_MouseButtonsJustPressed[i] = false;
@@ -88,6 +87,7 @@ namespace se {
 	void Window::Clear()
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 		m_CurrentTime = (float)glfwGetTime();
 	}
 
@@ -121,16 +121,17 @@ namespace se {
 		return m_MouseButtonsJustPressed[button];
 	}
 
-	void Window::SetOffsets(lptm::Vector2D offset)
+	void Window::AddToOffsets(lptm::Vector2D offset)
 	{
-		m_OffsetX = offset.x;
-		m_OffsetY = offset.y;
+		m_OffsetX += offset.x;
+		m_OffsetY += offset.y;
 	}
 	
 	void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 	{
 		Window* win = (Window*)glfwGetWindowUserPointer(window);
 		glfwGetCursorPos(window, &win->m_XMousePos, &win->m_YMousePos);
+		win->m_IsMouseMoving = true;
 	}
 
 	void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)

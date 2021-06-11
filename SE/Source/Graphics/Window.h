@@ -1,7 +1,7 @@
 #pragma once
 
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
+#include "GL/glew.h"
+#include "GLFW/glfw3.h"
 
 #include "Maths/Maths.h"
 
@@ -31,11 +31,13 @@ namespace se {
 		bool IsButtomPressed(uint32_t button) const;
 		bool IsButtomJustPressed(uint32_t button) const;
 
+		bool IsMouseMoving() const { return m_IsMouseMoving; }
+	
 		lptm::Vector2D GetMousePos() const { return lptm::Vector2D(m_XMousePos, m_YMousePos); };
 		double GetMouseX() const { return m_XMousePos; }
 		double GetMouseY() const { return m_YMousePos; }
 
-		void SetOffsets(lptm::Vector2D offset);
+		void AddToOffsets(lptm::Vector2D offset);
 		lptm::Vector2D GetOffsets() const { return lptm::Vector2D(m_OffsetX, m_OffsetY); };
 	private:
 		const char* m_Title;
@@ -53,6 +55,7 @@ namespace se {
 		bool m_Keys[1024];
 		bool m_MouseButtons[32];
 		bool m_MouseButtonsJustPressed[32];
+		bool m_IsMouseMoving;
 		double m_XMousePos, m_YMousePos;
 		double m_OffsetX = 0, m_OffsetY = 0; // For the tilemap
 	};

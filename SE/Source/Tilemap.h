@@ -9,14 +9,13 @@ namespace se {
 	class Tilemap
 	{
 	public:
-		Tilemap(uint32_t tilemapWidth, uint32_t tilemapHeight);
-		~Tilemap();
+		virtual ~Tilemap() {}
 
-		lptm::Vector2D GetCurrentTile(se::Window* window) const;
-	private:
-		uint32_t m_TileMapWidth, m_TileMapHeight;
-		lptm::Vector2D m_CurrentTile;
-		std::vector<uint32_t> m_TilemapData;
+		virtual lptm::Vector2D GetCurrentTile() const = 0;
+		virtual uint32_t GetTileValue() const = 0;
+
+		virtual void SetTile(uint32_t index) = 0;
+		virtual void SetData(lptm::Vector2D mousePos, lptm::Vector2D offsets) = 0;
 	};
 
 }
