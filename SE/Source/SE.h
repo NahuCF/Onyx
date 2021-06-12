@@ -9,8 +9,7 @@
 #include "Maths/Maths.h"
 
 // Tilemap
-#include "Tilemap.h"
-#include "Tilemap.h"
+#include "OrtogonalTilemap.h"
 
 // ImGUI
 #include "Vendor/ImGUI/imgui.h"

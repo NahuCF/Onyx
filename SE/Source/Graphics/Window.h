@@ -24,6 +24,9 @@ namespace se {
 		float GetMilliseconds() const { return (m_CurrentTime - m_LastTime) * 1000; }
 		void ShowFPS(bool value = 0);
 		void SetVSync(bool value = 0) const;
+
+		lptm::Vector2D GetWindowSize() const { return lptm::Vector2D(m_Width, m_Height); }
+
 		void CloseWindow() const;
 		GLFWwindow* WindowGUI() { return m_Window; }
 	public:
