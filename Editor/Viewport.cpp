@@ -16,7 +16,7 @@ Viewport::Viewport()
 ImGuiIO& Viewport::Init(se::Window* window)
 {
     m_Window = window;
-    this->map = new se::OrtogonalTilemap(100, 100, 100, 100);
+    this->map = new se::OrtogonalTilemap(8, 8, 100, 100);
 
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     /*io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -74,7 +74,7 @@ void Viewport::Loop(ImGuiIO& io)
 
     map->SetData(m_Window->GetMousePos(), m_Window->GetOffsets(), m_Window->GetWindowSize());
     static lptm::Vector2D initialMousePos;
-  
+
 
     if(m_Window->IsButtomJustPressed(GLFW_MOUSE_BUTTON_MIDDLE))
     {
@@ -99,8 +99,8 @@ void Viewport::Loop(ImGuiIO& io)
     if(m_Window->IsButtomPressed(GLFW_MOUSE_BUTTON_LEFT) 
         && map->GetCurrentTile().x >= 0
         && map->GetCurrentTile().y >= 0
-        && map->GetCurrentTile().x < 100
-        && map->GetCurrentTile().y < 100
+        && map->GetCurrentTile().x < map->GetTilemapSize().x
+        && map->GetCurrentTile().y < map->GetTilemapSize().y
         && map->GetTileValue() == 0)
     {
         m_Shaders.push_back(new se::Shader("Assets/Shaders/TextureShader.vs", "Assets/Shaders/TextureShader.fs"));

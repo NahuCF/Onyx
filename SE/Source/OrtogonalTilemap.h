@@ -15,6 +15,8 @@ namespace se {
 
 		virtual lptm::Vector2D GetCurrentTile() const override;
 		virtual uint32_t GetTileValue() const override;
+		virtual lptm::Vector2D GetTileSize() const override { return lptm::Vector2D(m_TileWidth, m_TileHeight); }
+		virtual lptm::Vector2D GetTilemapSize() const override { return lptm::Vector2D(m_TileMapWidth, m_TileMapHeight); }
 
 		virtual lptm::Vector2D PositionTile() const override;
 
