@@ -6,6 +6,7 @@
 #include "Graphics/Window.h"
 #include "Graphics/Texture.h"
 #include "Graphics/Shader.h"
+#include "Graphics/Framebuffer.h"
 #include "Maths/Maths.h"
 
 // Tilemap
