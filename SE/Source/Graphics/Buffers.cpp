@@ -68,6 +68,9 @@ namespace se {
 
 	VertexArray::~VertexArray()
 	{
+		for(uint32_t i = 0; i < m_Buffers.size(); i++)
+			delete m_Buffers[i];
+			
 		glDeleteVertexArrays(1, &m_BufferID);
 	}
 
@@ -83,11 +86,13 @@ namespace se {
 
 	void VertexArray::AddBuffer(VertexBuffer* buffer, uint32_t attribIndex)
 	{
+		m_Buffers.push_back(buffer);
+
 		Bind();
 		buffer->Bind();
 		
 		glEnableVertexAttribArray(attribIndex);
-		glVertexAttribPointer(attribIndex, buffer->GetComponentCount(), GL_FLOAT, GL_FALSE, 0, 0); // sizeof(float) * buffer->GetComponentCount()
+		glVertexAttribPointer(attribIndex, buffer->GetComponentCount(), GL_FLOAT, GL_FALSE, 0, 0);
 		
 		buffer->UnBind();
 		UnBind();

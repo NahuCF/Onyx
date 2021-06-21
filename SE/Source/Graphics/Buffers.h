@@ -44,6 +44,8 @@ namespace se {
 		void UnBind() const;
 
 		void AddBuffer(VertexBuffer* buffer, uint32_t attribIndex);
+
+		std::vector<VertexBuffer*> m_Buffers;
 	private:
 		uint32_t m_BufferID;
 	};
