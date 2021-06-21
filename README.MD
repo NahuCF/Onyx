@@ -21,4 +21,4 @@ For now only can render textures, make AABB collisions and keyboard/mouse events
    * Editor
    * Visual Scripting
 
-License under [MIT LICENSE](LICENSE)
+License under [WTFPL LICENSE](LICENSE)
