@@ -66,7 +66,7 @@ namespace se {
 		glDeleteShader(m_FragmentID);
 
 		//Initializating variable
-		UseProgramShader();
+		Bind();
 		m_DefaultPos = glm::mat4(1.0f);
 		m_DefaultPos = glm::translate(m_DefaultPos, glm::vec3(0.0f, 0.0f, 0.0f));
 		m_RealZPos = 0.0f;
@@ -78,9 +78,14 @@ namespace se {
 		glDeleteProgram(m_ProgramID);
 	}
 
-	void Shader::UseProgramShader()
+	void Shader::Bind() const
 	{
 		glUseProgram(m_ProgramID);
+	}
+
+	void Shader::UnBind() const
+	{
+		glUseProgram(0);
 	}
 
 	void Shader::SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix)
@@ -97,7 +102,7 @@ namespace se {
 	{
 		for(int i = 0; i < contenedor.size(); i++)
 		{
-			contenedor[i]->UseProgramShader();
+			contenedor[i]->Bind();
 			contenedor[i]->m_RealXPos += x;
 			contenedor[i]->m_XAxisMovement = glm::mat4(1.0f);
 			contenedor[i]->m_XAxisMovement = glm::translate(contenedor[i]->m_XAxisMovement, glm::vec3(contenedor[i]->m_RealXPos, contenedor[i]->m_RealYPos, contenedor[i]->m_RealZPos));
@@ -110,7 +115,7 @@ namespace se {
 	{
 		for (int i = 0; i < contenedor.size(); i++)
 		{
-			contenedor[i]->UseProgramShader();
+			contenedor[i]->Bind();
 			contenedor[i]->m_RealXPos -= x;
 			contenedor[i]->m_XAxisMovement = glm::mat4(1.0f);
 			contenedor[i]->m_XAxisMovement = glm::translate(contenedor[i]->m_XAxisMovement, glm::vec3(contenedor[i]->m_RealXPos, contenedor[i]->m_RealYPos, contenedor[i]->m_RealZPos));
@@ -123,7 +128,7 @@ namespace se {
 	{
 		for (int i = 0; i < contenedor.size(); i++)
 		{
-			contenedor[i]->UseProgramShader();
+			contenedor[i]->Bind();
 			contenedor[i]->m_RealYPos += y;
 			contenedor[i]->m_YAxisMovement = glm::mat4(1.0f);
 			contenedor[i]->m_YAxisMovement = glm::translate(contenedor[i]->m_YAxisMovement, glm::vec3(contenedor[i]->m_RealXPos, contenedor[i]->m_RealYPos, contenedor[i]->m_RealZPos));
@@ -136,7 +141,7 @@ namespace se {
 	{
 		for (int i = 0; i < contenedor.size(); i++)
 		{
-			contenedor[i]->UseProgramShader();
+			contenedor[i]->Bind();
 			contenedor[i]->m_RealYPos += y;
 			contenedor[i]->m_YAxisMovement = glm::mat4(1.0f);
 			contenedor[i]->m_YAxisMovement = glm::translate(contenedor[i]->m_YAxisMovement, glm::vec3(contenedor[i]->m_RealXPos, contenedor[i]->m_RealYPos, contenedor[i]->m_RealZPos));
@@ -147,7 +152,7 @@ namespace se {
 
 	void Shader::MoveShaderAxisY(float y)
 	{
-		this->UseProgramShader();
+		this->Bind();
 		this->m_RealYPos += y;
 		this->m_YAxisMovement = glm::mat4(1.0f);
 		this->m_YAxisMovement = glm::translate(this->m_YAxisMovement, glm::vec3(this->m_RealXPos, this->m_RealYPos, 0.0f));
@@ -156,7 +161,7 @@ namespace se {
 
 	void Shader::MoveShaderRight(float x)
 	{
-		this->UseProgramShader();
+		this->Bind();
 		this->m_RealXPos += x;
 		this->m_XAxisMovement = glm::mat4(1.0f);
 		this->m_XAxisMovement = glm::translate(this->m_XAxisMovement, glm::vec3(this->m_RealXPos, this->m_RealYPos, 0.0f));
@@ -165,7 +170,7 @@ namespace se {
 	
 	void Shader::MoveShaderLeft(float x)
 	{
-		this->UseProgramShader();
+		this->Bind();
 		this->m_RealXPos -= x;
 		this->m_XAxisMovement = glm::mat4(1.0f);
 		this->m_XAxisMovement = glm::translate(this->m_XAxisMovement, glm::vec3(this->m_RealXPos, this->m_RealYPos, 0.0f));
@@ -174,7 +179,7 @@ namespace se {
 
 	void Shader::SetPos(glm::vec3 vecPos)
 	{
-		UseProgramShader();
+		Bind();
 		m_CurrentYPos = vecPos.y;
 		m_CurrentXPos = vecPos.x;
 		m_CurrentZPos = vecPos.z;

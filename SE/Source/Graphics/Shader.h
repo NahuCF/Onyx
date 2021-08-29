@@ -11,7 +11,10 @@ namespace se {
 	public:
 		Shader(const char* vertexPath, const char* fragmentPath);
 		~Shader();
-		void UseProgramShader();
+
+		void Bind() const;
+		void UnBind() const; // Not implemented yet
+
 		void SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix);
 		void AddShader(std::vector<Shader*>& contenedor);
 	public:
