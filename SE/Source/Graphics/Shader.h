@@ -13,7 +13,7 @@ namespace se {
 		~Shader();
 
 		void Bind() const;
-		void UnBind() const; // Not implemented yet
+		void UnBind() const;
 
 		void SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix);
 		void AddShader(std::vector<Shader*>& contenedor);
