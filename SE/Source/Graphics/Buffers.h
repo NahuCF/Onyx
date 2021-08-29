@@ -7,7 +7,9 @@ namespace se {
 	class VertexBuffer
 	{
 	public:
+		VertexBuffer(uint32_t size);
 		VertexBuffer(float* vertices, uint32_t count, uint32_t componentCount);
+
 		~VertexBuffer();
 
 		void Bind() const;
@@ -44,8 +46,10 @@ namespace se {
 		void UnBind() const;
 
 		void AddBuffer(VertexBuffer* buffer, uint32_t attribIndex);
+		void AddBuffer(uint32_t attribCount, uint32_t stride, uint32_t offset, uint32_t attribIndex);
 
 		std::vector<VertexBuffer*> m_Buffers;
+		VertexBuffer* m_BatchBuffer;
 	private:
 		uint32_t m_BufferID;
 	};

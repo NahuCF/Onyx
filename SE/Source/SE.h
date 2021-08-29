@@ -8,6 +8,7 @@
 #include "Graphics/Shader.h"
 #include "Graphics/Buffers.h"
 #include "Graphics/Framebuffer.h"
+#include "Graphics/Renderer2D.h"
 #include "Maths/Maths.h"
 
 // Tilemap
@@ -19,3 +20,5 @@
 #include "Vendor/ImGUI/imgui_impl_glfw.h"
 #include "Vendor/ImGUI/imgui_internal.h"
 #include "Vendor/ImGUI/imgui_impl_opengl3.h"
+
+#include "GL/glew.h"
