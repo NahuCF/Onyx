@@ -26,6 +26,7 @@ namespace se {
 		void SetVSync(bool value = 0) const;
 
 		lptm::Vector2D GetWindowSize() const { return lptm::Vector2D(m_Width, m_Height); }
+		lptm::Vector2D GetWidowPos() const { return lptm::Vector2D(m_WindowPosX, m_WindowPosY); }
 
 		void CloseWindow() const;
 		GLFWwindow* WindowGUI() { return m_Window; }
@@ -46,8 +47,11 @@ namespace se {
 		const char* m_Title;
 		int m_Height, m_Width;
 		float m_LastTime = 0.0f, m_CurrentTime = 0.0f;
+		int m_FPS = 0;
 		bool m_ShowFPS = false;
 		bool m_Closed;
+
+		float curtime, lasttime;
 		GLFWwindow* m_Window;
 	private:
 		bool Init();
@@ -55,10 +59,14 @@ namespace se {
 		friend void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 		friend void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 		friend void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
+		friend void window_pos_callback(GLFWwindow* window, int xpos, int ypos);
+
 		bool m_Keys[1024];
 		bool m_MouseButtons[32];
 		bool m_MouseButtonsJustPressed[32];
 		bool m_IsMouseMoving;
+
+		uint32_t m_WindowPosX, m_WindowPosY;
 		double m_XMousePos, m_YMousePos;
 		double m_OffsetX = 0, m_OffsetY = 0; // For the tilemap
 	};

@@ -7,6 +7,7 @@ namespace se {
 	void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 	void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 	void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
+	void window_pos_callback(GLFWwindow* window, int xpos, int ypos);
 
 	Window::Window(const char* title, uint32_t width, uint32_t height)
 		: m_Title(title), m_Height(height), m_Width(width)
@@ -14,7 +15,7 @@ namespace se {
 		if(!Init())
 			glfwTerminate();
 
-		SetVSync(1); 
+		SetVSync(1);
 
 		for(int i = 0; i < 1024; i++)
 			m_Keys[i] = false;
@@ -38,7 +39,8 @@ namespace se {
 			std::cout << "Failed to load GLFW :c" << std::endl;
 			return false;
 		}
-
+		curtime = (float)glfwGetTime();
+		lasttime = (float)glfwGetTime();
 		m_Window = glfwCreateWindow(m_Width, m_Height, m_Title, NULL, NULL);
 
 		if(!m_Window)
@@ -53,6 +55,7 @@ namespace se {
 		glfwSetKeyCallback(m_Window, key_callback);
 		glfwSetCursorPosCallback(m_Window, cursor_position_callback);
 		glfwSetMouseButtonCallback(m_Window, mouse_button_callback);
+		glfwSetWindowPosCallback(m_Window, window_pos_callback);
 
 		if(glewInit() != GLEW_OK)
 		{
@@ -69,7 +72,9 @@ namespace se {
 	{
 		m_LastTime = (float)glfwGetTime();
 		m_IsMouseMoving = false;
-
+	
+		m_FPS++;
+		
 		for(int i = 0; i < 32; i++)
 			m_MouseButtonsJustPressed[i] = false;
 
@@ -89,6 +94,15 @@ namespace se {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		m_CurrentTime = (float)glfwGetTime();
+		curtime = (float)glfwGetTime();
+		if (curtime - lasttime > 1)
+		{
+			std::cout << "FPS: " << m_FPS << std::endl;
+			m_FPS = 0;
+
+			curtime = (float)glfwGetTime();
+			lasttime = (float)glfwGetTime();
+		}
 	}
 
 	void Window::ShowFPS(bool value)
@@ -146,6 +160,14 @@ namespace se {
 	{
 		Window* win = (Window*)glfwGetWindowUserPointer(window);
 		win->m_Keys[key] = action != GLFW_RELEASE;
+	}
+
+	void window_pos_callback(GLFWwindow* window, int xpos, int ypos)
+	{
+		Window* win = (Window*)glfwGetWindowUserPointer(window);
+
+		win->m_WindowPosX = xpos;
+		win->m_WindowPosY = ypos;
 	}
 
 }
