@@ -61,5 +61,4 @@ namespace lptm {
 		stream << "(" << vector.x << ", " << vector.y << ")";
 		return stream;
 	}
-
 }
