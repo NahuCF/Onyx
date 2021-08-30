@@ -44,7 +44,7 @@ namespace se {
 		m_VAO->AddBuffer(3, 7, offsetof(BufferDisposition, position), 0);
 		m_VAO->AddBuffer(4, 7, offsetof(BufferDisposition, color), 1);
 
-		glBufferSubData(GL_ARRAY_BUFFER, 0, Renderer2DSpecification::BufferSize, m_BufferData);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, m_IndexCount * sizeof(BufferDisposition), m_BufferData);
 		glDrawArrays(GL_TRIANGLES, 0, m_IndexCount);
 
 		m_VAO->UnBind();
