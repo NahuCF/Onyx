@@ -32,7 +32,7 @@ namespace se {
 		for(uint32_t i = 0; i < sizeof(vertices) / sizeof(float); i++)
 			m_BufferData[m_BufferIndex + i] = vertices[i];
 
-		m_QuadCounter++;
+		m_IndexCount += 6;
 		m_BufferIndex += sizeof(vertices) / sizeof(float);
 	}
 
@@ -45,12 +45,12 @@ namespace se {
 		m_VAO->AddBuffer(4, 7, offsetof(BufferDisposition, color), 1);
 
 		glBufferSubData(GL_ARRAY_BUFFER, 0, Renderer2DSpecification::BufferSize, m_BufferData);
-		glDrawArrays(GL_TRIANGLES, 0, m_QuadCounter);
+		glDrawArrays(GL_TRIANGLES, 0, m_IndexCount);
 
 		m_VAO->UnBind();
 		m_VBO->UnBind();
 
-		m_QuadCounter = 0;
+		m_IndexCount = 0;
 		m_BufferIndex = 0;
 		CleanBuffer();
 	}

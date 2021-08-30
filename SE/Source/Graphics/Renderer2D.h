@@ -37,7 +37,7 @@ namespace se {
 		VertexArray* m_VAO;
 		VertexBuffer* m_VBO;
 
-		uint32_t m_QuadCounter = 0;
+		uint32_t m_IndexCount = 0;
 	};
 
 }
