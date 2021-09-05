@@ -98,14 +98,19 @@
     </ProjectReference>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Source\Collision\ColliderBox.cpp" />
-    <ClCompile Include="Source\DS\String.cpp" />
     <ClCompile Include="Source\Graphics\Animation.cpp" />
-    <ClCompile Include="Source\OpenGL\OpenGLFunctions.cpp" />
+    <ClCompile Include="Source\Graphics\Buffers.cpp" />
+    <ClCompile Include="Source\Graphics\Framebuffer.cpp" />
+    <ClCompile Include="Source\Graphics\Renderable2D.cpp" />
+    <ClCompile Include="Source\Graphics\Renderer2D.cpp" />
+    <ClCompile Include="Source\Graphics\Simple2DRenderer.cpp" />
     <ClCompile Include="Source\Graphics\Shader.cpp" />
     <ClCompile Include="Source\Graphics\Texture.cpp" />
     <ClCompile Include="Source\Graphics\Window.cpp" />
     <ClCompile Include="Source\Maths\Vector2D.cpp" />
+    <ClCompile Include="Source\Maths\Vector3D.cpp" />
+    <ClCompile Include="Source\Maths\Vector4D.cpp" />
+    <ClCompile Include="Source\OrtogonalTilemap.cpp" />
     <ClCompile Include="Source\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
@@ -116,11 +121,17 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Source\Collision\ColliderBox.h" />
     <ClInclude Include="Source\DS\String.h" />
     <ClInclude Include="Source\Graphics\Animation.h" />
+    <ClInclude Include="Source\Graphics\Buffers.h" />
+    <ClInclude Include="Source\Graphics\Framebuffer.h" />
+    <ClInclude Include="Source\Graphics\Renderable2D.h" />
+    <ClInclude Include="Source\Graphics\Renderer2D.h" />
+    <ClInclude Include="Source\Graphics\Simple2DRenderer.h" />
     <ClInclude Include="Source\Maths\Functions.h" />
     <ClInclude Include="Source\Maths\Maths.h" />
+    <ClInclude Include="Source\Maths\Vector3D.h" />
+    <ClInclude Include="Source\Maths\Vector4D.h" />
     <ClInclude Include="Source\OpenGL\OpenGLFunctions.h" />
     <ClInclude Include="Source\Graphics\Shader.h" />
     <ClInclude Include="Source\Graphics\Texture.h" />
@@ -411,9 +422,11 @@
     <ClInclude Include="Source\Maths\glm\vector_relational.hpp" />
     <ClInclude Include="Source\Graphics\Window.h" />
     <ClInclude Include="Source\Maths\Vector2D.h" />
+    <ClInclude Include="Source\OrtogonalTilemap.h" />
     <ClInclude Include="Source\pch.h" />
     <ClInclude Include="Source\SE.h" />
     <ClInclude Include="Source\SE\Core.h" />
+    <ClInclude Include="Source\Tilemap.h" />
     <ClInclude Include="src\stb_image\stb_image.h" />
     <ClInclude Include="Source\Vendor\stb_image\stb_image.h" />
   </ItemGroup>
