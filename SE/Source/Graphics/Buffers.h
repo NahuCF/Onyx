@@ -24,7 +24,7 @@ namespace se {
 	class IndexBuffer
 	{
 	public:
-		IndexBuffer(uint32_t* index, uint32_t count);
+		IndexBuffer(uint32_t* indices, uint32_t size);
 		~IndexBuffer();
 
 		void Bind() const;

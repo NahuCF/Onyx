@@ -15,9 +15,10 @@ namespace se {
 
 	struct Renderer2DSpecification
 	{
-		static const uint32_t MaxQuads = 100000;
-		static const uint32_t Vertices = 6;
-		static const uint32_t BufferSize = MaxQuads * Vertices * sizeof(BufferDisposition);
+		static const uint32_t MaxQuads = 400 * 400;
+		static const uint32_t Vertices = 4;
+		static const uint32_t IndexBufferSize = MaxQuads * Vertices * 6;
+		static const uint32_t VertexBufferSize = MaxQuads * Vertices * sizeof(BufferDisposition);
 	};
 
 	class Renderer2D
@@ -27,17 +28,23 @@ namespace se {
 		~Renderer2D();
 
 		void RenderQuad(lptm::Vector2D size, lptm::Vector3D position, lptm::Vector4D color);
+
 		void Flush();
 	private:
 		void CleanBuffer();
 	private:
-		float* m_BufferData = new float[Renderer2DSpecification::BufferSize];
-		uint32_t m_BufferIndex = 0;
+		float* m_VertexBufferData = new float[Renderer2DSpecification::VertexBufferSize];
+		uint32_t* m_IndexBufferData = new uint32_t[Renderer2DSpecification::IndexBufferSize];
 
 		VertexArray* m_VAO;
 		VertexBuffer* m_VBO;
+		IndexBuffer* m_EBO;
 
 		uint32_t m_IndexCount = 0;
+		uint32_t m_VertexCount = 0;
+
+		uint32_t m_VertexBufferOffset = 0;
+		uint32_t m_IndexBufferOffset = 0;
 	};
 
 }

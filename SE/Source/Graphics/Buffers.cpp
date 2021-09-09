@@ -42,12 +42,11 @@ namespace se {
 	// --------------------------------------------
 	// --------------------------------------------
 
-	IndexBuffer::IndexBuffer(uint32_t* index, uint32_t count)
-		: m_Count(count)
+	IndexBuffer::IndexBuffer(uint32_t* indices, uint32_t size)
 	{
 		glGenBuffers(1, &m_BufferID);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_BufferID);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * sizeof(uint32_t), index, GL_STATIC_DRAW);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, indices, GL_STATIC_DRAW);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	}
 
