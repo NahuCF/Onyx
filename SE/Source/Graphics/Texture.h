@@ -7,7 +7,7 @@ namespace se {
 	class Texture
 	{
 	public:
-		Texture(const char* texturePath, float Width, float Height);
+		Texture(const char* texturePath);
 		~Texture();
 
 		void Bind() const;
