@@ -51,14 +51,41 @@ namespace se {
 		m_VertexBufferOffset += sizeof(vertices) / sizeof(float);
 	}
 
+	void Renderer2D::RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader)
+	{
+		int textureUnit = texture.GetTextureID() - 1;
+
+		float vertices[] = {
+			-size.x + position.x,  size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		0.0f, 1.0f,		(float)textureUnit,
+			 size.x + position.x,  size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		1.0f, 1.0f,		(float)textureUnit,
+			 size.x + position.x, -size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		1.0f, 0.0f,		(float)textureUnit,
+			-size.x + position.x, -size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		0.0f, 0.0f,		(float)textureUnit
+		};
+
+		for (uint32_t i = 0; i < sizeof(vertices) / sizeof(float); i++)
+			m_VertexBufferData[m_VertexBufferOffset + i] = vertices[i];
+
+		m_VertexCount += 4;
+		m_IndexCount += 6;
+		m_VertexBufferOffset += sizeof(vertices) / sizeof(float);
+
+		m_Shader = shader;
+		m_TextureUnits[textureUnit] = textureUnit;
+		glBindTextureUnit(textureUnit, texture.GetTextureID());
+	}
+
 	void Renderer2D::Flush()
 	{
+		glUniform1iv(glGetUniformLocation(m_Shader->GetProgramID(), "u_Textures"), Renderer2DSpecification::MaxTextureUnits, m_TextureUnits);
+
 		m_VAO->Bind();
 		m_VBO->Bind();
 		m_EBO->Bind();
 
-		m_VAO->AddBuffer(3, 7, offsetof(BufferDisposition, position), 0);
-		m_VAO->AddBuffer(4, 7, offsetof(BufferDisposition, color), 1);
+		m_VAO->AddBuffer(3, 10, offsetof(BufferDisposition, position), 0);
+		m_VAO->AddBuffer(4, 10, offsetof(BufferDisposition, color), 1);
+		m_VAO->AddBuffer(2, 10, offsetof(BufferDisposition, texCoord), 2);
+		m_VAO->AddBuffer(1, 10, offsetof(BufferDisposition, texIndex), 3);
 
 		glBufferSubData(GL_ARRAY_BUFFER, 0, m_VertexCount * sizeof(BufferDisposition), m_VertexBufferData);
 		glDrawElements(GL_TRIANGLES, m_IndexCount, GL_UNSIGNED_INT, 0);
@@ -70,13 +97,21 @@ namespace se {
 		m_IndexCount = 0;
 		m_VertexCount = 0;
 		m_VertexBufferOffset = 0;
+		m_NextTextureUnit = 0;
 		CleanBuffer();
+		CleanTextureUnits();
 	}
 
 	void Renderer2D::CleanBuffer()
 	{
 		for (uint32_t i = 0; i < sizeof(Renderer2DSpecification::VertexBufferSize); i++)
 			m_VertexBufferData[i] = 0.0f;
+	}
+
+	void Renderer2D::CleanTextureUnits()
+	{
+		for (uint32_t i = 0; i < Renderer2DSpecification::MaxTextureUnits; i++)
+			m_TextureUnits[i] = 0;
 	}
 
 }
