@@ -12,12 +12,12 @@ namespace se {
 
 	Texture::Texture(const char* texturePath)
 	{
-		stbi_set_flip_vertically_on_load(true);
+		//stbi_set_flip_vertically_on_load(true);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 		glGenTextures(1, &m_TextureID);
-		glBindTexture(GL_TEXTURE_2D, m_TextureID); 
+		Bind();
 		 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -32,16 +32,22 @@ namespace se {
 			std::cout << "FAILED TO LOAD TEXTURE" << std::endl;
 
 		stbi_image_free(m_TextureData);
-		glBindTexture(GL_TEXTURE_2D, 0);
+		UnBind();
 	}
 
 	Texture::~Texture()
 	{
+		glDeleteTextures(1, &m_TextureID);
 	}
 
 	void Texture::Bind() const
 	{
 		glBindTexture(GL_TEXTURE_2D, m_TextureID);
+	}
+
+	void Texture::UnBind() const
+	{
+		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
 }
