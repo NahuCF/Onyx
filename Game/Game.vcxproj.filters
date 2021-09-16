@@ -19,4 +19,8 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Assets\Shaders\TextureBatch.vs" />
+    <None Include="Assets\Shaders\TextureBatch.fs" />
+  </ItemGroup>
 </Project>

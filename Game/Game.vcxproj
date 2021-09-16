@@ -18,6 +18,10 @@
       <Project>{a1616ba3-3485-4bea-8150-16823833011c}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Assets\Shaders\TextureBatch.fs" />
+    <None Include="Assets\Shaders\TextureBatch.vs" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

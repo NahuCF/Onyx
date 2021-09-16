@@ -11,5 +11,7 @@ void main()
 {
 	color = a_Color;
 
-	gl_Position = move * vec4(aPos, 1.0f);
+	vec4 newPos = vec4(-1.0f, -1.0f, 0.0f, 0.0f);
+	vec4 invertCoords = vec4(1.0f, -1.0f, 1.0f, 1.0f);
+	gl_Position = invertCoords * (newPos + vec4(aPos, 1.0f));
 }

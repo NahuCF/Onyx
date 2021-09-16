@@ -1,72 +1,64 @@
 #include <iostream>
 #include <cmath>
+#include <array>
+
 #include <SE.h>
 
 #include "glm.hpp"
 
+lptm::Vector2D PixelToNDC(lptm::Vector2D mousePos, lptm::Vector2D windowSize)
+{
+	return lptm::Vector2D(2 / (windowSize.x / mousePos.x), 2 / (windowSize.y / mousePos.y));
+}
+
 int main()
 {
-	se::Window window("test", 1000, 1000);
+	se::Window window("Game", 1600, 900);
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 	window.SetVSync(0);
 
-	float textureWidth = 0.2f;
-	const int TILE_WIDTH = 100, TILE_HEIGHT = 100;
-	int tileX, tileY;
+	se::Shader baseShader("Assets/Shaders/Shader.vs", "Assets/Shaders/Shader.fs");
+	se::Shader textureShader("Assets/Shaders/TextureBatch.vs", "Assets/Shaders/TextureBatch.fs");
 
-	se::Texture whiteTile("Assets/Textures/grass.png", textureWidth, textureWidth);
-
-
-	auto tiles = new se::Shader*[10][10];
-
-	for(int y = 0; y < 10; y++)
-	{
-		for(int x = 0; x < 10; x++)
-		{
-			tiles[y][x] = nullptr;
-		}
-	}
+	se::Texture ball("Assets/Textures/nezuko-ball.png");
+	se::Texture grass("Assets/Textures/grass.png");
+	
+	se::Renderer2D renderer;
+	//se::ParticleSystem particle(20);
 
 	while(!window.Closed())
 	{
 		window.Clear();
 
-		tileX = int(window.GetMousePos().x / TILE_WIDTH);
-		tileY = int(window.GetMousePos().y / TILE_HEIGHT);
+		lptm::Vector2D pos = PixelToNDC(window.GetMousePos(), { 1000, 1000 });
 
-		// Create tile
-		if(window.IsButtomPressed(GLFW_MOUSE_BUTTON_LEFT))
-		{
-			if(tiles[tileX][tileY] == nullptr)
-			{
-				se::Shader* nuevo = new se::Shader("Assets/Shaders/TextureShader.vs", "Assets/Shaders/TextureShader.fs");
-				nuevo->SetPos(glm::vec3(-1.0f + textureWidth / 2 + tileX * textureWidth, 1.0f - textureWidth / 2 - tileY * textureWidth, 0.2f));
+		textureShader.Bind();
+		renderer.RenderQuad({ 0.1f, 0.1f }, { 1.0f, 1.0f, 0.0f }, grass, &textureShader);
+				//else
+					//renderer.RenderQuad({ 0.2f, 0.2f }, { 1.0f - (1.0f - ((float)x * 0.2f)), 1.0f - (1.0f - ((float)y * 0.2f)), 0.1f }, grass, &textureShader);
+		//renderer.RenderQuad({ 0.25f, 0.25f }, { 0.25f, 1.0f, 0.0f }, mario, &textureShader);
+		//renderer.RenderQuad({ 0.25f, 0.25f }, { 1.0f, 1.0f, 0.0f }, grass, &textureShader);
+		
+		//if(window.IsButtomPressed(GLFW_MOUSE_BUTTON_LEFT))
+		/*particle.Emiter(
+			{ pos.x, pos.y, 0.0f }, 
+			{ 0.5f, 1.0f, 1.0f, 1.0f }, 
+			{ 0.0f, -1.0f * window.GetSeconds() }, 
+			{ 0.025f, 0.025f },
+			{ 0.0125f, 0.0125f },
+			1.0f, 0.4f, window.GetSeconds()
+		);*/
+		//else
+			//particle.Update({ pos.x, pos.y, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { 0.0f, -0.0f }, 1, 0.1f, window.GetSeconds());
 
-				tiles[tileX][tileY] = nuevo;
-			}
-		}
+		/*for(uint32_t y = 0; y < 400; y++)
+			for (uint32_t x = 0; x < 400; x++)
+				if((x + y) % 2 == 0)
+					renderer.RenderQuad({ 0.005f,  0.005f }, { 1.0f - (1.0f - ((float)x * 0.005f)), 1.0f - (1.0f - ((float)y * 0.005f)), 0.1f }, { 1.0f, 0.0f, 0.0f, 1.0f });
+				else
+					renderer.RenderQuad({ 0.005f,  0.005f }, { 1.0f - (1.0f - ((float)x * 0.005f)), 1.0f - (1.0f - ((float)y * 0.005f)), 0.1f }, { 0.0f, 1.0f, 0.0f, 1.0f });*/
 
-		// Destroy tile
-		if(window.IsButtomPressed(GLFW_MOUSE_BUTTON_RIGHT))
-		{
-			if(tiles[tileX][tileY] != nullptr)
-			{
-				delete tiles[tileX][tileY];
-				tiles[tileX][tileY] = nullptr;
-			}
-		}
-
-		for (int y = 0; y < 10; y++)
-		{
-			for (int x = 0; x < 10; x++)
-			{
-				if(tiles[y][x] != nullptr)
-				{
-					tiles[y][x]->UseProgramShader();
-					whiteTile.UseTexture();
-				}
-			}
-		}
+		renderer.Flush();
 
 		window.Update();
 	} 
