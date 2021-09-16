@@ -7,7 +7,8 @@
 namespace se {
 
 	Renderer2D::Renderer2D()
-		: m_VAO(new se::VertexArray), m_VBO(new se::VertexBuffer(Renderer2DSpecification::VertexBufferSize))
+		: m_VAO(new se::VertexArray)
+		, m_VBO(new se::VertexBuffer(Renderer2DSpecification::VertexBufferSize))
 	{
 		for (uint32_t i = 0; i < Renderer2DSpecification::IndexBufferSize; i += 6)
 		{
@@ -82,10 +83,10 @@ namespace se {
 		m_VBO->Bind();
 		m_EBO->Bind();
 
-		m_VAO->AddBuffer(3, 10, offsetof(BufferDisposition, position), 0);
-		m_VAO->AddBuffer(4, 10, offsetof(BufferDisposition, color), 1);
-		m_VAO->AddBuffer(2, 10, offsetof(BufferDisposition, texCoord), 2);
-		m_VAO->AddBuffer(1, 10, offsetof(BufferDisposition, texIndex), 3);
+		m_VAO->AddBuffer(3, sizeof(BufferDisposition) / sizeof(float), offsetof(BufferDisposition, position), 0);
+		m_VAO->AddBuffer(4, sizeof(BufferDisposition) / sizeof(float), offsetof(BufferDisposition, color), 1);
+		m_VAO->AddBuffer(2, sizeof(BufferDisposition) / sizeof(float), offsetof(BufferDisposition, texCoord), 2);
+		m_VAO->AddBuffer(1, sizeof(BufferDisposition) / sizeof(float), offsetof(BufferDisposition, texIndex), 3);
 
 		glBufferSubData(GL_ARRAY_BUFFER, 0, m_VertexCount * sizeof(BufferDisposition), m_VertexBufferData);
 		glDrawElements(GL_TRIANGLES, m_IndexCount, GL_UNSIGNED_INT, 0);
