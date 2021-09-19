@@ -35,6 +35,7 @@ namespace se {
 
 		void RenderQuad(lptm::Vector2D size, lptm::Vector3D position, lptm::Vector4D color);
 		void RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader);
+		void RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize);
 
 		void Flush();
 	private:
@@ -54,7 +55,6 @@ namespace se {
 		uint32_t m_VertexBufferOffset = 0;
 		uint32_t m_IndexBufferOffset = 0;
 
-		uint32_t m_NextTextureUnit = 0;
 		int32_t m_TextureUnits[Renderer2DSpecification::MaxTextureUnits];
 		const se::Shader* m_Shader;
 	};

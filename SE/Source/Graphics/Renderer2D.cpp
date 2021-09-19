@@ -75,6 +75,35 @@ namespace se {
 		glBindTextureUnit(textureUnit, texture.GetTextureID());
 	}
 
+	void Renderer2D::RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize)
+	{
+		int textureUnit = texture.GetTextureID() - 1;
+
+		lptm::Vector2D spriteUV[4];
+		spriteUV[0] = { (spriteCoord.x * spriteSize.x) / texture.GetTextureSize().x, (spriteCoord.y * spriteSize.y) / texture.GetTextureSize().y };				// Bottom left
+		spriteUV[1] = { ((spriteCoord.x + 1) * spriteSize.x) / texture.GetTextureSize().x, (spriteCoord.y * spriteSize.y) / texture.GetTextureSize().y };		// Bottom right
+		spriteUV[2] = { ((spriteCoord.x + 1) * spriteSize.x) / texture.GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture.GetTextureSize().y }; // Top right
+		spriteUV[3] = { (spriteCoord.x * spriteSize.x) / texture.GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture.GetTextureSize().y };		// Top left
+
+		float vertices[] = {
+			-size.x + position.x, -size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[3].x, spriteUV[3].y,		(float)textureUnit,
+			 size.x + position.x, -size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[2].x, spriteUV[2].y,		(float)textureUnit,
+			 size.x + position.x,  size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[1].x, spriteUV[1].y,		(float)textureUnit,
+			-size.x + position.x,  size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[0].x, spriteUV[0].y,		(float)textureUnit
+		};
+
+		for (uint32_t i = 0; i < sizeof(vertices) / sizeof(float); i++)
+			m_VertexBufferData[m_VertexBufferOffset + i] = vertices[i];
+
+		m_VertexCount += 4;
+		m_IndexCount += 6;
+		m_VertexBufferOffset += sizeof(vertices) / sizeof(float);
+
+		m_Shader = shader;
+		m_TextureUnits[textureUnit] = textureUnit;
+		glBindTextureUnit(textureUnit, texture.GetTextureID());
+	}
+
 	void Renderer2D::Flush()
 	{
 		glUniform1iv(glGetUniformLocation(m_Shader->GetProgramID(), "u_Textures"), Renderer2DSpecification::MaxTextureUnits, m_TextureUnits);
@@ -98,7 +127,6 @@ namespace se {
 		m_IndexCount = 0;
 		m_VertexCount = 0;
 		m_VertexBufferOffset = 0;
-		m_NextTextureUnit = 0;
 		CleanBuffer();
 		CleanTextureUnits();
 	}
