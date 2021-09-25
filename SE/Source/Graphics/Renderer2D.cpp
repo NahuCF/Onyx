@@ -38,10 +38,10 @@ namespace se {
 	void Renderer2D::RenderQuad(lptm::Vector2D size, lptm::Vector3D position, lptm::Vector4D color)
 	{
 		float vertices[] = {
-			-size.x + position.x,  size.y + position.y, position.z,		color.x, color.y, color.z, color.w,
-			 size.x + position.x,  size.y + position.y, position.z,		color.x, color.y, color.z, color.w,
-			 size.x + position.x, -size.y + position.y, position.z,		color.x, color.y, color.z, color.w,
-			-size.x + position.x, -size.y + position.y, position.z,		color.x, color.y, color.z, color.w
+			-size.x + position.x,  size.y + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+			 size.x + position.x,  size.y + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+			 size.x + position.x, -size.y + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+			-size.x + position.x, -size.y + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f
 		};
 	
 		for(uint32_t i = 0; i < sizeof(vertices) / sizeof(float); i++)
@@ -57,10 +57,10 @@ namespace se {
 		int textureUnit = texture.GetTextureID() - 1;
 
 		float vertices[] = {
-			-size.x + position.x,  size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		0.0f, 1.0f,		(float)textureUnit,
-			 size.x + position.x,  size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		1.0f, 1.0f,		(float)textureUnit,
-			 size.x + position.x, -size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		1.0f, 0.0f,		(float)textureUnit,
-			-size.x + position.x, -size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		0.0f, 0.0f,		(float)textureUnit
+			-size.x + position.x,  size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		0.0f, 0.0f,		(float)textureUnit,
+			 size.x + position.x,  size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		1.0f, 0.0f,		(float)textureUnit,
+			 size.x + position.x, -size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		1.0f, 1.0f,		(float)textureUnit,
+			-size.x + position.x, -size.y + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		0.0f, 1.0f,		(float)textureUnit
 		};
 
 		for (uint32_t i = 0; i < sizeof(vertices) / sizeof(float); i++)
@@ -106,7 +106,8 @@ namespace se {
 
 	void Renderer2D::Flush()
 	{
-		glUniform1iv(glGetUniformLocation(m_Shader->GetProgramID(), "u_Textures"), Renderer2DSpecification::MaxTextureUnits, m_TextureUnits);
+		if(m_Shader != nullptr)
+			glUniform1iv(glGetUniformLocation(m_Shader->GetProgramID(), "u_Textures"), Renderer2DSpecification::MaxTextureUnits, m_TextureUnits);
 
 		m_VAO->Bind();
 		m_VBO->Bind();

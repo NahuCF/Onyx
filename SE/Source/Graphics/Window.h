@@ -10,7 +10,7 @@ namespace se {
 	class Window
 	{
 	public:
-		Window(const char* title = "Temporal name", uint32_t width = 1280, uint32_t height = 720);
+		Window(const char* title = "Temporal name", uint32_t width = 1280, uint32_t height = 720, float aspectRatio = 16.0f / 9.0f);
 		~Window();
 
 		bool Closed() const;
@@ -28,6 +28,8 @@ namespace se {
 		lptm::Vector2D GetWindowSize() const { return lptm::Vector2D(m_Width, m_Height); }
 		lptm::Vector2D GetWidowPos() const { return lptm::Vector2D(m_WindowPosX, m_WindowPosY); }
 
+		float GetAspectRatio() const { return m_AspectRatio; }
+
 		void CloseWindow() const;
 		GLFWwindow* WindowGUI() { return m_Window; }
 	public:
@@ -40,12 +42,10 @@ namespace se {
 		lptm::Vector2D GetMousePos() const { return lptm::Vector2D(m_XMousePos, m_YMousePos); };
 		double GetMouseX() const { return m_XMousePos; }
 		double GetMouseY() const { return m_YMousePos; }
-
-		void AddToOffsets(lptm::Vector2D offset);
-		lptm::Vector2D GetOffsets() const { return lptm::Vector2D(m_OffsetX, m_OffsetY); };
 	private:
 		const char* m_Title;
 		int m_Height, m_Width;
+		float m_AspectRatio;
 		float m_LastTime = 0.0f, m_CurrentTime = 0.0f;
 		int m_FPS = 0;
 		bool m_ShowFPS = false;
@@ -55,6 +55,7 @@ namespace se {
 		GLFWwindow* m_Window;
 	private:
 		bool Init();
+		void HandleResize();
 
 		friend void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 		friend void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
@@ -68,7 +69,6 @@ namespace se {
 
 		uint32_t m_WindowPosX, m_WindowPosY;
 		double m_XMousePos, m_YMousePos;
-		double m_OffsetX = 0, m_OffsetY = 0; // For the tilemap
 	};
 
 } 

@@ -9,8 +9,11 @@ namespace se {
 	void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 	void window_pos_callback(GLFWwindow* window, int xpos, int ypos);
 
-	Window::Window(const char* title, uint32_t width, uint32_t height)
-		: m_Title(title), m_Height(height), m_Width(width)
+	Window::Window(const char* title, uint32_t width, uint32_t height, float aspectRatio)
+		: m_Title(title)
+		, m_Height(height)
+		, m_Width(width)
+		, m_AspectRatio(aspectRatio)
 	{
 		if(!Init())
 			glfwTerminate();
@@ -68,6 +71,21 @@ namespace se {
 		return true;
 	}
 
+	void Window::HandleResize()
+	{	
+		int aspectWidth = m_Width;
+		int aspectHeight = (int)((float)aspectWidth / m_AspectRatio);
+		if (aspectHeight > m_Height)
+		{
+			aspectHeight = m_Height;
+			aspectWidth = (int)((float)aspectHeight * m_AspectRatio);
+		}
+
+		int vpX = (int)(((float)m_Width / 2.0f) - ((float)aspectWidth / 2.0f));
+		int vpY = (int)(((float)m_Height / 2.0f) - ((float)aspectHeight / 2.0f));
+		glViewport(vpX, vpY, aspectWidth, aspectHeight);
+	}
+
 	void Window::Update() 
 	{
 		m_LastTime = (float)glfwGetTime();
@@ -79,7 +97,7 @@ namespace se {
 			m_MouseButtonsJustPressed[i] = false;
 
 		glfwGetFramebufferSize(m_Window, &m_Width, &m_Height);
-		glViewport(0, 0, m_Width, m_Height);
+		HandleResize();
 		glfwSwapBuffers(m_Window);
 		glfwPollEvents();
 	}
@@ -135,12 +153,6 @@ namespace se {
 		return m_MouseButtonsJustPressed[button];
 	}
 
-	void Window::AddToOffsets(lptm::Vector2D offset)
-	{
-		m_OffsetX += offset.x;
-		m_OffsetY += offset.y;
-	}
-	
 	void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 	{
 		Window* win = (Window*)glfwGetWindowUserPointer(window);
