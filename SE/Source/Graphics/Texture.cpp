@@ -4,7 +4,7 @@
 #include "GLFW/glfw3.h"
 
 #define STB_IMAGE_STATIC
-#include "Source/Vendor/stb_image/stb_image.h"
+#include "Vendor/stb_image/stb_image.h"
 
 #include "Texture.h"
 
