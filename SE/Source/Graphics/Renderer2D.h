@@ -1,11 +1,11 @@
 #pragma once
 
-#include <vector>
-
 #include "Maths/Maths.h"
 #include "Buffers.h"
 #include "Texture.h"
 #include "Shader.h"
+
+#include "Graphics/Window.h"
 
 namespace se {
 
@@ -30,7 +30,7 @@ namespace se {
 	class Renderer2D
 	{
 	public:
-		Renderer2D();
+		Renderer2D(Window& window);
 		~Renderer2D();
 
 		void RenderQuad(lptm::Vector2D size, lptm::Vector3D position, lptm::Vector4D color);
@@ -38,6 +38,8 @@ namespace se {
 		void RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize);
 
 		void RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, lptm::Vector4D color, float rotation);
+		void RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader, float rotation);
+		void RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize, float rotation);
 
 		void Flush();
 	private:
@@ -59,6 +61,8 @@ namespace se {
 
 		int32_t m_TextureUnits[Renderer2DSpecification::MaxTextureUnits];
 		const se::Shader* m_Shader;
+
+		Window& m_Window;
 	};
 
 }

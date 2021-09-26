@@ -80,7 +80,7 @@ namespace se {
 			aspectHeight = m_Height;
 			aspectWidth = (int)((float)aspectHeight * m_AspectRatio);
 		}
-
+	
 		int vpX = (int)(((float)m_Width / 2.0f) - ((float)aspectWidth / 2.0f));
 		int vpY = (int)(((float)m_Height / 2.0f) - ((float)aspectHeight / 2.0f));
 		glViewport(vpX, vpY, aspectWidth, aspectHeight);
