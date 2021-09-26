@@ -104,6 +104,29 @@ namespace se {
 		glBindTextureUnit(textureUnit, texture.GetTextureID());
 	}
 
+	void Renderer2D::RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, lptm::Vector4D color, float rotation)
+	{
+		lptm::Vector2D topLeft		= lptm::Vector2D(-size.x,  size.y).Rotate(-rotation);
+		lptm::Vector2D topRight		= lptm::Vector2D( size.x,  size.y).Rotate(-rotation);
+		lptm::Vector2D bottomRight	= lptm::Vector2D( size.x, -size.y).Rotate(-rotation);
+		lptm::Vector2D bottomLeft	= lptm::Vector2D(-size.x, -size.y).Rotate(-rotation);
+	
+		float vertices[] = {
+			topLeft.x	  + position.x, topLeft.y     + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+			topRight.x	  + position.x, topRight.y    + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+			bottomRight.x + position.x,	bottomRight.y + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+			bottomLeft.x  + position.x,	bottomLeft.y  + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f
+		};
+
+		for (uint32_t i = 0; i < sizeof(vertices) / sizeof(float); i++)
+			m_VertexBufferData[m_VertexBufferOffset + i] = vertices[i];
+
+		m_VertexCount += 4;
+		m_IndexCount += 6;
+
+		m_VertexBufferOffset += sizeof(vertices) / sizeof(float);
+	}
+
 	void Renderer2D::Flush()
 	{
 		if(m_Shader != nullptr)
