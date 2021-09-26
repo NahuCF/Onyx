@@ -1,5 +1,9 @@
 #include "pch.h"
+
+#include <math.h>
+
 #include "Vector2D.h"
+#include "Functions.h"
 
 namespace lptm {
 
@@ -26,7 +30,7 @@ namespace lptm {
 	Vector2D& Vector2D::Multiply(const Vector2D& other) 
 	{
 		return *this;
-	}	 
+	}
 
 	Vector2D Vector2D::operator+(const Vector2D& other)
 	{
@@ -49,6 +53,20 @@ namespace lptm {
 	Vector2D& Vector2D::operator*=(const Vector2D& other) 
 	{ 
 		return Multiply(other);
+	}
+
+	Vector2D Vector2D::Rotate(float degRotation)
+	{
+		float rotation = GetVectorAngle() + degRotation;
+		float x = this->x * std::cos(DegreeToRadian(rotation)) - this->y * std::sin(DegreeToRadian(rotation));
+		float y = this->x * std::sin(DegreeToRadian(rotation)) + this->y * std::cos(DegreeToRadian(rotation));
+
+		return Vector2D(x, y);
+	}
+
+	float Vector2D::GetVectorAngle() const
+	{
+		return std::atan(y / x);
 	}
 
 	bool Vector2D::operator==(const Vector2D& other) const
