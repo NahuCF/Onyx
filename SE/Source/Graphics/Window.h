@@ -10,7 +10,7 @@ namespace se {
 	class Window
 	{
 	public:
-		Window(const char* title = "Temporal name", uint32_t width = 1280, uint32_t height = 720, float aspectRatio = 16.0f / 9.0f);
+		Window(const char* title = "Temporal name", uint32_t width = 900, uint32_t height = 900, float aspectRatio = 1.0f);
 		~Window();
 
 		bool Closed() const;
