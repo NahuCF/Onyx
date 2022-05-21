@@ -39,8 +39,8 @@ namespace se {
 		float aspectRatio = m_Window.GetAspectRatio();
 
 		float vertices[] = {
-			 size.x + position.x,  size.y * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
 			-size.x + position.x,  size.y * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+			 size.x + position.x,  size.y * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
 			 size.x + position.x, -size.y * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
 			-size.x + position.x, -size.y * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f
 		};
