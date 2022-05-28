@@ -102,7 +102,7 @@ namespace se {
 		glfwPollEvents();
 	}
 
-	bool Window::Closed() const
+	bool Window::ShouldClose() const
 	{
 		return glfwWindowShouldClose(m_Window);
 	}

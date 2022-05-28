@@ -13,7 +13,7 @@ namespace se {
 		Window(const char* title = "Temporal name", uint32_t width = 900, uint32_t height = 900, float aspectRatio = 1.0f);
 		~Window();
 
-		bool Closed() const;
+		bool ShouldClose() const;
 		void Update();
 		void Clear();
 
