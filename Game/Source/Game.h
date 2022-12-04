@@ -14,4 +14,7 @@ private:
 	se::Shader* m_BaseShader;
 	se::Renderer2D* m_Renderer;
 	GameObject m_Player;
+
+	se::ParticleSystem m_ParticleSystem;
+	se::ParticleProperties m_ParticleProps;
 };
