@@ -9,7 +9,7 @@
 #include "Graphics/Buffers.h"
 #include "Graphics/Framebuffer.h"
 #include "Graphics/Renderer2D.h"
-//#include "Graphics/ParticleSystem.h"
+#include "Graphics/ParticleSystem.h"
 #include "Maths/Maths.h"
 
 // Tilemap
