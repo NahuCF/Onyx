@@ -12,4 +12,10 @@ namespace lptm {
 
 	lptm::Vector2D RotateVector(Vector2D point, float degRotation);
 
+	float lerp(float a, float b, float t);
+	lptm::Vector4D lerp4D(lptm::Vector4D a, lptm::Vector4D b, float t);
+	lptm::Vector2D lerp2D(lptm::Vector2D a, lptm::Vector2D b, float t);
+
+	float ramdomInRange(float min, float max);
+
 }

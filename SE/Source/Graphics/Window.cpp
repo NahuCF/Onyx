@@ -123,6 +123,17 @@ namespace se {
 		}
 	}
 
+	lptm::Vector2D Window::GetMousePos() 
+	{
+		lptm::Vector2D posInPx = GetMousePosInPixels();
+		lptm::Vector2D windowSize = GetWindowSize();
+
+		float x = (posInPx.x * 2) / windowSize.x;
+		float y = (posInPx.y * 2) / windowSize.y;
+
+		return lptm::Vector2D(x, y);
+	}
+
 	void Window::ShowFPS(bool value)
 	{
 		m_ShowFPS = value;

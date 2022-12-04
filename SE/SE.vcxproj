@@ -101,10 +101,12 @@
     <ClCompile Include="Source\Graphics\Animation.cpp" />
     <ClCompile Include="Source\Graphics\Buffers.cpp" />
     <ClCompile Include="Source\Graphics\Framebuffer.cpp" />
+    <ClCompile Include="Source\Graphics\ParticleSystem.cpp" />
     <ClCompile Include="Source\Graphics\Renderer2D.cpp" />
     <ClCompile Include="Source\Graphics\Shader.cpp" />
     <ClCompile Include="Source\Graphics\Texture.cpp" />
     <ClCompile Include="Source\Graphics\Window.cpp" />
+    <ClCompile Include="Source\Maths\Functions.cpp" />
     <ClCompile Include="Source\Maths\Vector2D.cpp" />
     <ClCompile Include="Source\Maths\Vector3D.cpp" />
     <ClCompile Include="Source\Maths\Vector4D.cpp" />
@@ -123,6 +125,7 @@
     <ClInclude Include="Source\Graphics\Animation.h" />
     <ClInclude Include="Source\Graphics\Buffers.h" />
     <ClInclude Include="Source\Graphics\Framebuffer.h" />
+    <ClInclude Include="Source\Graphics\ParticleSystem.h" />
     <ClInclude Include="Source\Graphics\Renderer2D.h" />
     <ClInclude Include="Source\Maths\Functions.h" />
     <ClInclude Include="Source\Maths\Maths.h" />

@@ -36,4 +36,32 @@ namespace lptm {
 		return lptm::Vector2D(std::cos(DegreeToRadian(degRotation)) * module, std::sin(DegreeToRadian(degRotation)) * module);
 	}
 
+	float lerp(float a, float b, float t)
+	{
+		return a + t * (b - a);
+	}
+
+	lptm::Vector4D lerp4D(lptm::Vector4D a, lptm::Vector4D b, float t)
+	{
+		return lptm::Vector4D(
+			lptm::lerp(a.x, b.x, t),
+			lptm::lerp(a.y, b.y, t),
+			lptm::lerp(a.z, b.z, t),
+			lptm::lerp(a.w, b.w, t)
+		);
+	}
+
+	lptm::Vector2D lerp2D(lptm::Vector2D a, lptm::Vector2D b, float t)
+	{
+		return lptm::Vector2D(
+			lptm::lerp(a.x, b.x, t),
+			lptm::lerp(a.y, b.y, t)
+		);
+	}
+
+	float ramdomInRange(float min, float max)
+	{
+		return ((float(rand()) / float(RAND_MAX)) * (max - min)) + min;;
+	}
+
 }
