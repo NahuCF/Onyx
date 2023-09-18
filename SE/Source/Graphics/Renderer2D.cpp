@@ -77,16 +77,16 @@ namespace se {
 		glBindTextureUnit(textureUnit, texture.GetTextureID());
 	}
 
-	void Renderer2D::RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize)
+	void Renderer2D::RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture* texture, const se::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
-		int textureUnit = texture.GetTextureID() - 1;
+		int textureUnit = texture->GetTextureID() - 1;
 
 		lptm::Vector2D spriteUV[4];
-		spriteUV[0] = { (spriteCoord.x * spriteSize.x) / texture.GetTextureSize().x, (spriteCoord.y * spriteSize.y) / texture.GetTextureSize().y };				// Bottom left
-		spriteUV[1] = { ((spriteCoord.x + 1) * spriteSize.x) / texture.GetTextureSize().x, (spriteCoord.y * spriteSize.y) / texture.GetTextureSize().y };		// Bottom right
-		spriteUV[2] = { ((spriteCoord.x + 1) * spriteSize.x) / texture.GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture.GetTextureSize().y }; // Top right
-		spriteUV[3] = { (spriteCoord.x * spriteSize.x) / texture.GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture.GetTextureSize().y };		// Top left
+		spriteUV[0] = { (spriteCoord.x * spriteSize.x) / texture->GetTextureSize().x, (spriteCoord.y * spriteSize.y) / texture->GetTextureSize().y };				// Bottom left
+		spriteUV[1] = { ((spriteCoord.x + 1) * spriteSize.x) / texture->GetTextureSize().x, (spriteCoord.y * spriteSize.y) / texture->GetTextureSize().y };		// Bottom right
+		spriteUV[2] = { ((spriteCoord.x + 1) * spriteSize.x) / texture->GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture->GetTextureSize().y }; // Top right
+		spriteUV[3] = { (spriteCoord.x * spriteSize.x) / texture->GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture->GetTextureSize().y };		// Top left
 
 		float vertices[] = {
 			-size.x + position.x, -size.y * aspectRatio + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[3].x, spriteUV[3].y,		(float)textureUnit,
@@ -104,7 +104,62 @@ namespace se {
 
 		m_Shader = shader;
 		m_TextureUnits[textureUnit] = textureUnit;
-		glBindTextureUnit(textureUnit, texture.GetTextureID());
+		glBindTextureUnit(textureUnit, texture->GetTextureID());
+	}
+
+	void Renderer2D::RenderCircle(float radius, int subdivision, lptm::Vector3D position, lptm::Vector4D color)
+	{
+		float aspectRatio = m_Window.GetAspectRatio();
+
+		float angle = 0;
+
+		for (int i = 0; i < 4; i++)
+		{
+			radius = 1;
+			subdivision = 3;
+
+
+			/*float vertices[] = {
+				0.0f	+ position.x,  0.0f * aspectRatio	+ position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+				radius	+ position.x,  height * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+				radius + position.x,  height* aspectRatio + position.y, position.z,			color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+			};*/
+
+			float point1Angle = (90 / subdivision) * 2;
+			lptm::Vector2D point1 = lptm::Vector2D(
+				std::cos(point1Angle) * radius,
+				std::sin(point1Angle) * radius
+			).Rotate(-angle);
+
+			float point2Angle = (90 / subdivision);
+			lptm::Vector2D point2 = lptm::Vector2D(
+				std::sin(point2Angle) * radius,
+				std::cos(point2Angle) * radius
+			).Rotate(-angle);
+
+			float point3Angle = (90 / subdivision);
+			lptm::Vector2D point3 = lptm::Vector2D(
+				radius / std::cos(point3Angle),
+				std::tan(point3Angle) * radius
+			).Rotate(-angle);
+
+
+			float vertices[] = {
+				0.0f + position.x, 0.0f * aspectRatio + position.y, position.z,				0.2,  0.2f, 0.2f, 0.2f, 1.0f,			0.0f, 0.0f,		-1.0f,
+				point1.x + position.x, point1.y * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		1.0f, 0.0f,		-1.0f,
+				point2.x + position.x, point2.y * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		1.0f, 1.0f,		-1.0f,
+				point3.x + position.x, point3.y * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 1.0f,		-1.0f
+			};
+
+			//angle += 90 / subdivision;
+
+			for (uint32_t i = 0; i < sizeof(vertices) / sizeof(float); i++)
+				m_VertexBufferData[m_VertexBufferOffset + i] = vertices[i];
+
+			m_VertexCount += 4;
+			m_IndexCount += 6;
+			m_VertexBufferOffset += sizeof(vertices) / sizeof(float);
+		}
 	}
 
 	void Renderer2D::RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, lptm::Vector4D color, float rotation)
@@ -198,9 +253,10 @@ namespace se {
 
 	void Renderer2D::Flush()
 	{
+		std::cout << glGetUniformLocation(m_Shader->GetProgramID(), "TextureData") << std::endl;
 		if(m_Shader != nullptr)
-			glUniform1iv(glGetUniformLocation(m_Shader->GetProgramID(), "u_Textures"), Renderer2DSpecification::MaxTextureUnits, m_TextureUnits);
-
+			glUniform1iv(glGetUniformLocation(m_Shader->GetProgramID(), "TextureData"), Renderer2DSpecification::MaxTextureUnits, m_TextureUnits);
+		
 		m_VAO->Bind();
 		m_VBO->Bind();
 		m_EBO->Bind();
