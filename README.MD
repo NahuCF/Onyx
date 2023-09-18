@@ -1,5 +1,5 @@
 # SHITTY ENGINE (SE)
 
-If I do not change this readme before 25-10-2021 I am gay :D
+Simple engine for quick and low level game development.
 
 License under [WTFPL LICENSE](LICENSE)
