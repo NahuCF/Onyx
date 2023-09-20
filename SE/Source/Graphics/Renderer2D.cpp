@@ -39,10 +39,10 @@ namespace se {
 		float aspectRatio = m_Window.GetAspectRatio();
 
 		float vertices[] = {
-			-size.x + position.x,  size.y * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
-			 size.x + position.x,  size.y * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
-			 size.x + position.x, -size.y * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
-			-size.x + position.x, -size.y * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f
+			-size.x + position.x*2,  size.y * aspectRatio + position.y*2, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+			 size.x + position.x*2,  size.y * aspectRatio + position.y*2, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+			 size.x + position.x*2, -size.y * aspectRatio + position.y*2, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+			-size.x + position.x*2, -size.y * aspectRatio + position.y*2, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f
 		};
 	
 		for(uint32_t i = 0; i < sizeof(vertices) / sizeof(float); i++)
@@ -89,10 +89,10 @@ namespace se {
 		spriteUV[3] = { (spriteCoord.x * spriteSize.x) / texture->GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture->GetTextureSize().y };		// Top left
 
 		float vertices[] = {
-			-size.x + position.x, -size.y * aspectRatio + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[3].x, spriteUV[3].y,		(float)textureUnit,
-			 size.x + position.x, -size.y * aspectRatio + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[2].x, spriteUV[2].y,		(float)textureUnit,
-			 size.x + position.x,  size.y * aspectRatio + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[1].x, spriteUV[1].y,		(float)textureUnit,
-			-size.x + position.x,  size.y * aspectRatio + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[0].x, spriteUV[0].y,		(float)textureUnit
+			-size.x + position.x*2, -size.y * aspectRatio + position.y*2, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[3].x, spriteUV[3].y,		(float)textureUnit,
+			 size.x + position.x*2, -size.y * aspectRatio + position.y*2, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[2].x, spriteUV[2].y,		(float)textureUnit,
+			 size.x + position.x*2,  size.y* aspectRatio + position.y*2, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[1].x, spriteUV[1].y,		(float)textureUnit,
+			-size.x + position.x*2,  size.y * aspectRatio + position.y*2, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[0].x, spriteUV[0].y,		(float)textureUnit
 		};
 
 		for (uint32_t i = 0; i < sizeof(vertices) / sizeof(float); i++)
@@ -253,7 +253,6 @@ namespace se {
 
 	void Renderer2D::Flush()
 	{
-		std::cout << glGetUniformLocation(m_Shader->GetProgramID(), "TextureData") << std::endl;
 		if(m_Shader != nullptr)
 			glUniform1iv(glGetUniformLocation(m_Shader->GetProgramID(), "TextureData"), Renderer2DSpecification::MaxTextureUnits, m_TextureUnits);
 		
