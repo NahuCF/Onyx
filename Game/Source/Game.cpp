@@ -2,11 +2,14 @@
 
 Game::Game()
 {
+	m_WorldSize = { 20, 12 };
+	m_Origin = { 10, 7 };
+	m_World = new int[m_WorldSize.x * m_WorldSize.y]{ 0 };
+
 	m_Window = new se::Window();
 	m_BaseShader = new se::Shader("Assets/Shaders/Shader.vs", "Assets/Shaders/Shader.fs");
 	m_TextureShader = new se::Shader("Assets/Shaders/TextureShader.vs", "Assets/Shaders/TextureShader.fs");
-	//m_TilesTexture = new se::Texture("Assets/Textures/floor_tiles_100x50.png");
-	m_TilesTexture = new se::Texture("Assets/Textures/testQuad.png");
+	m_TilesTexture = new se::Texture("Assets/Textures/isometric_demo.png");
 	m_Renderer = new se::Renderer2D(*m_Window);
 
 	m_ParticleSystem = se::ParticleSystem();
@@ -25,12 +28,7 @@ Game::Game()
 	m_ParticleProps.colorEnd = { 0.0f, 0.2f, 0.1f, 1.0f };
 
 	m_Window->SetVSync(1);
-	//m_Window->SetWindowColor({ 0.1f, 0.1f, 0.1f, 1.0f });
 	m_Window->SetWindowColor({ 1.0f, 1.0f, 1.0f, 1.0f });
-
-	lptm::Vector2D worldSize = { 10, 6 };
-	lptm::Vector2D origin = { 3,2 };
-	m_World = new int[worldSize.x * worldSize.y]{ 0 };
 }
 
 Game::~Game()
@@ -52,10 +50,10 @@ lptm::Vector2D pixelToNormalized(lptm::Vector2D size, lptm::Vector2D windowSize)
 
 void Game::Update()
 {
-	lptm::Vector2D worldSize = { 10, 6 };
-	lptm::Vector2D origin = { 3,2	 };
+	lptm::Vector2D worldSize = m_WorldSize;
+	lptm::Vector2D origin = m_Origin;
 
-	lptm::Vector2D spriteSize = { 102, 52 };
+	lptm::Vector2D spriteSize = { 40, 20 };
 	lptm::Vector2D tileSize = pixelToNormalized({ spriteSize.x, spriteSize.y }, m_Window->GetWindowSize());
 
 	auto ToScreen = [&](int x, int y)
@@ -99,18 +97,19 @@ void Game::Update()
 		m_TextureShader->Bind();
 		m_TilesTexture->Bind();
 
+		// Render select tile
 		lptm::Vector2D screenPos = ToScreen(worldPos.x, worldPos.y);
 		m_Renderer->RenderQuad(
 			tileSize,
 			{
 				screenPos.x,
 				screenPos.y,
-				0.0f
+				.0f
 			},
 			m_TilesTexture,
 			m_TextureShader,
-			{ 1, 0},
-			{ 100, 50 }
+			{ 0, 5 },
+			spriteSize
 		);
 
 		if (m_Window->IsButtomJustPressed(GLFW_MOUSE_BUTTON_LEFT))
@@ -122,6 +121,8 @@ void Game::Update()
 		{
 			for (int x = 0; x < worldSize.x; x++)
 			{
+				lptm::Vector2D sizeTree = { 40, 40 };
+				lptm::Vector2D worldSizeTree = pixelToNormalized(sizeTree, m_Window->GetWindowSize());
 				lptm::Vector2D tilePosition = ToScreen(x, y);
 
 				switch (m_World[(int)(y * worldSize.x + x)])
@@ -136,8 +137,8 @@ void Game::Update()
 						},
 						m_TilesTexture,
 						m_TextureShader,
-						{ 0, 0 },
-						{ 100, 50 }
+						{ 1, 5 },
+						spriteSize
 					);
 					break;
 				case 1:
@@ -145,13 +146,27 @@ void Game::Update()
 						tileSize,
 						{
 							tilePosition.x,
-							tilePosition.y,
+							tilePosition.y ,
 							0.0f
 						},
 						m_TilesTexture,
 						m_TextureShader,
-						{ 1, 0 },
-						{ 100, 50 }
+						{ 2, 5 },
+						spriteSize
+					);
+					break;
+				case 2:
+					m_Renderer->RenderQuad(
+						worldSizeTree,
+						{
+							tilePosition.x,
+							tilePosition.y - (worldSizeTree.y / 4),
+							0.0f
+						},
+						m_TilesTexture,
+						m_TextureShader,
+						{ 0, 0 },
+						sizeTree
 					);
 					break;
 				default:
@@ -165,8 +180,8 @@ void Game::Update()
 						},
 						m_TilesTexture,
 						m_TextureShader,
-						{ 2, 0 },
-						{ 100, 50 }
+						{ 0, 0 },
+						spriteSize
 					);
 					break;
 				}

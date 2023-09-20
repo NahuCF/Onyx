@@ -45,5 +45,8 @@
     <Image Include="Assets\Textures\floor_tiles_100x50.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="Assets\Textures\isometric_demo.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

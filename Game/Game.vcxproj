@@ -34,6 +34,7 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\Textures\floor_tiles_100x50.png" />
+    <Image Include="Assets\Textures\isometric_demo.png" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

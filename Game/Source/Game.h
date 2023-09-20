@@ -18,6 +18,8 @@ private:
 	GameObject m_Player;
 
 	int* m_World = nullptr;
+	lptm::Vector2D m_WorldSize;
+	lptm::Vector2D m_Origin;
 
 	se::ParticleSystem m_ParticleSystem;
 	se::ParticleProperties m_ParticleProps;
