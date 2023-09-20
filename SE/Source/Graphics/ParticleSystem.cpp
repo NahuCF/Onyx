@@ -94,7 +94,7 @@ namespace se {
 		particle.colorBegin = props.colorBegin;
 		particle.colorEnd = props.colorEnd;
 
-		if (m_PoolIndex == m_ParticlePool.size())
+		if (m_PoolIndex == m_ParticlePool.size() - 1)
 		{
 			m_PoolIndex = 0;
 			return;

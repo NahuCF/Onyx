@@ -38,7 +38,7 @@ namespace se {
 			float lifetime = 1.0f;
 			float lifeRemaining = 1.0f;
 				
-			bool active = true;
+			bool active = false;
 		};
 
 		std::vector<Particle> m_ParticlePool;
