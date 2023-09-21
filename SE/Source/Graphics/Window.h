@@ -38,6 +38,7 @@ namespace se {
 		bool IsKeyPressed(uint32_t keyCode) const;
 		bool IsButtomPressed(uint32_t button) const;
 		bool IsButtomJustPressed(uint32_t button) const;
+		bool IsButtomReleased(uint32_t button) const;
 
 		bool IsMouseMoving() const { return m_IsMouseMoving; }
 	
@@ -68,6 +69,7 @@ namespace se {
 		bool m_Keys[1024];
 		bool m_MouseButtons[32];
 		bool m_MouseButtonsJustPressed[32];
+		bool m_MouseButtonsReleased[32];
 		bool m_IsMouseMoving;
 
 		uint32_t m_WindowPosX, m_WindowPosY;

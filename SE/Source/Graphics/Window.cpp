@@ -28,6 +28,9 @@ namespace se {
 
 		for(int i = 0; i < 32; i++)
 			m_MouseButtonsJustPressed[i] = false;
+
+		for (int i = 0; i < 32; i++)
+			m_MouseButtonsReleased[i] = false;
 	};
 	
 	Window::~Window()
@@ -96,6 +99,9 @@ namespace se {
 		for(int i = 0; i < 32; i++)
 			m_MouseButtonsJustPressed[i] = false;
 
+		for (int i = 0; i < 32; i++)
+			m_MouseButtonsReleased[i] = false;
+
 		glfwGetFramebufferSize(m_Window, &m_Width, &m_Height);
 		HandleResize();
 		glfwSwapBuffers(m_Window);
@@ -128,8 +134,8 @@ namespace se {
 		lptm::Vector2D posInPx = GetMousePosInPixels();
 		lptm::Vector2D windowSize = GetWindowSize();
 
-		float x = (posInPx.x * 2) / windowSize.x;
-		float y = (posInPx.y * 2) / windowSize.y;
+		float x = posInPx.x / windowSize.x;
+		float y = posInPx.y / windowSize.y;
 
 		return lptm::Vector2D(x, y);
 	}
@@ -164,6 +170,11 @@ namespace se {
 		return m_MouseButtonsJustPressed[button];
 	}
 
+	bool Window::IsButtomReleased(uint32_t button) const
+	{
+		return m_MouseButtonsReleased[button];
+	}
+
 	void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 	{
 		Window* win = (Window*)glfwGetWindowUserPointer(window);
@@ -177,6 +188,7 @@ namespace se {
 
 		win->m_MouseButtons[button] = action == GLFW_PRESS;
 		win->m_MouseButtonsJustPressed[button] = action == GLFW_PRESS;
+		win->m_MouseButtonsReleased[button] = action == GLFW_RELEASE;
 	}
 
 	void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
