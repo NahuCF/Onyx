@@ -13,6 +13,7 @@ namespace lptm {
 		Vector2D& Multiply(const Vector2D& other);
 
 		Vector2D operator+(const Vector2D& other);
+		Vector2D operator-(const Vector2D& other);
 		Vector2D operator*(const Vector2D& other);
 
 		Vector2D& operator+=(const Vector2D& other);
