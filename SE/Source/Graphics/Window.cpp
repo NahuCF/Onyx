@@ -23,6 +23,9 @@ namespace se {
 		for(int i = 0; i < 1024; i++)
 			m_Keys[i] = false;
 
+		for (int i = 0; i < 1024; i++)
+			m_KeysJustPressed[i] = false;
+
 		for(int i = 0; i < 32; i++)
 			m_MouseButtons[i] = false;
 
@@ -96,6 +99,9 @@ namespace se {
 	
 		m_FPS++;
 		
+		for (int i = 0; i < 1024; i++)
+			m_KeysJustPressed[i] = false;
+
 		for(int i = 0; i < 32; i++)
 			m_MouseButtonsJustPressed[i] = false;
 
@@ -155,14 +161,19 @@ namespace se {
 		glfwTerminate();
 	}
 
-	bool Window::IsButtomPressed(uint32_t button) const
-	{
-		return m_MouseButtons[button];
-	}
-
 	bool Window::IsKeyPressed(uint32_t keyCode) const
 	{
 		return m_Keys[keyCode];
+	}
+
+	bool Window::IsKeyJustPressed(uint32_t key) const
+	{
+		return m_KeysJustPressed[key];
+	}
+
+	bool Window::IsButtomPressed(uint32_t button) const
+	{
+		return m_MouseButtons[button];
 	}
 
 	bool Window::IsButtomJustPressed(uint32_t button) const
@@ -194,7 +205,9 @@ namespace se {
 	void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 	{
 		Window* win = (Window*)glfwGetWindowUserPointer(window);
+
 		win->m_Keys[key] = action != GLFW_RELEASE;
+		win->m_KeysJustPressed[key] = action == GLFW_PRESS;
 	}
 
 	void window_pos_callback(GLFWwindow* window, int xpos, int ypos)

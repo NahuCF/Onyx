@@ -40,6 +40,8 @@ namespace se {
 		bool IsButtomJustPressed(uint32_t button) const;
 		bool IsButtomReleased(uint32_t button) const;
 
+		bool IsKeyJustPressed(uint32_t button) const;
+
 		bool IsMouseMoving() const { return m_IsMouseMoving; }
 	
 		lptm::Vector2D GetMousePos();
@@ -67,6 +69,8 @@ namespace se {
 		friend void window_pos_callback(GLFWwindow* window, int xpos, int ypos);
 
 		bool m_Keys[1024];
+		bool m_KeysJustPressed[1024];
+
 		bool m_MouseButtons[32];
 		bool m_MouseButtonsJustPressed[32];
 		bool m_MouseButtonsReleased[32];
