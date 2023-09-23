@@ -23,4 +23,12 @@ private:
 
 	se::ParticleSystem m_ParticleSystem;
 	se::ParticleProperties m_ParticleProps;
+
+	lptm::Vector2D m_InitialMousePosition;
+	lptm::Vector2D m_WorldOffset;
+	lptm::Vector2D m_LastOffset;
+
+	float m_Zoom = 1.0f;
+
+	ImGuiIO& Init();
 };

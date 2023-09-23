@@ -1,12 +1,13 @@
 #include "Game.h"
+#include <cmath>
 
 Game::Game()
 {
-	m_WorldSize = { 20, 12 };
-	m_Origin = { 10, 7 };
+	m_WorldSize = { 200, 200 };
+	m_Origin = { 6, -16 };
 	m_World = new int[m_WorldSize.x * m_WorldSize.y]{ 0 };
 
-	m_Window = new se::Window();
+	m_Window = new se::Window("asd", 1000, 1000, 1);
 	m_BaseShader = new se::Shader("Assets/Shaders/Shader.vs", "Assets/Shaders/Shader.fs");
 	m_TextureShader = new se::Shader("Assets/Shaders/TextureShader.vs", "Assets/Shaders/TextureShader.fs");
 	m_TilesTexture = new se::Texture("Assets/Textures/isometric_demo.png");
@@ -29,6 +30,7 @@ Game::Game()
 
 	m_Window->SetVSync(1);
 	m_Window->SetWindowColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+
 }
 
 Game::~Game()
@@ -48,6 +50,15 @@ lptm::Vector2D pixelToNormalized(lptm::Vector2D size, lptm::Vector2D windowSize)
 	);
 }
 
+lptm::Vector2D normalizedToPixel(lptm::Vector2D size, lptm::Vector2D windowSize)
+{
+	return lptm::Vector2D(
+		size.x * windowSize.x,
+		size.y * windowSize.y
+	);
+}
+
+
 void Game::Update()
 {
 	lptm::Vector2D worldSize = m_WorldSize;
@@ -56,67 +67,114 @@ void Game::Update()
 	lptm::Vector2D spriteSize = { 40, 20 };
 	lptm::Vector2D tileSize = pixelToNormalized({ spriteSize.x, spriteSize.y }, m_Window->GetWindowSize());
 
+	// Ajust offset to match the origin
+	m_WorldOffset.x += spriteSize.x * m_Origin.x;
+	m_WorldOffset.y += spriteSize.y * m_Origin.y;
+
 	auto ToScreen = [&](int x, int y)
 	{
-		return lptm::Vector2D(
-			(origin.x * tileSize.x) + (x - y) * (tileSize.x / 2) + tileSize.x / 2,
-			(origin.y * tileSize.y) + (x + y) * (tileSize.y / 2) + tileSize.y / 2
-		);
-	};
-
-	auto ToWorld = [&](lptm::Vector2D mousePos)
-	{
-		lptm::Vector2D mouse =
-		{
-			mousePos.x - (int)(origin.x * spriteSize.x),
-			mousePos.y - (int)(origin.y * spriteSize.y),
-		};
-
-		return lptm::Vector2D(
-			(mouse.x + (2 * mouse.y) - (spriteSize.x / 2)) / spriteSize.x,
-			(-mouse.x + (2 * mouse.y) + (spriteSize.x / 2)) / spriteSize.x
-		);
-	};
-
-
-	while(!m_Window->ShouldClose())
-	{
-		m_Window->Clear(); 
-
-		lptm::Vector2D mouse = m_Window->GetMousePosInPixels();
-		lptm::Vector2D cell = { mouse.x / spriteSize.x, mouse.y / spriteSize.y };
+		lptm::Vector2D offset = pixelToNormalized(m_WorldOffset, m_Window->GetWindowSize());
 		
-		lptm::Vector2D selected =
-		{
-			(mouse.x / (spriteSize.x / 2) + mouse.y / (spriteSize.y / 2)) / 2,
-			(mouse.y / (spriteSize.y / 2) - mouse.x / (spriteSize.x / 2)) / 2
-		};
+		return lptm::Vector2D(
+			(x - y) * (tileSize.x / 2) + offset.x,
+			(x + y) * (tileSize.y / 2) + offset.y
+		);
+	};
 
-		lptm::Vector2D worldPos = ToWorld(mouse);
+	auto ToWorldWithOffset = [&](lptm::Vector2D mousePos)
+	{
+		mousePos.x -= m_WorldOffset.x;
+		mousePos.y -= m_WorldOffset.y;
 
+		return lptm::Vector2D(
+			((mousePos.x + (2 * mousePos.y) - (spriteSize.x / 2)) / spriteSize.x),
+			((-mousePos.x + (2 * mousePos.y) + (spriteSize.x / 2)) / spriteSize.x)
+		);
+	};
+
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGui::StyleColorsDark();
+	ImGui_ImplGlfw_InitForOpenGL(m_Window->WindowGUI(), true);
+	ImGui_ImplOpenGL3_Init("#version 330");
+
+	while (!m_Window->ShouldClose())
+	{
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		m_Window->Clear();
 		m_TextureShader->Bind();
 		m_TilesTexture->Bind();
 
-		// Render select tile
-		lptm::Vector2D screenPos = ToScreen(worldPos.x, worldPos.y);
-		m_Renderer->RenderQuad(
-			tileSize,
-			{
-				screenPos.x,
-				screenPos.y,
-				.0f
-			},
-			m_TilesTexture,
-			m_TextureShader,
-			{ 0, 5 },
-			spriteSize
-		);
+		lptm::Vector2D worldPosWithOffset = ToWorldWithOffset(m_Window->GetMousePosInPixels());
 
-		if (m_Window->IsButtomJustPressed(GLFW_MOUSE_BUTTON_LEFT))
+		if (
+			worldPosWithOffset.y > 0 && 
+			worldPosWithOffset.x > 0 &&
+			worldPosWithOffset.x <= worldSize.x &&
+			worldPosWithOffset.y <= worldSize.y 
+			)
 		{
-			m_World[(int)((int)worldPos.y * worldSize.x + (int)worldPos.x)]++;
+			lptm::Vector2D tilePosition = ToScreen((int)worldPosWithOffset.x, (int)worldPosWithOffset.y);
+			tilePosition.x += tileSize.x / 2;
+			tilePosition.y += tileSize.y / 2;
+			m_Renderer->RenderQuad(
+				tileSize,
+				{
+					tilePosition.x,
+					tilePosition.y,
+					.0f
+				},
+				m_TilesTexture,
+				m_TextureShader,
+				{ 0, 5 },
+				spriteSize
+			);
 		}
 
+
+		// Set tiles
+		if (m_Window->IsButtomJustPressed(GLFW_MOUSE_BUTTON_LEFT))
+		{
+			//m_InitialMousePosition = m_Window->GetMousePos();
+			
+			// Set tile value
+			if (
+				worldPosWithOffset.y > 0 && 
+				worldPosWithOffset.x > 0 &&
+				worldPosWithOffset.x <= worldSize.x &&
+				worldPosWithOffset.y <= worldSize.y 
+				)
+			{
+				m_World[(int)((int)worldPosWithOffset.y * worldSize.x + (int)worldPosWithOffset.x)]++;
+			}
+		}
+
+		if (m_Window->IsKeyPressed(GLFW_KEY_RIGHT))
+			m_WorldOffset.x -= 10.0f;
+		if (m_Window->IsKeyPressed(GLFW_KEY_LEFT))
+			m_WorldOffset.x += 10.0f;
+		if (m_Window->IsKeyPressed(GLFW_KEY_UP))
+			m_WorldOffset.y += 10.0f;
+		if (m_Window->IsKeyPressed(GLFW_KEY_DOWN))
+			m_WorldOffset.y -= 10.0f;
+
+		// Panning
+		if (m_Window->IsButtomPressed(GLFW_MOUSE_BUTTON_LEFT))
+		{ 
+			//m_WorldOffset += m_Window->GetMousePos() - m_InitialMousePosition;
+			//m_InitialMousePosition = m_Window->GetMousePos();
+		}
+
+		{
+			ImGui::Text("TILE: %d, %d", (int)worldPosWithOffset.x, (int)worldPosWithOffset.y);
+			ImGui::Text("WORLD OFFSET (px): %d, %d", (int)m_WorldOffset.x, (int)m_WorldOffset.y);
+
+			ImGui::End();
+		}
 		for (int y = 0; y < worldSize.y; y++)
 		{
 			for (int x = 0; x < worldSize.x; x++)
@@ -124,6 +182,9 @@ void Game::Update()
 				lptm::Vector2D sizeTree = { 40, 40 };
 				lptm::Vector2D worldSizeTree = pixelToNormalized(sizeTree, m_Window->GetWindowSize());
 				lptm::Vector2D tilePosition = ToScreen(x, y);
+				tilePosition.x += tileSize.x / 2;
+				tilePosition.y += tileSize.y / 2;
+				//tilePosition.x += pixelToNormalized({ 500, 500 }, m_Window->GetWindowSize()).x;
 
 				switch (m_World[(int)(y * worldSize.x + x)])
 				{
@@ -170,7 +231,7 @@ void Game::Update()
 					);
 					break;
 				default:
-					m_World[(int)((int)worldPos.y * worldSize.x + (int)worldPos.x)] = 0;
+					m_World[(int)((int)worldPosWithOffset.y * worldSize.x + (int)worldPosWithOffset.x)] = 0;
 					m_Renderer->RenderQuad(
 						tileSize,
 						{
@@ -201,6 +262,8 @@ void Game::Update()
 		m_ParticleSystem.Update(m_Window->GetSeconds());
 		m_ParticleSystem.Render(m_Renderer);*/
 
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		m_Renderer->Flush();
 		m_Window->Update();
 	}
