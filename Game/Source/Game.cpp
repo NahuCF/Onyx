@@ -3,11 +3,11 @@
 
 Game::Game()
 {
-	m_WorldSize = { 200, 200 };
-	m_Origin = { 6, -16 };
+	m_WorldSize = { 30, 15 };
+	m_Origin = { 5, 5 };
 	m_World = new int[m_WorldSize.x * m_WorldSize.y]{ 0 };
 
-	m_Window = new se::Window("asd", 1000, 1000, 1);
+	m_Window = new se::Window("asd", 900, 900, 1);
 	m_BaseShader = new se::Shader("Assets/Shaders/Shader.vs", "Assets/Shaders/Shader.fs");
 	m_TextureShader = new se::Shader("Assets/Shaders/TextureShader.vs", "Assets/Shaders/TextureShader.fs");
 	m_TilesTexture = new se::Texture("Assets/Textures/isometric_demo.png");
@@ -108,6 +108,8 @@ void Game::Update()
 		m_Window->Clear();
 		m_TextureShader->Bind();
 		m_TilesTexture->Bind();
+		//m_BaseShader->Bind();
+		//m_TilesTexture->Bind();
 
 		lptm::Vector2D worldPosWithOffset = ToWorldWithOffset(m_Window->GetMousePosInPixels());
 
@@ -175,16 +177,15 @@ void Game::Update()
 
 			ImGui::End();
 		}
-		for (int y = 0; y < worldSize.y; y++)
+		for (int y = worldSize.y - 1 ; y > 0; y--)
 		{
-			for (int x = 0; x < worldSize.x; x++)
+			for (int x = worldSize.x - 1; x > 0; x--)
 			{
 				lptm::Vector2D sizeTree = { 40, 40 };
 				lptm::Vector2D worldSizeTree = pixelToNormalized(sizeTree, m_Window->GetWindowSize());
 				lptm::Vector2D tilePosition = ToScreen(x, y);
 				tilePosition.x += tileSize.x / 2;
 				tilePosition.y += tileSize.y / 2;
-				//tilePosition.x += pixelToNormalized({ 500, 500 }, m_Window->GetWindowSize()).x;
 
 				switch (m_World[(int)(y * worldSize.x + x)])
 				{
@@ -232,18 +233,6 @@ void Game::Update()
 					break;
 				default:
 					m_World[(int)((int)worldPosWithOffset.y * worldSize.x + (int)worldPosWithOffset.x)] = 0;
-					m_Renderer->RenderQuad(
-						tileSize,
-						{
-							tilePosition.x,
-							tilePosition.y,
-							0.0f
-						},
-						m_TilesTexture,
-						m_TextureShader,
-						{ 0, 0 },
-						spriteSize
-					);
 					break;
 				}
 			}
@@ -254,7 +243,7 @@ void Game::Update()
 		//m_Player.Render(m_Renderer);
 		/*if (m_Window->IsButtomPressed(GLFW_MOUSE_BUTTON_1))
 		{
-			m_ParticleProps.position = { m_Window->GetMousePos().x, m_Window->GetMousePos().y};
+			m_ParticleProps.position = { m_Window->GetMousePos().x * 2, m_Window->GetMousePos().y * 2};
 			for(int i = 0; i < 10; i++)
 				m_ParticleSystem.Emit(m_ParticleProps);
 		}
