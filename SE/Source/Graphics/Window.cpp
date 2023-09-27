@@ -51,7 +51,7 @@ namespace se {
 		curtime = (float)glfwGetTime();
 		lasttime = (float)glfwGetTime();
 		m_Window = glfwCreateWindow(m_Width, m_Height, m_Title, NULL, NULL);
-
+        
 		if(!m_Window)
 		{
 			glfwTerminate();
@@ -94,6 +94,8 @@ namespace se {
 
 	void Window::Update() 
 	{
+        glfwSetWindowMonitor(m_Window, m_Monitor, m_WindowPosX, m_WindowPosY, m_Width, m_Height, GLFW_DONT_CARE);
+        
 		m_LastTime = (float)glfwGetTime();
 		m_IsMouseMoving = false;
 	

@@ -34,6 +34,9 @@ namespace se {
 
 		void CloseWindow() const;
 		GLFWwindow* WindowGUI() { return m_Window; }
+
+        void MakeFullScreen() { m_Monitor = glfwGetPrimaryMonitor(); }
+        void MakeWindowed() { m_Monitor = nullptr; }
 	public:
 		bool IsKeyPressed(uint32_t keyCode) const;
 		bool IsButtomPressed(uint32_t button) const;
@@ -78,6 +81,8 @@ namespace se {
 
 		uint32_t m_WindowPosX, m_WindowPosY;
 		double m_XMousePos, m_YMousePos;
+
+        GLFWmonitor* m_Monitor = nullptr;
 	};
 
 } 
