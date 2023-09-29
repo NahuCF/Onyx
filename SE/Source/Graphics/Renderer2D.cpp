@@ -254,7 +254,7 @@ namespace se {
 	void Renderer2D::Flush()
 	{
 		if(m_Shader != nullptr)
-			glUniform1iv(glGetUniformLocation(m_Shader->GetProgramID(), "TextureData"), Renderer2DSpecification::MaxTextureUnits, m_TextureUnits);
+			glUniform1iv(glGetUniformLocation(m_Shader->GetProgramID(), "u_Textures"), Renderer2DSpecification::MaxTextureUnits, m_TextureUnits);
 		
 		m_VAO->Bind();
 		m_VBO->Bind();
