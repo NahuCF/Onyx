@@ -45,6 +45,8 @@ namespace se {
 		void RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize, float rotation);
 
 		void Flush();
+
+        Window& GetWindow() { return m_Window; }
 	private:
 		void CleanBuffer();
 		void CleanTextureUnits();
@@ -63,7 +65,7 @@ namespace se {
 		uint32_t m_IndexBufferOffset = 0;
 
 		int32_t m_TextureUnits[Renderer2DSpecification::MaxTextureUnits];
-		const se::Shader* m_Shader;
+		const se::Shader* m_Shader = nullptr;
 
 		Window& m_Window;
 	};
