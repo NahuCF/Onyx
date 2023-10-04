@@ -25,7 +25,6 @@ void MapRenderer::Update()
 		m_WorldOffset.y += 10.0f;
 	if (window.IsKeyPressed(GLFW_KEY_DOWN))
 		m_WorldOffset.y -= 10.0f;
-
 }
 
 void MapRenderer::Render()
