@@ -89,10 +89,10 @@ namespace se {
 		spriteUV[3] = { (spriteCoord.x * spriteSize.x) / texture->GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture->GetTextureSize().y };		// Top left
 
 		float vertices[] = {
-			-size.x + position.x*2, -size.y + position.y * 2, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[3].x, spriteUV[3].y,		(float)textureUnit,
-			 size.x + position.x*2, -size.y + position.y * 2, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[2].x, spriteUV[2].y,		(float)textureUnit,
-			 size.x + position.x*2,  size.y + position.y * 2, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[1].x, spriteUV[1].y,		(float)textureUnit,
-			-size.x + position.x*2,  size.y + position.y * 2, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		spriteUV[0].x, spriteUV[0].y,		(float)textureUnit
+			-size.x + position.x*2, -size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[3].x, spriteUV[3].y,		(float)textureUnit,
+			 size.x + position.x*2, -size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[2].x, spriteUV[2].y,		(float)textureUnit,
+			 size.x + position.x*2,  size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[1].x, spriteUV[1].y,		(float)textureUnit,
+			-size.x + position.x*2,  size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[0].x, spriteUV[0].y,		(float)textureUnit
 		};
 
 		for (uint32_t i = 0; i < sizeof(vertices) / sizeof(float); i++)
