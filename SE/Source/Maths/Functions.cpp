@@ -25,6 +25,16 @@ namespace lptm {
 		return sqrt(vector.x * vector.x + vector.y * vector.y);
 	}
 
+    lptm::Vector2D Normalize(lptm::Vector2D vector)
+    {
+        float module = VectorModule(vector);
+
+        return {
+            vector.x / module,
+            vector.y / module
+        };
+    }
+
 	float VectorAngle(Vector2D vector)
 	{
 		return std::atan(vector.y / vector.x);

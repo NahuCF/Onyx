@@ -10,6 +10,8 @@ namespace lptm {
 	float VectorModule(Vector2D vector);
 	float VectorAngle(Vector2D vector);
 
+    lptm::Vector2D Normalize(lptm::Vector2D vector);
+
 	lptm::Vector2D RotateVector(Vector2D point, float degRotation);
 
 	float lerp(float a, float b, float t);
