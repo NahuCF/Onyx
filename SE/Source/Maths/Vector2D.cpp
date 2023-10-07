@@ -55,6 +55,14 @@ namespace lptm {
 		return Multiply(other);
 	}
 
+	Vector2D Vector2D::operator*(const float other)
+	{
+		return {
+            (*this).x * other,
+            (*this).y * other
+        };
+	}
+
 	Vector2D& Vector2D::operator*=(const Vector2D& other) 
 	{ 
 		return Multiply(other);
