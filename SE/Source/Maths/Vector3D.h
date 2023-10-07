@@ -13,6 +13,7 @@ namespace lptm {
 
 		Vector3D operator+(const Vector3D& other);
 		Vector3D operator*(const Vector3D& other);
+		Vector3D operator*(const float other);
 
 		Vector3D& operator+=(const Vector3D& other);
 		Vector3D& operator*=(const Vector3D& other);

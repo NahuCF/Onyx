@@ -50,6 +50,15 @@ namespace lptm {
 		return Multiply(other);
 	}
 
+	Vector3D Vector3D::operator*(const float other)
+	{
+		return {
+            (*this).x * other,
+            (*this).y * other,
+            (*this).z * other,
+        };
+	}
+
 	Vector3D& Vector3D::operator*=(const Vector3D& other) 
 	{ 
 		return Multiply(other);
