@@ -26,13 +26,15 @@ lptm::Vector2D ToScreen(int x, int y, lptm::Vector2D tileSize, lptm::Vector2D of
 };
 
 // Mouse pos to world x;y
-lptm::Vector2D ToWorld(lptm::Vector2D mousePos, lptm::Vector2D tileSize, lptm::Vector2D worldOffset)
+// Tilesize = Pixels
+// worldoffeset in pixels
+lptm::Vector2D ToWorld(lptm::Vector2D normalizedPosition, lptm::Vector2D tileSize, lptm::Vector2D worldOffset)
 {
-	mousePos.x -= worldOffset.x;
-	mousePos.y -= worldOffset.y;
+	normalizedPosition.x -= worldOffset.x;
+	normalizedPosition.y -= worldOffset.y;
 
 	return lptm::Vector2D(
-		((mousePos.x + (2 * mousePos.y) - (tileSize.x / 2)) / tileSize.x),
-		((-mousePos.x + (2 * mousePos.y) + (tileSize.x / 2)) / tileSize.x)
+		((normalizedPosition.x + (2 * normalizedPosition.y) - (tileSize.x / 2)) / tileSize.x),
+		((-normalizedPosition.x + (2 * normalizedPosition.y) + (tileSize.x / 2)) / tileSize.x)
 	);
 };
