@@ -38,3 +38,8 @@ lptm::Vector2D ToWorld(lptm::Vector2D normalizedPosition, lptm::Vector2D tileSiz
 		((-normalizedPosition.x + (2 * normalizedPosition.y) + (tileSize.x / 2)) / tileSize.x)
 	);
 };
+
+uint32_t WorldToIndex(lptm::Vector2D tilePos, lptm::Vector2D worldSize)
+{
+    return tilePos.y * worldSize.x + tilePos.x;
+}

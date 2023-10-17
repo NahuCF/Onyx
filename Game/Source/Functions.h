@@ -11,3 +11,5 @@ lptm::Vector2D ToScreen(int x, int y, lptm::Vector2D tileSize, lptm::Vector2D of
 
 // Mouse pos to world x;y
 lptm::Vector2D ToWorld(lptm::Vector2D normalizedPosition, lptm::Vector2D tileSize, lptm::Vector2D worldOffset);
+
+uint32_t WorldToIndex(lptm::Vector2D tilePos, lptm::Vector2D worldSize);
