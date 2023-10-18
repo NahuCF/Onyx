@@ -30,3 +30,10 @@ enum class EventType
     Processing,
     Success
 };
+
+enum class TileStatus
+{
+    Unexplored,
+    Explored,
+    Seeing
+};
