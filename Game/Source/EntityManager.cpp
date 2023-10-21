@@ -1,20 +1,44 @@
 #include "EntityManager.h"
 #include "Enums.h"
 #include "Actions/ActionMove.h"
+#include "Functions.h"
 
-EntityManager::EntityManager(uint32_t entityCount, std::shared_ptr<se::Renderer2D> renderer)
+EntityManager::EntityManager(uint32_t entityCount, std::shared_ptr<se::Renderer2D> renderer, std::shared_ptr<Map>& map)
     : m_Renderer(renderer)
+    , m_Map(map)
 {
     m_Entities.reserve(entityCount);
+    m_Camera = m_Renderer->GetCamera().lock();
 }
 
-// Loops through the entities and execute their actions
 void EntityManager::Update()
 {
+    lptm::Vector2D windowSize = m_Renderer->GetWindow().GetWindowSize();
+
+    // Set all tiles unexplored
+    m_Map->CleanExplored();
+
     EntityVector::iterator i;
     for (i = m_Entities.begin(); i != m_Entities.end(); i++) {
         (*i)->Update();
-        (*i)->Render(m_Renderer.lock());
+        
+        // Get entity tile position
+        lptm::Vector2D entityTile = ToWorld(
+            NormalizedToPixel((*i)->GetPosition(), windowSize), 
+            {40.0f, 20.0f},
+			NormalizedToPixel({0.0f, 0.0f}, windowSize)
+        );
+
+        uint32_t entityX = (int)entityTile.x;
+        uint32_t entityY = (int)entityTile.y;
+
+        m_Map->SetExploredInRange({(float)entityX, (float)entityY}, (*i)->GetVision());
+
+        {
+            //ImGui::Text("EntityPosition: %f, %f; Tile: %i %i", (*i)->GetPosition().x, (*i)->GetPosition().y, entityX, entityY);
+        }
+
+        (*i)->Render(m_Renderer);
     }
 }
 
@@ -43,7 +67,7 @@ void EntityManager::SetSelected(lptm::Vector2D begin, lptm::Vector2D end,std::sh
 
     m_SelectedEntities.clear();
 
-    lptm::Vector3D cameraPosition = m_Renderer.lock()->GetCamera().lock()->GetPosition();
+    lptm::Vector3D cameraPosition = m_Renderer->GetCamera().lock()->GetPosition();
     begin = begin - lptm::Vector2D(cameraPosition.x, cameraPosition.y);
     end = end - lptm::Vector2D(cameraPosition.x, cameraPosition.y);
 

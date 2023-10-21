@@ -2,6 +2,7 @@
 
 #include <SE.h>
 #include "Mechanics/Entity.h"
+#include "Map.h"
 
 typedef std::vector<std::shared_ptr<Entity>> EntityVector;
 
@@ -10,7 +11,7 @@ typedef std::vector<std::shared_ptr<Entity>> EntityVector;
 class EntityManager
 {
 public:
-    EntityManager(uint32_t entityCount, std::shared_ptr<se::Renderer2D> renderer);
+    EntityManager(uint32_t entityCount, std::shared_ptr<se::Renderer2D> renderer, std::shared_ptr<Map>& map);
 
     void Update();
 
@@ -26,5 +27,7 @@ public:
 private:
     EntityVector m_Entities;
     EntityVector m_SelectedEntities;
-    std::weak_ptr<se::Renderer2D> m_Renderer;
+    std::shared_ptr<se::Renderer2D> m_Renderer;
+    std::shared_ptr<se::Camera> m_Camera;
+    std::shared_ptr<Map> m_Map;
 };
