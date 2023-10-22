@@ -3,10 +3,11 @@
 #include <SE.h>
 #include <vector>
 #include "Mechanics/Entity.h"
+#include "Enums.h"
 
 struct TileData
 {
-    bool IsExplored = false;
+    TileStatus Status = TileStatus::Unexplored;
 };
 
 class Map

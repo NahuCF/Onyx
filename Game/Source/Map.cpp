@@ -18,12 +18,16 @@ void Map::SetExploredInRange(lptm::Vector2D origin, int tileVision)
             int32_t posX = (int)origin.x + x; 
             int32_t posY = (int)origin.y + y; 
 
+            // Avoid see another side of map
+            if(posX < 0 || posY < 0)
+                continue;
+
             uint32_t index = posY * m_Rows + posX;
 
             if(index >= m_TileData.size())
                 continue;   
 
-            m_TileData[index].IsExplored = true;
+            m_TileData[index].Status = TileStatus::Seeing;
 
             //ImGui::Text("PosX: %i PosY: %i Index: %i, Origin: %i, %i", x, y, index, (int)origin.x, (int)origin.y);
         }
@@ -33,7 +37,10 @@ void Map::SetExploredInRange(lptm::Vector2D origin, int tileVision)
 void Map::CleanExplored()
 {
     for(auto& tile : m_TileData) 
-        tile.IsExplored = false;
+    {
+        if(tile.Status == TileStatus::Seeing)
+            tile.Status = TileStatus::Explored;
+    }
 }
 
 void Map::AddEntityAt(int col, int row, lptm::Vector2D mapSize, Entity& entity)
