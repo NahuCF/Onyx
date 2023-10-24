@@ -17,6 +17,7 @@ public:
     void SetPosition(lptm::Vector2D position)  { m_Position = position; }
 
     float GetSpeed() const { return m_Speed; }
+    void SetSpeed(float speed) { m_Speed = speed; }
 
     void AddAction(ActionPtr action) { m_ActionQueue.push_back(action); }
     void SetColor(lptm::Vector4D color) { m_Color = color; }
