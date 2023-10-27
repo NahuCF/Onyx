@@ -1,6 +1,9 @@
-#include <SE.h>
+#pragma once
 
-#include "GameObject.h"
+#include <SE.h>
+#include <memory>
+#include "MapRenderer.h"
+#include "EntityManager.h"
 
 class Game
 {
@@ -8,27 +11,20 @@ public:
 	Game();
 	~Game();
 
+    void OnInput();
+
 	void Update();
 private:
-	se::Window* m_Window;
-	se::Texture* m_TilesTexture;
-	se::Shader* m_TextureShader;
-	se::Shader* m_BaseShader;
-	se::Renderer2D* m_Renderer;
-	GameObject m_Player;
+	std::unique_ptr<se::Window> m_Window;
+	std::shared_ptr<se::Renderer2D> m_Renderer;
+	std::shared_ptr<se::Camera> m_Camera;
+    std::unique_ptr<MapRenderer> m_MapRenderer;
+    std::unique_ptr<EntityManager> m_EntityManager;
+    std::shared_ptr<Map> m_Map;
+    
+	std::shared_ptr<Player> m_Player;
 
-	int* m_World = nullptr;
-	lptm::Vector2D m_WorldSize;
-	lptm::Vector2D m_Origin;
-
-	se::ParticleSystem m_ParticleSystem;
-	se::ParticleProperties m_ParticleProps;
-
-	lptm::Vector2D m_InitialMousePosition;
-	lptm::Vector2D m_WorldOffset;
-	lptm::Vector2D m_LastOffset;
-
-	float m_Zoom = 1.0f;
+	std::shared_ptr<Entity> unit;
 
 	ImGuiIO& Init();
 };
