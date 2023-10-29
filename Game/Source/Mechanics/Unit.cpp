@@ -17,7 +17,7 @@ void Unit::Render(std::shared_ptr<se::Renderer2D> renderer)
     lptm::Vector3D cameraPos = renderer->GetCamera().lock()->GetPosition();
 
     renderer.get()->RenderQuad(
-        { 0.05f, 0.05f },
+        { 0.005f, 0.005f },
         { m_Position.x + cameraPos.x, m_Position.y + cameraPos.y, 0.5f },
         m_Color
     );
