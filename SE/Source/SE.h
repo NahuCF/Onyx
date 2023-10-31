@@ -11,6 +11,7 @@
 #include "Graphics/Renderer2D.h"
 #include "Graphics/ParticleSystem.h"
 #include "Maths/Maths.h"
+#include "Graphics/Camera.h"
 
 // Tilemap
 #include "OrtogonalTilemap.h"
@@ -23,3 +24,8 @@
 #include "Vendor/ImGUI/imgui_impl_opengl3.h"
 
 #include "GL/glew.h"
+
+// Std
+#include <vector>
+#include <map>
+#include <utility>
