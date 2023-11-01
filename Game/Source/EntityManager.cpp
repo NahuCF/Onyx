@@ -88,10 +88,8 @@ void EntityManager::SetSelected(lptm::Vector2D begin, lptm::Vector2D end,std::sh
 void EntityManager::OnRightClick(lptm::Vector2D normalizedMousePos)
 {
     // Move
-    EntityVector::iterator it;
-    for(it = m_SelectedEntities.begin(); it != m_SelectedEntities.end(); it ++ ){
-        MoveUnitTo(*it, normalizedMousePos);
-    }
+    for(std::shared_ptr<Entity> &entity: m_SelectedEntities)
+        MoveUnitTo(entity, normalizedMousePos);
 }
 
 void EntityManager::MoveUnitTo(std::shared_ptr<Entity>& entity, lptm::Vector2D destination)
