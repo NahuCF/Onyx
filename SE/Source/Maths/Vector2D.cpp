@@ -100,4 +100,13 @@ namespace lptm {
 		stream << "(" << vector.x << ", " << vector.y << ")";
 		return stream;
 	}
+
+    Vector2D& lptm::Vector2D::NormalizeValues() 
+    {
+        x = abs(x);
+        y = abs(y);
+        
+        return *this;
+    }
 }
+

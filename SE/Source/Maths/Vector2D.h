@@ -11,6 +11,7 @@ namespace lptm {
 
 		Vector2D& Add(const Vector2D& other);
 		Vector2D& Multiply(const Vector2D& other);
+        Vector2D& NormalizeValues();
 
 		Vector2D operator+(const Vector2D& other);
 		Vector2D operator-(const Vector2D& other);
