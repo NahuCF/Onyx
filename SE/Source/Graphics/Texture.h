@@ -12,6 +12,8 @@ namespace se {
 
 		void Bind() const;
 		void UnBind() const;
+        
+        void SetData(void* data);
 
 		uint32_t GetTextureID() const { return m_TextureID; }
 		lptm::Vector2D GetTextureSize() const { return lptm::Vector2D(m_TextureWidth, m_TextureHeight); }

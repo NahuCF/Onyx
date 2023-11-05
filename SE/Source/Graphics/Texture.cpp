@@ -50,4 +50,8 @@ namespace se {
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
+    void Texture::SetData(void* data)
+    {
+        glTextureSubImage2D(this->m_TextureID, 0, 0, 0, m_TextureWidth, m_TextureHeight, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    }
 }
