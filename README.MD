@@ -1,4 +1,4 @@
-# SHITTY ENGINE (SE)
+# Onyx
 
 Simple engine for quick and low level game development.
 
