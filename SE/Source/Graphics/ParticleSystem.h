@@ -3,7 +3,7 @@
 #include "Maths/Maths.h";
 #include "Renderer2D.h";
 
-namespace se {
+namespace Velvet {
 
 	struct ParticleProperties
 	{
@@ -22,7 +22,7 @@ namespace se {
 		~ParticleSystem();
 
 		void Update(float timestamp);
-		void Render(se::Renderer2D* renderer);
+		void Render(Velvet::Renderer2D* renderer);
 
 		void Emit(const ParticleProperties& props);
 		void Emitter(const ParticleProperties& props);

@@ -2,7 +2,7 @@
 
 #include <vector>
 
-namespace se {
+namespace Velvet {
 
 	class VertexBuffer
 	{

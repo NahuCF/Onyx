@@ -2,7 +2,7 @@
 
 #include "ParticleSystem.h";
 
-namespace se {
+namespace Velvet {
 
 	ParticleSystem::ParticleSystem(int particleCount)
 	{
@@ -35,7 +35,7 @@ namespace se {
 		}
 	}
 
-	void ParticleSystem::Render(se::Renderer2D* renderer)
+	void ParticleSystem::Render(Velvet::Renderer2D* renderer)
 	{
 		for (auto& particle : m_ParticlePool)
 		{

@@ -5,7 +5,7 @@
 
 #include "Buffers.h"
 
-namespace se {
+namespace Velvet {
 
 	VertexBuffer::VertexBuffer(uint32_t size)
 	{

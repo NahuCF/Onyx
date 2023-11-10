@@ -5,8 +5,7 @@
 
 #include "Framebuffer.h"
 
-namespace se
-{
+namespace Velvet {
 	Framebuffer::Framebuffer()
 	{
 		Create();

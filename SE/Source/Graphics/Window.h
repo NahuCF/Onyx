@@ -5,12 +5,12 @@
 
 #include "Maths/Maths.h"
 
-namespace se {
+namespace Velvet {
 
 	class Window
 	{
 	public:
-		Window(const char* title = "Temporal name", uint32_t width = 900, uint32_t height = 900, float aspectRatio = 1.0f);
+		Window(const char* title = "Temporal name", uint32_t width = 900, uint32_t height = 900, float aspectRatio = 1.0f, bool fullscreen = true);
 		~Window();
 
 		bool ShouldClose() const;
@@ -25,17 +25,24 @@ namespace se {
 		void ShowFPS(bool value = 0);
 		void SetVSync(bool value = 0) const;
 
+        int GetFramerate() const { return m_LastFPS; }
+
 		lptm::Vector2D GetWindowSize() const { return lptm::Vector2D(m_Width, m_Height); }
 		lptm::Vector2D GetWidowPos() const { return lptm::Vector2D(m_WindowPosX, m_WindowPosY); }
 
 		void SetWindowColor(lptm::Vector4D color) const { glClearColor(color.x, color.y, color.z, color.w); }
 
 		float GetAspectRatio() const { return m_AspectRatio; }
+        //lptm::Vector2D GetMainMonitorSize() 
+        //{ 
+            //const GLFWvidmode* mode = glfwGetVideoMode(m_Monitor);
+            //return { mode->width, mode->height };
+        //}
 
 		void CloseWindow() const;
 		GLFWwindow* WindowGUI() { return m_Window; }
 
-        void MakeFullScreen() { m_Monitor = glfwGetPrimaryMonitor(); }
+        void MakeFullScreen();
         void MakeWindowed() { m_Monitor = nullptr; }
 	public:
 		bool IsKeyPressed(uint32_t keyCode) const;
@@ -57,6 +64,7 @@ namespace se {
 		float m_AspectRatio;
 		float m_LastTime = 0.0f, m_CurrentTime = 0.0f;
 		int m_FPS = 0;
+        int m_LastFPS = 0;
 		bool m_ShowFPS = false;
 		bool m_Closed;
 
@@ -79,8 +87,10 @@ namespace se {
 		bool m_MouseButtonsReleased[32];
 		bool m_IsMouseMoving;
 
-		uint32_t m_WindowPosX, m_WindowPosY;
+		int m_WindowPosX, m_WindowPosY;
 		double m_XMousePos, m_YMousePos;
+
+        bool m_FullScreen;
 
         GLFWmonitor* m_Monitor = nullptr;
 	};

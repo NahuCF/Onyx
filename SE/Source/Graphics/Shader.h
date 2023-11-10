@@ -4,7 +4,7 @@
 
 #include "glm.hpp"
 
-namespace se {
+namespace Velvet {
 
 	class Shader 
 	{

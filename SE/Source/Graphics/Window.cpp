@@ -2,18 +2,20 @@
 
 #include "Window.h"
 
-namespace se {
+namespace Velvet {
 
 	void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 	void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 	void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 	void window_pos_callback(GLFWwindow* window, int xpos, int ypos);
+    void window_resize_callback(GLFWwindow* window, int cx, int cy);
 
-	Window::Window(const char* title, uint32_t width, uint32_t height, float aspectRatio)
+	Window::Window(const char* title, uint32_t width, uint32_t height, float aspectRatio, bool fullscreen)
 		: m_Title(title)
 		, m_Height(height)
 		, m_Width(width)
 		, m_AspectRatio(aspectRatio)
+        , m_FullScreen(fullscreen)
 	{
 		if(!Init())
 			glfwTerminate();
@@ -50,7 +52,19 @@ namespace se {
 		}
 		curtime = (float)glfwGetTime();
 		lasttime = (float)glfwGetTime();
+
+
+        if(m_FullScreen)
+        {
+            const GLFWvidmode * mode = glfwGetVideoMode(m_Monitor);
+            m_Width = mode->width;
+            m_Height = mode->height;
+        }
+
 		m_Window = glfwCreateWindow(m_Width, m_Height, m_Title, NULL, NULL);
+
+        if(m_FullScreen)
+            MakeFullScreen();
         
 		if(!m_Window)
 		{
@@ -65,6 +79,8 @@ namespace se {
 		glfwSetCursorPosCallback(m_Window, cursor_position_callback);
 		glfwSetMouseButtonCallback(m_Window, mouse_button_callback);
 		glfwSetWindowPosCallback(m_Window, window_pos_callback);
+        glfwSetWindowSizeCallback(m_Window, window_resize_callback);
+
 
 		if(glewInit() != GLEW_OK)
 		{
@@ -95,7 +111,6 @@ namespace se {
 	void Window::Update() 
 	{
         glfwSetWindowMonitor(m_Window, m_Monitor, m_WindowPosX, m_WindowPosY, m_Width, m_Height, GLFW_DONT_CARE);
-        
 		m_LastTime = (float)glfwGetTime();
 		m_IsMouseMoving = false;
 	
@@ -112,6 +127,7 @@ namespace se {
 
 		glfwGetFramebufferSize(m_Window, &m_Width, &m_Height);
 		HandleResize();
+
 		glfwSwapBuffers(m_Window);
 		glfwPollEvents();
 	}
@@ -121,6 +137,11 @@ namespace se {
 		return glfwWindowShouldClose(m_Window);
 	}
 
+    void Window::MakeFullScreen()
+    {
+        glfwSetWindowMonitor(m_Window, m_Monitor, 0, 0, m_Width, m_Height, 0 );
+    }
+
 	void Window::Clear()
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -129,6 +150,7 @@ namespace se {
 		curtime = (float)glfwGetTime();
 		if (curtime - lasttime > 1)
 		{
+            m_LastFPS = m_FPS;
 			std::cout << "FPS: " << m_FPS << std::endl;
 			m_FPS = 0;
 
@@ -219,5 +241,10 @@ namespace se {
 		win->m_WindowPosX = xpos;
 		win->m_WindowPosY = ypos;
 	}
+
+    void window_resize_callback(GLFWwindow* window, int cx, int cy)
+    {
+
+    }
 
 }

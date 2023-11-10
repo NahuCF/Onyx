@@ -5,7 +5,7 @@
 #include "glm.hpp"
 #include "gtc/matrix_transform.hpp"
 
-namespace se {
+namespace Velvet {
 
 	Shader::Shader(const char* vertexPath, const char* fragmentPath)
 	{

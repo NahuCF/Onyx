@@ -1,13 +1,13 @@
 #include "pch.h"
-
 #include "Renderer2D.h"
 
-namespace se {
+namespace Velvet {
 
-	Renderer2D::Renderer2D(Window& window)
-		: m_VAO(new se::VertexArray)
-		, m_VBO(new se::VertexBuffer(Renderer2DSpecification::VertexBufferSize))
+	Renderer2D::Renderer2D(Window& window, std::shared_ptr<Camera> camera)
+		: m_VAO(new Velvet::VertexArray)
+		, m_VBO(new Velvet::VertexBuffer(Renderer2DSpecification::VertexBufferSize))
 		, m_Window(window)
+        , m_Camera(camera)
 	{
 		for (uint32_t i = 0; i < Renderer2DSpecification::IndexBufferSize; i += 6)
 		{
@@ -53,7 +53,7 @@ namespace se {
 		m_VertexBufferOffset += sizeof(vertices) / sizeof(float);
 	}
 
-	void Renderer2D::RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader)
+	void Renderer2D::RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture& texture, const Velvet::Shader* shader)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 		int textureUnit = texture.GetTextureID() - 1;
@@ -77,7 +77,7 @@ namespace se {
 		glBindTextureUnit(textureUnit, texture.GetTextureID());
 	}
 
-	void Renderer2D::RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture* texture, const se::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize)
+	void Renderer2D::RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture* texture, const Velvet::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 		int textureUnit = texture->GetTextureID() - 1;
@@ -87,12 +87,12 @@ namespace se {
 		spriteUV[1] = { ((spriteCoord.x + 1) * spriteSize.x) / texture->GetTextureSize().x, (spriteCoord.y * spriteSize.y) / texture->GetTextureSize().y };		// Bottom right
 		spriteUV[2] = { ((spriteCoord.x + 1) * spriteSize.x) / texture->GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture->GetTextureSize().y }; // Top right
 		spriteUV[3] = { (spriteCoord.x * spriteSize.x) / texture->GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture->GetTextureSize().y };		// Top left
-
+	
 		float vertices[] = {
-			-size.x + position.x*2, -size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[3].x, spriteUV[3].y,		(float)textureUnit,
-			 size.x + position.x*2, -size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[2].x, spriteUV[2].y,		(float)textureUnit,
-			 size.x + position.x*2,  size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[1].x, spriteUV[1].y,		(float)textureUnit,
-			-size.x + position.x*2,  size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[0].x, spriteUV[0].y,		(float)textureUnit
+			-size.x + position.x * 2, -size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[3].x, spriteUV[3].y,		(float)textureUnit,
+			 size.x + position.x * 2, -size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[2].x, spriteUV[2].y,		(float)textureUnit,
+			 size.x + position.x * 2,  size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[1].x, spriteUV[1].y,		(float)textureUnit,
+			-size.x + position.x * 2,  size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[0].x, spriteUV[0].y,		(float)textureUnit
 		};
 
 		for (uint32_t i = 0; i < sizeof(vertices) / sizeof(float); i++)
@@ -106,6 +106,14 @@ namespace se {
 		m_TextureUnits[textureUnit] = textureUnit;
 		glBindTextureUnit(textureUnit, texture->GetTextureID());
 	}
+
+    void Renderer2D::RenderRotatedLine(lptm::Vector2D start, lptm::Vector2D end, float width, lptm::Vector4D color, float rotation)
+    {
+        float length = lptm::VectorModule(end - start);
+        lptm::Vector2D center = lptm::Vector2D(end.x - start.x, end.y - end.y) / 2;
+
+        RenderRotatedQuad({length, width}, {start.x + center.x, start.y, 0.0f}, color, rotation);
+    }
 
 	void Renderer2D::RenderCircle(float radius, int subdivision, lptm::Vector3D position, lptm::Vector4D color)
 	{
@@ -172,10 +180,10 @@ namespace se {
 		lptm::Vector2D bottomLeft	= lptm::Vector2D(-size.x, -size.y).Rotate(-rotation);
 	
 		float vertices[] = {
-			topLeft.x	  + position.x, topLeft.y     * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
-			topRight.x	  + position.x, topRight.y    * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
-			bottomRight.x + position.x,	bottomRight.y * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
-			bottomLeft.x  + position.x,	bottomLeft.y  * aspectRatio + position.y, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f
+			topLeft.x	  + position.x * 2, topLeft.y* aspectRatio + position.y * 2, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+			topRight.x	  + position.x * 2, topRight.y* aspectRatio + position.y * 2, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+			bottomRight.x + position.x * 2,	bottomRight.y* aspectRatio + position.y * 2, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
+			bottomLeft.x  + position.x * 2,	bottomLeft.y* aspectRatio + position.y * 2, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f
 		};
 
 		for (uint32_t i = 0; i < sizeof(vertices) / sizeof(float); i++)
@@ -187,7 +195,7 @@ namespace se {
 		m_VertexBufferOffset += sizeof(vertices) / sizeof(float);
 	}
 
-	void Renderer2D::RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader, float rotation)
+	void Renderer2D::RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture& texture, const Velvet::Shader* shader, float rotation)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 		int textureUnit = texture.GetTextureID() - 1;
@@ -216,7 +224,7 @@ namespace se {
 		glBindTextureUnit(textureUnit, texture.GetTextureID());
 	}
 
-	void Renderer2D::RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize, float rotation)
+	void Renderer2D::RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture& texture, const Velvet::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize, float rotation)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 		int textureUnit = texture.GetTextureID() - 1;

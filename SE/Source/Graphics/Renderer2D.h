@@ -1,14 +1,14 @@
-
 #pragma once
 
 #include "Maths/Maths.h"
 #include "Buffers.h"
 #include "Texture.h"
 #include "Shader.h"
+#include "Camera.h"
 
 #include "Graphics/Window.h"
 
-namespace se {
+namespace Velvet {
 
 	struct BufferDisposition
 	{
@@ -31,20 +31,24 @@ namespace se {
 	class Renderer2D
 	{
 	public:
-		Renderer2D(Window& window);
+		Renderer2D(Window& window, std::shared_ptr<Camera> camera);
 		~Renderer2D();
 
 		void RenderQuad(lptm::Vector2D size, lptm::Vector3D position, lptm::Vector4D color);
-		void RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader);
-		void RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture* texture, const se::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize);
+		void RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture& texture, const Velvet::Shader* shader);
+		void RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture* texture, const Velvet::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize);
+
+        void RenderRotatedLine(lptm::Vector2D start, lptm::Vector2D end, float width, lptm::Vector4D color, float rotation);
 
 		void RenderCircle(float radius, int subdivision, lptm::Vector3D position, lptm::Vector4D color);
 
 		void RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, lptm::Vector4D color, float rotation);
-		void RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader, float rotation);
-		void RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const se::Texture& texture, const se::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize, float rotation);
+		void RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture& texture, const Velvet::Shader* shader, float rotation);
+		void RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture& texture, const Velvet::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize, float rotation);
 
 		void Flush();
+
+        std::weak_ptr<Velvet::Camera> GetCamera() const { return m_Camera; }
 
         Window& GetWindow() { return m_Window; }
 	private:
@@ -65,7 +69,9 @@ namespace se {
 		uint32_t m_IndexBufferOffset = 0;
 
 		int32_t m_TextureUnits[Renderer2DSpecification::MaxTextureUnits];
-		const se::Shader* m_Shader = nullptr;
+		const Velvet::Shader* m_Shader = nullptr;
+
+		std::weak_ptr<Velvet::Camera> m_Camera;
 
 		Window& m_Window;
 	};

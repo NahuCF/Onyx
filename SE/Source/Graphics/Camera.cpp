@@ -2,7 +2,7 @@
 
 #include "Camera.h"
 
-namespace se {
+namespace Velvet {
     Camera::Camera()
     {
 

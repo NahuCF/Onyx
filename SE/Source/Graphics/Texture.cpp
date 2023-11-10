@@ -8,7 +8,7 @@
 
 #include "Texture.h"
 
-namespace se {
+namespace Velvet {
 
 	Texture::Texture(const char* texturePath)
 	{

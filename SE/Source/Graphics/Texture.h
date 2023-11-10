@@ -2,7 +2,7 @@
 
 #include "Maths/Maths.h";
 
-namespace se {
+namespace Velvet {
 
 	class Texture
 	{
