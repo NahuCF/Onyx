@@ -5,7 +5,7 @@
 #include "Vector2D.h"
 #include "Functions.h"
 
-namespace lptm {
+namespace Velvet {
 
 	Vector2D::Vector2D()
 	{
@@ -95,13 +95,13 @@ namespace lptm {
 		return x == other.x && y == other.y;
 	}
 
-	std::ostream& operator<<(std::ostream& stream, lptm::Vector2D& vector)
+	std::ostream& operator<<(std::ostream& stream, Velvet::Vector2D& vector)
 	{
 		stream << "(" << vector.x << ", " << vector.y << ")";
 		return stream;
 	}
 
-    Vector2D& lptm::Vector2D::NormalizeValues() 
+    Vector2D& Velvet::Vector2D::NormalizeValues() 
     {
         x = abs(x);
         y = abs(y);

@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Vector3D.h"
 
-namespace lptm {
+namespace Velvet {
 
 	Vector3D::Vector3D()
 	{
@@ -69,7 +69,7 @@ namespace lptm {
 		return x == other.x && y == other.y;
 	}
 
-	std::ostream& operator<<(std::ostream& stream, lptm::Vector3D& vector)
+	std::ostream& operator<<(std::ostream& stream, Velvet::Vector3D& vector)
 	{
 		stream << "(" << vector.x << ", " << vector.y << ")";
 		return stream;

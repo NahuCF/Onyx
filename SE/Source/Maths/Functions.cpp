@@ -8,7 +8,7 @@
 
 #define PI 3.14159265358979323846
 
-namespace lptm {
+namespace Velvet {
 
 	float RadianToDegree(float radian)
 	{
@@ -25,7 +25,7 @@ namespace lptm {
 		return sqrt(vector.x * vector.x + vector.y * vector.y);
 	}
 
-    lptm::Vector2D Normalize(lptm::Vector2D vector)
+    Velvet::Vector2D Normalize(Velvet::Vector2D vector)
     {
         float module = VectorModule(vector);
 
@@ -40,10 +40,10 @@ namespace lptm {
 		return std::atan(vector.y / vector.x);
 	}
 
-	lptm::Vector2D RotateVector(Vector2D vector, float degRotation)
+	Velvet::Vector2D RotateVector(Vector2D vector, float degRotation)
 	{
 		float module = VectorModule(vector);
-		return lptm::Vector2D(std::cos(DegreeToRadian(degRotation)) * module, std::sin(DegreeToRadian(degRotation)) * module);
+		return Velvet::Vector2D(std::cos(DegreeToRadian(degRotation)) * module, std::sin(DegreeToRadian(degRotation)) * module);
 	}
 
 	float lerp(float a, float b, float t)
@@ -51,21 +51,21 @@ namespace lptm {
 		return a + t * (b - a);
 	}
 
-	lptm::Vector4D lerp4D(lptm::Vector4D a, lptm::Vector4D b, float t)
+	Velvet::Vector4D lerp4D(Velvet::Vector4D a, Velvet::Vector4D b, float t)
 	{
-		return lptm::Vector4D(
-			lptm::lerp(a.x, b.x, t),
-			lptm::lerp(a.y, b.y, t),
-			lptm::lerp(a.z, b.z, t),
-			lptm::lerp(a.w, b.w, t)
+		return Velvet::Vector4D(
+			Velvet::lerp(a.x, b.x, t),
+			Velvet::lerp(a.y, b.y, t),
+			Velvet::lerp(a.z, b.z, t),
+			Velvet::lerp(a.w, b.w, t)
 		);
 	}
 
-	lptm::Vector2D lerp2D(lptm::Vector2D a, lptm::Vector2D b, float t)
+	Velvet::Vector2D lerp2D(Velvet::Vector2D a, Velvet::Vector2D b, float t)
 	{
-		return lptm::Vector2D(
-			lptm::lerp(a.x, b.x, t),
-			lptm::lerp(a.y, b.y, t)
+		return Velvet::Vector2D(
+			Velvet::lerp(a.x, b.x, t),
+			Velvet::lerp(a.y, b.y, t)
 		);
 	}
 

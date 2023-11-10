@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Vector4D.h"
 
-namespace lptm {
+namespace Velvet {
 
 	Vector4D::Vector4D()
 	{

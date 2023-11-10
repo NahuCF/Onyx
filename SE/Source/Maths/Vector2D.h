@@ -1,6 +1,6 @@
 #pragma once
 
-namespace lptm {
+namespace Velvet {
 
 	struct Vector2D
 	{
@@ -28,5 +28,5 @@ namespace lptm {
 		bool operator==(const Vector2D& other) const;
 	};
 
-	//std::ostream& operator<<(std::ostream& stream, lptm::Vector2D& vector);
+	//std::ostream& operator<<(std::ostream& stream, Velvet::Vector2D& vector);
 }
