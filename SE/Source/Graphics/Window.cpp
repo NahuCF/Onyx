@@ -2,7 +2,7 @@
 
 #include "Window.h"
 
-namespace Velvet {
+namespace Onyx {
 
 	void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 	void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
@@ -159,15 +159,15 @@ namespace Velvet {
 		}
 	}
 
-	lptm::Vector2D Window::GetMousePos() 
+	Onyx::Vector2D Window::GetMousePos() 
 	{
-		lptm::Vector2D posInPx = GetMousePosInPixels();
-		lptm::Vector2D windowSize = GetWindowSize();
+		Onyx::Vector2D posInPx = GetMousePosInPixels();
+		Onyx::Vector2D windowSize = GetWindowSize();
 
 		float x = posInPx.x / windowSize.x;
 		float y = posInPx.y / windowSize.y;
 
-		return lptm::Vector2D(x, y);
+		return Onyx::Vector2D(x, y);
 	}
 
 	void Window::ShowFPS(bool value)

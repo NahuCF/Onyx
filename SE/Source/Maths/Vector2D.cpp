@@ -5,7 +5,7 @@
 #include "Vector2D.h"
 #include "Functions.h"
 
-namespace Velvet {
+namespace Onyx {
 
 	Vector2D::Vector2D()
 	{
@@ -95,13 +95,13 @@ namespace Velvet {
 		return x == other.x && y == other.y;
 	}
 
-	std::ostream& operator<<(std::ostream& stream, Velvet::Vector2D& vector)
+	std::ostream& operator<<(std::ostream& stream, Onyx::Vector2D& vector)
 	{
 		stream << "(" << vector.x << ", " << vector.y << ")";
 		return stream;
 	}
 
-    Vector2D& Velvet::Vector2D::NormalizeValues() 
+    Vector2D& Onyx::Vector2D::NormalizeValues() 
     {
         x = abs(x);
         y = abs(y);

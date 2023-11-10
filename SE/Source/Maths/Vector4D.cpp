@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Vector4D.h"
 
-namespace Velvet {
+namespace Onyx {
 
 	Vector4D::Vector4D()
 	{

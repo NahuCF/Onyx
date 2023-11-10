@@ -8,7 +8,7 @@
 
 #include "Animation.h"
 
-namespace se {
+namespace Onyx {
 
 	Animation::Animation(const char* filePath, uint32_t width, uint32_t height, uint32_t spriteWidth, uint32_t spriteHeight)
 	{

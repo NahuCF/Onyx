@@ -8,7 +8,7 @@
 
 #include "Texture.h"
 
-namespace Velvet {
+namespace Onyx {
 
 	Texture::Texture(const char* texturePath)
 	{

@@ -2,7 +2,7 @@
 
 #include "Maths/Maths.h";
 
-namespace Velvet {
+namespace Onyx {
 
 	class Texture
 	{
@@ -16,7 +16,7 @@ namespace Velvet {
         void SetData(void* data);
 
 		uint32_t GetTextureID() const { return m_TextureID; }
-		lptm::Vector2D GetTextureSize() const { return lptm::Vector2D(m_TextureWidth, m_TextureHeight); }
+		Onyx::Vector2D GetTextureSize() const { return Onyx::Vector2D(m_TextureWidth, m_TextureHeight); }
 	private:
 		uint32_t m_TextureID;
 		unsigned char* m_TextureData;

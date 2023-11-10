@@ -1,11 +1,11 @@
 #include "pch.h"
 #include "Renderer2D.h"
 
-namespace Velvet {
+namespace Onyx {
 
 	Renderer2D::Renderer2D(Window& window, std::shared_ptr<Camera> camera)
-		: m_VAO(new Velvet::VertexArray)
-		, m_VBO(new Velvet::VertexBuffer(Renderer2DSpecification::VertexBufferSize))
+		: m_VAO(new Onyx::VertexArray)
+		, m_VBO(new Onyx::VertexBuffer(Renderer2DSpecification::VertexBufferSize))
 		, m_Window(window)
         , m_Camera(camera)
 	{
@@ -34,7 +34,7 @@ namespace Velvet {
 		delete m_IndexBufferData;
 	}
 
-	void Renderer2D::RenderQuad(lptm::Vector2D size, lptm::Vector3D position, lptm::Vector4D color)
+	void Renderer2D::RenderQuad(Onyx::Vector2D size, Onyx::Vector3D position, Onyx::Vector4D color)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 
@@ -53,7 +53,7 @@ namespace Velvet {
 		m_VertexBufferOffset += sizeof(vertices) / sizeof(float);
 	}
 
-	void Renderer2D::RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture& texture, const Velvet::Shader* shader)
+	void Renderer2D::RenderQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture& texture, const Onyx::Shader* shader)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 		int textureUnit = texture.GetTextureID() - 1;
@@ -77,12 +77,12 @@ namespace Velvet {
 		glBindTextureUnit(textureUnit, texture.GetTextureID());
 	}
 
-	void Renderer2D::RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture* texture, const Velvet::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize)
+	void Renderer2D::RenderQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture* texture, const Onyx::Shader* shader, Onyx::Vector2D spriteCoord, Onyx::Vector2D spriteSize)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 		int textureUnit = texture->GetTextureID() - 1;
 
-		lptm::Vector2D spriteUV[4];
+		Onyx::Vector2D spriteUV[4];
 		spriteUV[0] = { (spriteCoord.x * spriteSize.x) / texture->GetTextureSize().x, (spriteCoord.y * spriteSize.y) / texture->GetTextureSize().y };				// Bottom left
 		spriteUV[1] = { ((spriteCoord.x + 1) * spriteSize.x) / texture->GetTextureSize().x, (spriteCoord.y * spriteSize.y) / texture->GetTextureSize().y };		// Bottom right
 		spriteUV[2] = { ((spriteCoord.x + 1) * spriteSize.x) / texture->GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture->GetTextureSize().y }; // Top right
@@ -107,15 +107,15 @@ namespace Velvet {
 		glBindTextureUnit(textureUnit, texture->GetTextureID());
 	}
 
-    void Renderer2D::RenderRotatedLine(lptm::Vector2D start, lptm::Vector2D end, float width, lptm::Vector4D color, float rotation)
+    void Renderer2D::RenderRotatedLine(Onyx::Vector2D start, Onyx::Vector2D end, float width, Onyx::Vector4D color, float rotation)
     {
-        float length = lptm::VectorModule(end - start);
-        lptm::Vector2D center = lptm::Vector2D(end.x - start.x, end.y - end.y) / 2;
+        float length = Onyx::VectorModule(end - start);
+        Onyx::Vector2D center = Onyx::Vector2D(end.x - start.x, end.y - end.y) / 2;
 
         RenderRotatedQuad({length, width}, {start.x + center.x, start.y, 0.0f}, color, rotation);
     }
 
-	void Renderer2D::RenderCircle(float radius, int subdivision, lptm::Vector3D position, lptm::Vector4D color)
+	void Renderer2D::RenderCircle(float radius, int subdivision, Onyx::Vector3D position, Onyx::Vector4D color)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 
@@ -134,19 +134,19 @@ namespace Velvet {
 			};*/
 
 			float point1Angle = (90 / subdivision) * 2;
-			lptm::Vector2D point1 = lptm::Vector2D(
+			Onyx::Vector2D point1 = Onyx::Vector2D(
 				std::cos(point1Angle) * radius,
 				std::sin(point1Angle) * radius
 			).Rotate(-angle);
 
 			float point2Angle = (90 / subdivision);
-			lptm::Vector2D point2 = lptm::Vector2D(
+			Onyx::Vector2D point2 = Onyx::Vector2D(
 				std::sin(point2Angle) * radius,
 				std::cos(point2Angle) * radius
 			).Rotate(-angle);
 
 			float point3Angle = (90 / subdivision);
-			lptm::Vector2D point3 = lptm::Vector2D(
+			Onyx::Vector2D point3 = Onyx::Vector2D(
 				radius / std::cos(point3Angle),
 				std::tan(point3Angle) * radius
 			).Rotate(-angle);
@@ -170,14 +170,14 @@ namespace Velvet {
 		}
 	}
 
-	void Renderer2D::RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, lptm::Vector4D color, float rotation)
+	void Renderer2D::RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3D position, Onyx::Vector4D color, float rotation)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 
-		lptm::Vector2D topLeft		= lptm::Vector2D(-size.x,  size.y).Rotate(-rotation);
-		lptm::Vector2D topRight		= lptm::Vector2D( size.x,  size.y).Rotate(-rotation);
-		lptm::Vector2D bottomRight	= lptm::Vector2D( size.x, -size.y).Rotate(-rotation);
-		lptm::Vector2D bottomLeft	= lptm::Vector2D(-size.x, -size.y).Rotate(-rotation);
+		Onyx::Vector2D topLeft		= Onyx::Vector2D(-size.x,  size.y).Rotate(-rotation);
+		Onyx::Vector2D topRight		= Onyx::Vector2D( size.x,  size.y).Rotate(-rotation);
+		Onyx::Vector2D bottomRight	= Onyx::Vector2D( size.x, -size.y).Rotate(-rotation);
+		Onyx::Vector2D bottomLeft	= Onyx::Vector2D(-size.x, -size.y).Rotate(-rotation);
 	
 		float vertices[] = {
 			topLeft.x	  + position.x * 2, topLeft.y* aspectRatio + position.y * 2, position.z,		color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
@@ -195,15 +195,15 @@ namespace Velvet {
 		m_VertexBufferOffset += sizeof(vertices) / sizeof(float);
 	}
 
-	void Renderer2D::RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture& texture, const Velvet::Shader* shader, float rotation)
+	void Renderer2D::RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture& texture, const Onyx::Shader* shader, float rotation)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 		int textureUnit = texture.GetTextureID() - 1;
 		
-		lptm::Vector2D topLeft		= lptm::Vector2D(-size.x,  size.y).Rotate(-rotation);
-		lptm::Vector2D topRight		= lptm::Vector2D( size.x,  size.y).Rotate(-rotation);
-		lptm::Vector2D bottomRight	= lptm::Vector2D( size.x, -size.y).Rotate(-rotation);
-		lptm::Vector2D bottomLeft	= lptm::Vector2D(-size.x, -size.y).Rotate(-rotation);
+		Onyx::Vector2D topLeft		= Onyx::Vector2D(-size.x,  size.y).Rotate(-rotation);
+		Onyx::Vector2D topRight		= Onyx::Vector2D( size.x,  size.y).Rotate(-rotation);
+		Onyx::Vector2D bottomRight	= Onyx::Vector2D( size.x, -size.y).Rotate(-rotation);
+		Onyx::Vector2D bottomLeft	= Onyx::Vector2D(-size.x, -size.y).Rotate(-rotation);
 
 		float vertices[] = {
 			topLeft.x	  + position.x, topLeft.y     * aspectRatio + position.y, position.z,		0.0f, 0.0f, 0.0f, 0.0f,		0.0f, 0.0f,		(float)textureUnit,
@@ -224,17 +224,17 @@ namespace Velvet {
 		glBindTextureUnit(textureUnit, texture.GetTextureID());
 	}
 
-	void Renderer2D::RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture& texture, const Velvet::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize, float rotation)
+	void Renderer2D::RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture& texture, const Onyx::Shader* shader, Onyx::Vector2D spriteCoord, Onyx::Vector2D spriteSize, float rotation)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 		int textureUnit = texture.GetTextureID() - 1;
 
-		lptm::Vector2D topLeft		= lptm::Vector2D(-size.x,  size.y).Rotate(-rotation);
-		lptm::Vector2D topRight		= lptm::Vector2D( size.x,  size.y).Rotate(-rotation);
-		lptm::Vector2D bottomRight	= lptm::Vector2D( size.x, -size.y).Rotate(-rotation);
-		lptm::Vector2D bottomLeft	= lptm::Vector2D(-size.x, -size.y).Rotate(-rotation);
+		Onyx::Vector2D topLeft		= Onyx::Vector2D(-size.x,  size.y).Rotate(-rotation);
+		Onyx::Vector2D topRight		= Onyx::Vector2D( size.x,  size.y).Rotate(-rotation);
+		Onyx::Vector2D bottomRight	= Onyx::Vector2D( size.x, -size.y).Rotate(-rotation);
+		Onyx::Vector2D bottomLeft	= Onyx::Vector2D(-size.x, -size.y).Rotate(-rotation);
 
-		lptm::Vector2D spriteUV[4];
+		Onyx::Vector2D spriteUV[4];
 		spriteUV[0] = { (spriteCoord.x * spriteSize.x) / texture.GetTextureSize().x, (spriteCoord.y * spriteSize.y) / texture.GetTextureSize().y };				// Bottom left
 		spriteUV[1] = { ((spriteCoord.x + 1) * spriteSize.x) / texture.GetTextureSize().x, (spriteCoord.y * spriteSize.y) / texture.GetTextureSize().y };		// Bottom right
 		spriteUV[2] = { ((spriteCoord.x + 1) * spriteSize.x) / texture.GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture.GetTextureSize().y }; // Top right

@@ -5,7 +5,7 @@
 #include "glm.hpp"
 #include "gtc/matrix_transform.hpp"
 
-namespace Velvet {
+namespace Onyx {
 
 	Shader::Shader(const char* vertexPath, const char* fragmentPath)
 	{

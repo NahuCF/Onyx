@@ -2,17 +2,17 @@
 
 #include "Maths/Maths.h"
 
-namespace Velvet {
+namespace Onyx {
     class Camera
     {
     public:
         Camera();
 
-        void SetPosition(lptm::Vector3D vector) { m_Position = { -vector.x, -vector.y, -vector.z }; }
-        void MoveCamera(lptm::Vector3D vector) { m_Position += { vector.x, vector.y, vector.z }; }
+        void SetPosition(Onyx::Vector3D vector) { m_Position = { -vector.x, -vector.y, -vector.z }; }
+        void MoveCamera(Onyx::Vector3D vector) { m_Position += { vector.x, vector.y, vector.z }; }
 
-        lptm::Vector3D GetPosition() const { return m_Position; }
+        Onyx::Vector3D GetPosition() const { return m_Position; }
     private:
-        lptm::Vector3D m_Position;
+        Onyx::Vector3D m_Position;
     };
 }

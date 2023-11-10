@@ -4,7 +4,7 @@
 
 #include "glm.hpp"
 
-namespace Velvet {
+namespace Onyx {
 
 	class Shader 
 	{

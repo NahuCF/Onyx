@@ -2,7 +2,7 @@
 
 #include "Camera.h"
 
-namespace Velvet {
+namespace Onyx {
     Camera::Camera()
     {
 

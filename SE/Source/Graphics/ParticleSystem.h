@@ -3,12 +3,12 @@
 #include "Maths/Maths.h";
 #include "Renderer2D.h";
 
-namespace Velvet {
+namespace Onyx {
 
 	struct ParticleProperties
 	{
-		lptm::Vector2D position, velocity, velocityVariation;
-		lptm::Vector4D color, colorBegin, colorEnd;
+		Onyx::Vector2D position, velocity, velocityVariation;
+		Onyx::Vector4D color, colorBegin, colorEnd;
 
 		float sizeBegin, sizeEnd, sizeVariation;
 		float rotation;
@@ -22,15 +22,15 @@ namespace Velvet {
 		~ParticleSystem();
 
 		void Update(float timestamp);
-		void Render(Velvet::Renderer2D* renderer);
+		void Render(Onyx::Renderer2D* renderer);
 
 		void Emit(const ParticleProperties& props);
 		void Emitter(const ParticleProperties& props);
 	private:
 		struct Particle
 		{
-			lptm::Vector2D position, velocity;
-			lptm::Vector4D color, colorBegin, colorEnd;
+			Onyx::Vector2D position, velocity;
+			Onyx::Vector4D color, colorBegin, colorEnd;
 
 			float sizeBegin, sizeEnd;
 			float rotation = 0.0f;

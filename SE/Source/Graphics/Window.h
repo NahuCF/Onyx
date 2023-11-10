@@ -5,7 +5,7 @@
 
 #include "Maths/Maths.h"
 
-namespace Velvet {
+namespace Onyx {
 
 	class Window
 	{
@@ -27,13 +27,13 @@ namespace Velvet {
 
         int GetFramerate() const { return m_LastFPS; }
 
-		lptm::Vector2D GetWindowSize() const { return lptm::Vector2D(m_Width, m_Height); }
-		lptm::Vector2D GetWidowPos() const { return lptm::Vector2D(m_WindowPosX, m_WindowPosY); }
+		Onyx::Vector2D GetWindowSize() const { return Onyx::Vector2D(m_Width, m_Height); }
+		Onyx::Vector2D GetWidowPos() const { return Onyx::Vector2D(m_WindowPosX, m_WindowPosY); }
 
-		void SetWindowColor(lptm::Vector4D color) const { glClearColor(color.x, color.y, color.z, color.w); }
+		void SetWindowColor(Onyx::Vector4D color) const { glClearColor(color.x, color.y, color.z, color.w); }
 
 		float GetAspectRatio() const { return m_AspectRatio; }
-        //lptm::Vector2D GetMainMonitorSize() 
+        //Onyx::Vector2D GetMainMonitorSize() 
         //{ 
             //const GLFWvidmode* mode = glfwGetVideoMode(m_Monitor);
             //return { mode->width, mode->height };
@@ -54,8 +54,8 @@ namespace Velvet {
 
 		bool IsMouseMoving() const { return m_IsMouseMoving; }
 	
-		lptm::Vector2D GetMousePos();
-		lptm::Vector2D GetMousePosInPixels() const { return lptm::Vector2D(m_XMousePos, m_YMousePos); };
+		Onyx::Vector2D GetMousePos();
+		Onyx::Vector2D GetMousePosInPixels() const { return Onyx::Vector2D(m_XMousePos, m_YMousePos); };
 		double GetMouseX() const { return m_XMousePos; }
 		double GetMouseY() const { return m_YMousePos; }
 	private:

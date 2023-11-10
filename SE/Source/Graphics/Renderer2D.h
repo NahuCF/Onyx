@@ -8,13 +8,13 @@
 
 #include "Graphics/Window.h"
 
-namespace Velvet {
+namespace Onyx {
 
 	struct BufferDisposition
 	{
-		lptm::Vector3D position;
-		lptm::Vector4D color;
-		lptm::Vector2D texCoord;
+		Onyx::Vector3D position;
+		Onyx::Vector4D color;
+		Onyx::Vector2D texCoord;
 		float texIndex;
 	};
 
@@ -34,21 +34,21 @@ namespace Velvet {
 		Renderer2D(Window& window, std::shared_ptr<Camera> camera);
 		~Renderer2D();
 
-		void RenderQuad(lptm::Vector2D size, lptm::Vector3D position, lptm::Vector4D color);
-		void RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture& texture, const Velvet::Shader* shader);
-		void RenderQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture* texture, const Velvet::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize);
+		void RenderQuad(Onyx::Vector2D size, Onyx::Vector3D position, Onyx::Vector4D color);
+		void RenderQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture& texture, const Onyx::Shader* shader);
+		void RenderQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture* texture, const Onyx::Shader* shader, Onyx::Vector2D spriteCoord, Onyx::Vector2D spriteSize);
 
-        void RenderRotatedLine(lptm::Vector2D start, lptm::Vector2D end, float width, lptm::Vector4D color, float rotation);
+        void RenderRotatedLine(Onyx::Vector2D start, Onyx::Vector2D end, float width, Onyx::Vector4D color, float rotation);
 
-		void RenderCircle(float radius, int subdivision, lptm::Vector3D position, lptm::Vector4D color);
+		void RenderCircle(float radius, int subdivision, Onyx::Vector3D position, Onyx::Vector4D color);
 
-		void RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, lptm::Vector4D color, float rotation);
-		void RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture& texture, const Velvet::Shader* shader, float rotation);
-		void RenderRotatedQuad(lptm::Vector2D size, lptm::Vector3D position, const Velvet::Texture& texture, const Velvet::Shader* shader, lptm::Vector2D spriteCoord, lptm::Vector2D spriteSize, float rotation);
+		void RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3D position, Onyx::Vector4D color, float rotation);
+		void RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture& texture, const Onyx::Shader* shader, float rotation);
+		void RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture& texture, const Onyx::Shader* shader, Onyx::Vector2D spriteCoord, Onyx::Vector2D spriteSize, float rotation);
 
 		void Flush();
 
-        std::weak_ptr<Velvet::Camera> GetCamera() const { return m_Camera; }
+        std::weak_ptr<Onyx::Camera> GetCamera() const { return m_Camera; }
 
         Window& GetWindow() { return m_Window; }
 	private:
@@ -69,9 +69,9 @@ namespace Velvet {
 		uint32_t m_IndexBufferOffset = 0;
 
 		int32_t m_TextureUnits[Renderer2DSpecification::MaxTextureUnits];
-		const Velvet::Shader* m_Shader = nullptr;
+		const Onyx::Shader* m_Shader = nullptr;
 
-		std::weak_ptr<Velvet::Camera> m_Camera;
+		std::weak_ptr<Onyx::Camera> m_Camera;
 
 		Window& m_Window;
 	};

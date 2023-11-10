@@ -5,7 +5,7 @@
 
 #include "Framebuffer.h"
 
-namespace Velvet {
+namespace Onyx {
 	Framebuffer::Framebuffer()
 	{
 		Create();

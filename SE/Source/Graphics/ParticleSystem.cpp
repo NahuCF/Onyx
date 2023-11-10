@@ -2,7 +2,7 @@
 
 #include "ParticleSystem.h";
 
-namespace Velvet {
+namespace Onyx {
 
 	ParticleSystem::ParticleSystem(int particleCount)
 	{
@@ -35,7 +35,7 @@ namespace Velvet {
 		}
 	}
 
-	void ParticleSystem::Render(Velvet::Renderer2D* renderer)
+	void ParticleSystem::Render(Onyx::Renderer2D* renderer)
 	{
 		for (auto& particle : m_ParticlePool)
 		{
@@ -44,8 +44,8 @@ namespace Velvet {
 
 			float life = particle.lifeRemaining / particle.lifetime;
 
-			particle.color = lptm::lerp4D(particle.colorEnd, particle.colorBegin, life);
-			float size = lptm::lerp(particle.sizeEnd, particle.sizeBegin, life);
+			particle.color = Onyx::lerp4D(particle.colorEnd, particle.colorBegin, life);
+			float size = Onyx::lerp(particle.sizeEnd, particle.sizeBegin, life);
 
 			renderer->RenderRotatedQuad(
 				{ size, size },
@@ -83,11 +83,11 @@ namespace Velvet {
 		particle.rotation = props.rotation;
 
 		particle.velocity = props.velocity;
-		particle.velocity.x += props.velocityVariation.x * lptm::ramdomInRange(-0.5f, 0.5f);
-		particle.velocity.y += props.velocityVariation.y * lptm::ramdomInRange(-0.5f, 0.5f);
+		particle.velocity.x += props.velocityVariation.x * Onyx::ramdomInRange(-0.5f, 0.5f);
+		particle.velocity.y += props.velocityVariation.y * Onyx::ramdomInRange(-0.5f, 0.5f);
 
 		particle.sizeBegin = props.sizeBegin;
-		//particle.sizeBegin += props.sizeVariation * lptm::ramdomInRange(0.0f, 0.5f);
+		//particle.sizeBegin += props.sizeVariation * Onyx::ramdomInRange(0.0f, 0.5f);
 		particle.sizeEnd = props.sizeEnd;
 
 		particle.color = props.color;

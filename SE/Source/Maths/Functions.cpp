@@ -8,7 +8,7 @@
 
 #define PI 3.14159265358979323846
 
-namespace Velvet {
+namespace Onyx {
 
 	float RadianToDegree(float radian)
 	{
@@ -25,7 +25,7 @@ namespace Velvet {
 		return sqrt(vector.x * vector.x + vector.y * vector.y);
 	}
 
-    Velvet::Vector2D Normalize(Velvet::Vector2D vector)
+    Onyx::Vector2D Normalize(Onyx::Vector2D vector)
     {
         float module = VectorModule(vector);
 
@@ -40,10 +40,10 @@ namespace Velvet {
 		return std::atan(vector.y / vector.x);
 	}
 
-	Velvet::Vector2D RotateVector(Vector2D vector, float degRotation)
+	Onyx::Vector2D RotateVector(Vector2D vector, float degRotation)
 	{
 		float module = VectorModule(vector);
-		return Velvet::Vector2D(std::cos(DegreeToRadian(degRotation)) * module, std::sin(DegreeToRadian(degRotation)) * module);
+		return Onyx::Vector2D(std::cos(DegreeToRadian(degRotation)) * module, std::sin(DegreeToRadian(degRotation)) * module);
 	}
 
 	float lerp(float a, float b, float t)
@@ -51,21 +51,21 @@ namespace Velvet {
 		return a + t * (b - a);
 	}
 
-	Velvet::Vector4D lerp4D(Velvet::Vector4D a, Velvet::Vector4D b, float t)
+	Onyx::Vector4D lerp4D(Onyx::Vector4D a, Onyx::Vector4D b, float t)
 	{
-		return Velvet::Vector4D(
-			Velvet::lerp(a.x, b.x, t),
-			Velvet::lerp(a.y, b.y, t),
-			Velvet::lerp(a.z, b.z, t),
-			Velvet::lerp(a.w, b.w, t)
+		return Onyx::Vector4D(
+			Onyx::lerp(a.x, b.x, t),
+			Onyx::lerp(a.y, b.y, t),
+			Onyx::lerp(a.z, b.z, t),
+			Onyx::lerp(a.w, b.w, t)
 		);
 	}
 
-	Velvet::Vector2D lerp2D(Velvet::Vector2D a, Velvet::Vector2D b, float t)
+	Onyx::Vector2D lerp2D(Onyx::Vector2D a, Onyx::Vector2D b, float t)
 	{
-		return Velvet::Vector2D(
-			Velvet::lerp(a.x, b.x, t),
-			Velvet::lerp(a.y, b.y, t)
+		return Onyx::Vector2D(
+			Onyx::lerp(a.x, b.x, t),
+			Onyx::lerp(a.y, b.y, t)
 		);
 	}
 
