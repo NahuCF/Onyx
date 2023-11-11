@@ -1,10 +1,12 @@
 #pragma once
 
+#include "Physics/Precision.h"
+
 namespace Onyx {
 
 	struct Vector3D
 	{
-		float x, y, z;
+		real x, y, z;
 
 		Vector3D();
 		Vector3D(float x, float y, float z);
