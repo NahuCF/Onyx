@@ -20,7 +20,6 @@ namespace Onyx {
 		Vector3D& operator+=(const Vector3D& other);
 		void operator*=(real other);
 		void operator/=(real other);
-
 		bool operator==(const Vector3D& other) const;
 	};
 
