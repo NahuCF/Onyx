@@ -19,7 +19,12 @@ namespace Onyx {
 
     real Vector3D::Magnitude() const
     {
-        return sqrt(x * x + y * y + z * z);
+        return sqrt(SquareMagnitude());
+    }
+
+    real Vector3D::SquareMagnitude() const
+    {
+        return x * x + y * y + z * z;
     }
 
     void Vector3D::Normalize()

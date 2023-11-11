@@ -12,6 +12,7 @@ namespace Onyx {
 		Vector3D(float x, float y, float z);
 
         real Magnitude() const;
+        real SquareMagnitude() const;
         void Normalize();
 
 		Vector3D operator+(const Vector3D& other);
