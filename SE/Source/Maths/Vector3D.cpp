@@ -17,21 +17,21 @@ namespace Onyx {
 		this->z = z;
 	}
 
-	Vector3D& Vector3D::Add(const Vector3D& other) 
-	{  
-		x += other.x;
-		y += other.y;
-		z += other.z;
+    real Vector3D::Magnitude() const
+    {
+        return sqrt(x * x + y * y + z * z);
+    }
 
-		return *this;
-	}
+    void Vector3D::Normalize()
+    {
+        real l = Magnitude();
+        if(l > 0)
+        {
+            (*this) /= l;
+        }
+    }
 
-	Vector3D& Vector3D::Multiply(const Vector3D& other) 
-	{
-		return *this;
-	}	 
-
-	Vector3D Vector3D::operator+(const Vector3D& other)
+    Vector3D Vector3D::operator+(const Vector3D& other)
 	{
 		return Vector3D(x + other.x, y + other.y, z + other.z);
 	}
@@ -45,12 +45,7 @@ namespace Onyx {
 		return *this;
 	}
 
-	Vector3D Vector3D::operator*(const Vector3D& other)
-	{
-		return Multiply(other);
-	}
-
-	Vector3D Vector3D::operator*(const float other)
+	Vector3D Vector3D::operator*(const real other)
 	{
 		return {
             (*this).x * other,
@@ -59,19 +54,23 @@ namespace Onyx {
         };
 	}
 
-	Vector3D& Vector3D::operator*=(const Vector3D& other) 
+	void Vector3D::operator*=(real other) 
 	{ 
-		return Multiply(other);
+		x *= other;
+		y *= other;
+		z *= other;
 	}
 
-	bool Vector3D::operator==(const Vector3D& other) const
+    void Vector3D::operator/=(real other)
+    {
+        x = x / other;
+        y = y / other;
+        z = z / other;
+    }
+
+    bool Vector3D::operator==(const Vector3D& other) const
 	{
 		return x == other.x && y == other.y;
 	}
-
-	std::ostream& operator<<(std::ostream& stream, Onyx::Vector3D& vector)
-	{
-		stream << "(" << vector.x << ", " << vector.y << ")";
-		return stream;
-	}
+    
 }
