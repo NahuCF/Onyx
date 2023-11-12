@@ -13,9 +13,10 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{a1616ba3-3485-4bea-8150-16823833011c}</ProjectGuid>
+    <ProjectGuid>{A559C629-6D19-46A1-9F44-267F620626D2}</ProjectGuid>
     <RootNamespace>SE</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>Onyx</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -57,9 +58,9 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>SE_PLATFORM_WINDOWS;_DEBUG;GLEW_STATIC;STB_IMAGE_IMPLEMENTATION;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>SE_PLATFORM_WINDOWS;_DEBUG;GLEW_STATIC;STB_IMAGE_IMPLEMENTATION;_DEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_DEPRECATE M;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)SE\Source\;$(SolutionDir)Dependencies\GLFW\include;$(SolutionDir)Dependencies\GLEW\include;$(SolutionDir)SE\Source\maths\glm;$(SolutionDir)SE</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Onyx\Source\;$(SolutionDir)Dependencies\GLFW\include;$(SolutionDir)Dependencies\GLEW\include;$(SolutionDir)Onyx\Source\maths\glm;$(SolutionDir)Onyx;$(SolutionDir)Onyx\Source\Vendor\imgui</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
@@ -79,9 +80,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>SE_PLATFORM_WINDOWS;GLEW_STATIC;STB_IMAGE_IMPLEMENTATION;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>SE_PLATFORM_WINDOWS;GLEW_STATIC;STB_IMAGE_IMPLEMENTATION;NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_DEPRECATE M;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)SE\Source\;$(SolutionDir)Dependencies\GLFW\include;$(SolutionDir)Dependencies\GLEW\include;$(SolutionDir)SE\Source\maths\glm;$(SolutionDir)SE</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Onyx\Source\;$(SolutionDir)Dependencies\GLFW\include;$(SolutionDir)Dependencies\GLEW\include;$(SolutionDir)Onyx\Source\maths\glm;$(SolutionDir)Onyx;$(SolutionDir)Onyx\Source\Vendor\imgui</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
@@ -100,6 +101,7 @@
   <ItemGroup>
     <ClCompile Include="Source\Graphics\Animation.cpp" />
     <ClCompile Include="Source\Graphics\Buffers.cpp" />
+    <ClCompile Include="Source\Graphics\Camera.cpp" />
     <ClCompile Include="Source\Graphics\Framebuffer.cpp" />
     <ClCompile Include="Source\Graphics\ParticleSystem.cpp" />
     <ClCompile Include="Source\Graphics\Renderer2D.cpp" />
@@ -110,7 +112,6 @@
     <ClCompile Include="Source\Maths\Vector2D.cpp" />
     <ClCompile Include="Source\Maths\Vector3D.cpp" />
     <ClCompile Include="Source\Maths\Vector4D.cpp" />
-    <ClCompile Include="Source\OrtogonalTilemap.cpp" />
     <ClCompile Include="Source\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
@@ -119,11 +120,18 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="Source\Vendor\imgui\imgui.cpp" />
+    <ClCompile Include="Source\Vendor\imgui\imgui_draw.cpp" />
+    <ClCompile Include="Source\Vendor\imgui\imgui_impl_glfw.cpp" />
+    <ClCompile Include="Source\Vendor\imgui\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="Source\Vendor\imgui\imgui_tables.cpp" />
+    <ClCompile Include="Source\Vendor\imgui\imgui_widgets.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\DS\String.h" />
     <ClInclude Include="Source\Graphics\Animation.h" />
     <ClInclude Include="Source\Graphics\Buffers.h" />
+    <ClInclude Include="Source\Graphics\Camera.h" />
     <ClInclude Include="Source\Graphics\Framebuffer.h" />
     <ClInclude Include="Source\Graphics\ParticleSystem.h" />
     <ClInclude Include="Source\Graphics\Renderer2D.h" />
@@ -421,11 +429,18 @@
     <ClInclude Include="Source\Maths\glm\vector_relational.hpp" />
     <ClInclude Include="Source\Graphics\Window.h" />
     <ClInclude Include="Source\Maths\Vector2D.h" />
-    <ClInclude Include="Source\OrtogonalTilemap.h" />
     <ClInclude Include="Source\pch.h" />
-    <ClInclude Include="Source\SE.h" />
-    <ClInclude Include="Source\SE\Core.h" />
-    <ClInclude Include="Source\Tilemap.h" />
+    <ClInclude Include="Source\Physics\Precision.h" />
+    <ClInclude Include="Source\Onyx.h" />
+    <ClInclude Include="Source\Onyx\Core.h" />
+    <ClInclude Include="Source\Vendor\imgui\imconfig.h" />
+    <ClInclude Include="Source\Vendor\imgui\imgui.h" />
+    <ClInclude Include="Source\Vendor\imgui\imgui_impl_glfw.h" />
+    <ClInclude Include="Source\Vendor\imgui\imgui_impl_opengl3.h" />
+    <ClInclude Include="Source\Vendor\imgui\imgui_internal.h" />
+    <ClInclude Include="Source\Vendor\imgui\imstb_rectpack.h" />
+    <ClInclude Include="Source\Vendor\imgui\imstb_textedit.h" />
+    <ClInclude Include="Source\Vendor\imgui\imstb_truetype.h" />
     <ClInclude Include="src\stb_image\stb_image.h" />
     <ClInclude Include="Source\Vendor\stb_image\stb_image.h" />
   </ItemGroup>

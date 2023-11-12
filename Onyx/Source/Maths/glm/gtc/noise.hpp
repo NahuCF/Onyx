@@ -1,12 +1,12 @@
 /// @ref gtc_noise
-/// @file glm/gtc/noise.hpp
+/// @file glm/gtc/noiOnyx.hpp
 ///
 /// @see core (dependence)
 ///
 /// @defgroup gtc_noise GLM_GTC_noise
 /// @ingroup gtc
 ///
-/// Include <glm/gtc/noise.hpp> to use the features of this extension.
+/// Include <glm/gtc/noiOnyx.hpp> to use the features of this extension.
 ///
 /// Defines 2D, 3D and 4D procedural noise functions
 /// Based on the work of Stefan Gustavson and Ashima Arts on "webgl-noise":
@@ -19,7 +19,7 @@
 // Dependencies
 #include "../detail/setup.hpp"
 #include "../detail/qualifier.hpp"
-#include "../detail/_noise.hpp"
+#include "../detail/_noiOnyx.hpp"
 #include "../geometric.hpp"
 #include "../common.hpp"
 #include "../vector_relational.hpp"

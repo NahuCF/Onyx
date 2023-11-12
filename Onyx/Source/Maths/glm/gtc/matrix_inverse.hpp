@@ -1,5 +1,5 @@
 /// @ref gtc_matrix_inverse
-/// @file glm/gtc/matrix_inverse.hpp
+/// @file glm/gtc/matrix_inverOnyx.hpp
 ///
 /// @see core (dependence)
 ///

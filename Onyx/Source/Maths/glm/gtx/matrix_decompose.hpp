@@ -1,12 +1,12 @@
 /// @ref gtx_matrix_decompose
-/// @file glm/gtx/matrix_decompose.hpp
+/// @file glm/gtx/matrix_decompoOnyx.hpp
 ///
 /// @see core (dependence)
 ///
 /// @defgroup gtx_matrix_decompose GLM_GTX_matrix_decompose
 /// @ingroup gtx
 ///
-/// Include <glm/gtx/matrix_decompose.hpp> to use the features of this extension.
+/// Include <glm/gtx/matrix_decompoOnyx.hpp> to use the features of this extension.
 ///
 /// Decomposes a model matrix to translations, rotation and scale components
 

@@ -1,5 +1,5 @@
 /// @ref gtx_component_wise
-/// @file glm/gtx/component_wise.hpp
+/// @file glm/gtx/component_wiOnyx.hpp
 /// @date 2007-05-21 / 2011-06-07
 /// @author Christophe Riccio
 ///
@@ -8,7 +8,7 @@
 /// @defgroup gtx_component_wise GLM_GTX_component_wise
 /// @ingroup gtx
 ///
-/// Include <glm/gtx/component_wise.hpp> to use the features of this extension.
+/// Include <glm/gtx/component_wiOnyx.hpp> to use the features of this extension.
 ///
 /// Operations between components of a type
 

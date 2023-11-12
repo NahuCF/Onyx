@@ -1,7 +1,7 @@
 #pragma once
 
 // Core engine
-#include "SE/Core.h"
+#include "Onyx/Core.h"
 
 #include "Graphics/Window.h"
 #include "Graphics/Texture.h"

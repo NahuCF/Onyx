@@ -1,12 +1,12 @@
 /// @ref gtx_log_base
-/// @file glm/gtx/log_base.hpp
+/// @file glm/gtx/log_baOnyx.hpp
 ///
 /// @see core (dependence)
 ///
 /// @defgroup gtx_log_base GLM_GTX_log_base
 /// @ingroup gtx
 ///
-/// Include <glm/gtx/log_base.hpp> to use the features of this extension.
+/// Include <glm/gtx/log_baOnyx.hpp> to use the features of this extension.
 ///
 /// Logarithm for any base. base can be a vector or a scalar.
 
