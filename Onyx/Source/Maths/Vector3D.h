@@ -9,7 +9,7 @@ namespace Onyx {
 		real x, y, z;
 
 		Vector3D();
-		Vector3D(float x, float y, float z);
+		Vector3D(real x, real y, real z);
 
         real Magnitude() const;
         real SquareMagnitude() const;

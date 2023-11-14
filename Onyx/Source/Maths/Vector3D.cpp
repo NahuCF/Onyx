@@ -10,7 +10,7 @@ namespace Onyx {
 		z = 0.0f;
 	};
 
-	Vector3D::Vector3D(float x, float y, float z)
+    Vector3D::Vector3D(real x, real y, real z)
 	{
 		this->x = x;
 		this->y = y;
