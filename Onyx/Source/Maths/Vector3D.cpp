@@ -36,6 +36,13 @@ namespace Onyx {
         }
     }
 
+    void Vector3D::AddScaledVector(const Vector3D &other, real scale)
+    {
+        x += other.x * scale;
+        y += other.y * scale;
+        z += other.z * scale;
+    }
+
     Vector3D Vector3D::operator-(const Vector3D &other)
     {
         return Vector3D(x - other.x, y - other.y, z - other.z);

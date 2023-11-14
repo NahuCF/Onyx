@@ -15,6 +15,8 @@ namespace Onyx {
         real SquareMagnitude() const;
         void Normalize();
 
+        void AddScaledVector(const Vector3D& other, real scale);
+
 		Vector3D operator-(const Vector3D& other);
 		void operator-=(const Vector3D& other);
 
