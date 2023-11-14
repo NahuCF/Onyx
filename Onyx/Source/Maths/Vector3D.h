@@ -15,13 +15,17 @@ namespace Onyx {
         real SquareMagnitude() const;
         void Normalize();
 
-		Vector3D operator+(const Vector3D& other);
-		Vector3D operator*(const real other);
+		Vector3D operator-(const Vector3D& other);
+		void operator-=(const Vector3D& other);
 
-		Vector3D& operator+=(const Vector3D& other);
+		Vector3D operator+(const Vector3D& other);
+		void operator+=(const Vector3D& other);
+
+        Vector3D operator*(const real other);
 		void operator*=(real other);
-		void operator/=(real other);
+
 		bool operator==(const Vector3D& other) const;
+		void operator/=(real other);
 	};
 
 }

@@ -36,27 +36,33 @@ namespace Onyx {
         }
     }
 
+    Vector3D Vector3D::operator-(const Vector3D &other)
+    {
+        return Vector3D(x - other.x, y - other.y, z - other.z);
+    }
+
+    void Vector3D::operator-=(const Vector3D &other)
+    {
+        x -= other.x;
+        y -= other.y;
+        z -= other.z;
+    }
+
     Vector3D Vector3D::operator+(const Vector3D& other)
 	{
 		return Vector3D(x + other.x, y + other.y, z + other.z);
 	}
 
-	Vector3D& Vector3D::operator+=(const Vector3D& other)
+	void Vector3D::operator+=(const Vector3D& other)
 	{
 		x += other.x;
 		y += other.y;
 		z += other.z;
-
-		return *this;
 	}
 
 	Vector3D Vector3D::operator*(const real other)
 	{
-		return {
-            (*this).x * other,
-            (*this).y * other,
-            (*this).z * other,
-        };
+        return Vector3D(x * other, y * other, z * other);
 	}
 
 	void Vector3D::operator*=(real other) 
