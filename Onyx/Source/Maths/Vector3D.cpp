@@ -43,6 +43,11 @@ namespace Onyx {
         z += other.z * scale;
     }
 
+    real Vector3D::ScalarProduct(const Vector3D &vector) const
+    {
+        return x * vector.x + y * vector.y + z * vector.z;
+    }
+
     Vector3D Vector3D::ComponentProduct(const Vector3D &vector) const
     {
         return Vector3D(x * vector.x, y * vector.y, z * vector.z);

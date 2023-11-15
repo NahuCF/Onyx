@@ -17,6 +17,8 @@ namespace Onyx {
 
         void AddScaledVector(const Vector3D& other, real scale);
 
+        real ScalarProduct(const Vector3D& vector) const;
+
         Vector3D ComponentProduct(const Vector3D& vector) const;
         void ComponentProductUpdate(const Vector3D& vector);
 
