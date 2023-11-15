@@ -17,8 +17,6 @@ namespace Onyx {
 
         void AddScaledVector(const Vector3D& other, real scale);
 
-        real ScalarProduct(const Vector3D& vector) const;
-
         Vector3D ComponentProduct(const Vector3D& vector) const;
         void ComponentProductUpdate(const Vector3D& vector);
 
@@ -29,6 +27,7 @@ namespace Onyx {
 		void operator+=(const Vector3D& other);
 
         Vector3D operator*(const real other);
+        real operator*(const Vector3D& vector) const;
 		void operator*=(real other);
 
 		bool operator==(const Vector3D& other) const;
