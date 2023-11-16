@@ -84,9 +84,14 @@ namespace Onyx {
         return Vector3D(x * other, y * other, z * other);
 	}
 
-    real Vector3D::operator*(const Vector3D &vector) const
+    real Vector3D::ScalarProduct(const Vector3D &vector) const
     {
         return x * vector.x + y * vector.y + z * vector.z;
+    }
+
+    real Vector3D::operator*(const Vector3D &vector) const
+    {
+        return ScalarProduct(vector);
     }
 
     void Vector3D::operator*=(real other) 
