@@ -17,7 +17,10 @@ namespace Onyx {
         Header<T> header;
         std::vector<uint8_t> data; 
 
-        size_t Size() const;
+        size_t Size() const
+        {
+            return sizeof(Header<T>) + data.size();
+        };
     };
 
 }
