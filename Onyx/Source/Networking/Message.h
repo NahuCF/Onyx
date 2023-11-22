@@ -43,7 +43,7 @@ namespace Onyx {
         }
 
         template<typename DataType>
-        friend Message<T>& operator<<(Message<T>& message, DataType& data)
+        friend Message<T>& operator>>(Message<T>& message, DataType& data)
         {
             // Cache current size vector, as this will be the point where we insert data
             size_t sizeData = message.Size() - sizeof(DataType);
