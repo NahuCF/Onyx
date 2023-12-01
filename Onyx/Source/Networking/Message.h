@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include "Connection.h"
 
 namespace Onyx {
 
@@ -61,5 +62,12 @@ namespace Onyx {
             return message;
         }
     };
+
+    template<typename T>
+    struct OwnedMessage
+    {
+        std::shared_ptr<Onyx::Connection<T> m_Remote = null;
+        message<T> m_Message;
+    }
 
 }
