@@ -68,6 +68,6 @@ namespace Onyx {
     {
         std::shared_ptr<Onyx::Connection<T> m_Remote = null;
         message<T> m_Message;
-    }
+    };
 
 }
