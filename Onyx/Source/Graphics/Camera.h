@@ -1,18 +1,25 @@
 #pragma once
 
 #include "Maths/Maths.h"
+#include "Graphics/Shader.h"
 
 namespace Onyx {
+
     class Camera
     {
     public:
         Camera();
 
-        void SetPosition(Onyx::Vector3D vector) { m_Position = { -vector.x, -vector.y, -vector.z }; }
-        void MoveCamera(Onyx::Vector3D vector) { m_Position += { vector.x, vector.y, vector.z }; }
-
-        Onyx::Vector3D GetPosition() const { return m_Position; }
+        void Matrix(float FOVdeg, float nearPlane, float farPlane, Shader& shader, const char* uniform);
     private:
-        Onyx::Vector3D m_Position;
+        glm::vec3 m_Position;
+        glm::vec3 m_Orientation = glm::vec3(0.0f, 0.0f, -1.0f);
+        glm::vec3 m_Up = glm::vec3(0.0f, 1.0f, 0.0f);
+
+        int m_Width, m_Height;
+
+        float m_Speed = 0.1f;
+        float m_Sensitivity = 100.0f;
     };
+    
 }
