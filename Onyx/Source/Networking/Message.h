@@ -66,8 +66,8 @@ namespace Onyx {
     template<typename T>
     struct OwnedMessage
     {
-        std::shared_ptr<Onyx::Connection<T> m_Remote = null;
-        message<T> m_Message;
+        std::shared_ptr<Onyx::Connection<T>> m_Remote = NULL;
+        Message<T> m_Message;
     };
 
 }

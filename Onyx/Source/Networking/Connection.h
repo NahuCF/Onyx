@@ -8,10 +8,20 @@ namespace Onyx {
     class Connection
     {
     public:
-        Connection();
-        ~Connection();
+        Connection()
+        {
 
-        void Send(const Message<T>& message);
+        }
+
+        ~Connection()
+        {
+
+        }
+
+        //void Send(const Message<T>& message)
+        //{
+
+        //}
     };
     
 } 
