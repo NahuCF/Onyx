@@ -1,5 +1,9 @@
 #pragma once
 
+// Networking
+#include "Vendor/asio-1.28.0/include/asio.hpp"
+#include "Networking/Message.h"
+
 #include "Graphics/Window.h"
 #include "Graphics/Texture.h"
 #include "Graphics/Shader.h"
@@ -19,7 +23,7 @@
 
 #include "GL/glew.h"
 
-// Std
+// std
 #include <vector>
 #include <map>
 #include <utility>
