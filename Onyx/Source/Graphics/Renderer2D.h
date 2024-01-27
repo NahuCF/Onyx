@@ -12,7 +12,7 @@ namespace Onyx {
 
 	struct BufferDisposition
 	{
-		Onyx::Vector3D position;
+		Onyx::Vector3 position;
 		Onyx::Vector4D color;
 		Onyx::Vector2D texCoord;
 		float texIndex;
@@ -34,17 +34,17 @@ namespace Onyx {
 		Renderer2D(Window& window, std::shared_ptr<Camera> camera);
 		~Renderer2D();
 
-		void RenderQuad(Onyx::Vector2D size, Onyx::Vector3D position, Onyx::Vector4D color);
-		void RenderQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture& texture, const Onyx::Shader* shader);
-		void RenderQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture* texture, const Onyx::Shader* shader, Onyx::Vector2D spriteCoord, Onyx::Vector2D spriteSize);
+		void RenderQuad(Onyx::Vector2D size, Onyx::Vector3 position, Onyx::Vector4D color);
+		void RenderQuad(Onyx::Vector2D size, Onyx::Vector3 position, const Onyx::Texture& texture, const Onyx::Shader* shader);
+		void RenderQuad(Onyx::Vector2D size, Onyx::Vector3 position, const Onyx::Texture* texture, const Onyx::Shader* shader, Onyx::Vector2D spriteCoord, Onyx::Vector2D spriteSize);
 
         void RenderRotatedLine(Onyx::Vector2D start, Onyx::Vector2D end, float width, Onyx::Vector4D color, float rotation);
 
-		void RenderCircle(float radius, int subdivision, Onyx::Vector3D position, Onyx::Vector4D color);
+		void RenderCircle(float radius, int subdivision, Onyx::Vector3 position, Onyx::Vector4D color);
 
-		void RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3D position, Onyx::Vector4D color, float rotation);
-		void RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture& texture, const Onyx::Shader* shader, float rotation);
-		void RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture& texture, const Onyx::Shader* shader, Onyx::Vector2D spriteCoord, Onyx::Vector2D spriteSize, float rotation);
+		void RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3 position, Onyx::Vector4D color, float rotation);
+		void RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3 position, const Onyx::Texture& texture, const Onyx::Shader* shader, float rotation);
+		void RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3 position, const Onyx::Texture& texture, const Onyx::Shader* shader, Onyx::Vector2D spriteCoord, Onyx::Vector2D spriteSize, float rotation);
 
 		void Flush();
 

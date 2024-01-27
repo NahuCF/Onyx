@@ -34,7 +34,7 @@ namespace Onyx {
 		delete m_IndexBufferData;
 	}
 
-	void Renderer2D::RenderQuad(Onyx::Vector2D size, Onyx::Vector3D position, Onyx::Vector4D color)
+	void Renderer2D::RenderQuad(Onyx::Vector2D size, Onyx::Vector3 position, Onyx::Vector4D color)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 
@@ -53,7 +53,7 @@ namespace Onyx {
 		m_VertexBufferOffset += sizeof(vertices) / sizeof(float);
 	}
 
-	void Renderer2D::RenderQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture& texture, const Onyx::Shader* shader)
+	void Renderer2D::RenderQuad(Onyx::Vector2D size, Onyx::Vector3 position, const Onyx::Texture& texture, const Onyx::Shader* shader)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 		int textureUnit = texture.GetTextureID() - 1;
@@ -77,7 +77,7 @@ namespace Onyx {
 		glBindTextureUnit(textureUnit, texture.GetTextureID());
 	}
 
-	void Renderer2D::RenderQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture* texture, const Onyx::Shader* shader, Onyx::Vector2D spriteCoord, Onyx::Vector2D spriteSize)
+	void Renderer2D::RenderQuad(Onyx::Vector2D size, Onyx::Vector3 position, const Onyx::Texture* texture, const Onyx::Shader* shader, Onyx::Vector2D spriteCoord, Onyx::Vector2D spriteSize)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 		int textureUnit = texture->GetTextureID() - 1;
@@ -115,7 +115,7 @@ namespace Onyx {
         RenderRotatedQuad({length, width}, {start.x + center.x, start.y, 0.0f}, color, rotation);
     }
 
-	void Renderer2D::RenderCircle(float radius, int subdivision, Onyx::Vector3D position, Onyx::Vector4D color)
+	void Renderer2D::RenderCircle(float radius, int subdivision, Onyx::Vector3 position, Onyx::Vector4D color)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 
@@ -170,7 +170,7 @@ namespace Onyx {
 		}
 	}
 
-	void Renderer2D::RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3D position, Onyx::Vector4D color, float rotation)
+	void Renderer2D::RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3 position, Onyx::Vector4D color, float rotation)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 
@@ -195,7 +195,7 @@ namespace Onyx {
 		m_VertexBufferOffset += sizeof(vertices) / sizeof(float);
 	}
 
-	void Renderer2D::RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture& texture, const Onyx::Shader* shader, float rotation)
+	void Renderer2D::RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3 position, const Onyx::Texture& texture, const Onyx::Shader* shader, float rotation)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 		int textureUnit = texture.GetTextureID() - 1;
@@ -224,7 +224,7 @@ namespace Onyx {
 		glBindTextureUnit(textureUnit, texture.GetTextureID());
 	}
 
-	void Renderer2D::RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3D position, const Onyx::Texture& texture, const Onyx::Shader* shader, Onyx::Vector2D spriteCoord, Onyx::Vector2D spriteSize, float rotation)
+	void Renderer2D::RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3 position, const Onyx::Texture& texture, const Onyx::Shader* shader, Onyx::Vector2D spriteCoord, Onyx::Vector2D spriteSize, float rotation)
 	{
 		float aspectRatio = m_Window.GetAspectRatio();
 		int textureUnit = texture.GetTextureID() - 1;
