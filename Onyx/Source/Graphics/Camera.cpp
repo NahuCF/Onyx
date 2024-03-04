@@ -19,7 +19,7 @@ namespace Onyx {
         view = glm::lookAt(m_Position, m_Position + m_Orientation, m_Up);
         projection = glm::perspective(glm::radians(FOVdeg),(float)(m_Width / m_Height), nearPlane, farPlane); 
 
-        glUniformMatrix4fv(glGetUniformLocation(shader.GetProgramID(), uniform), 1, GL_FALSE, glm::value_ptr(projection));
+        glUniformMatrix4fv(glGetUniformLocation(shader.GetProgramID(), uniform), 1, GL_FALSE, glm::value_ptr(projection * view));
     }
 
 }
