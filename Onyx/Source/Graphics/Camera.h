@@ -2,6 +2,7 @@
 
 #include "Maths/Maths.h"
 #include "Graphics/Shader.h"
+#include "Graphics/Window.h"
 
 namespace Onyx {
 
@@ -12,6 +13,8 @@ namespace Onyx {
 
         void Matrix(float FOVdeg, float nearPlane, float farPlane, Shader& shader, const char* uniform);
 
+        void Inputs(Onyx::Window& window);
+
         glm::vec3 const GetPosition() const { return m_Position; }
     private:
         glm::vec3 m_Position;
@@ -20,8 +23,15 @@ namespace Onyx {
 
         int m_Width, m_Height;
 
+        bool m_FirstClick = true;
+
         float m_Speed = 0.1f;
-        float m_Sensitivity = 100.0f;
+        float m_Sensitivity = 0.1f;
+
+        float m_LastY, m_LastX;
+
+        float m_Yaw = -90.0f;
+        float m_Pitch = 0.0f;
     };
     
 }
