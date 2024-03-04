@@ -42,6 +42,14 @@ namespace Onyx {
         {
             m_Position += m_Speed * glm::normalize(glm::cross(m_Orientation, m_Up));
         }
+        if(window.IsKeyPressed(GLFW_KEY_Q)) 
+        {
+            m_Position += m_Speed * m_Up;
+        }
+        if(window.IsKeyPressed(GLFW_KEY_E)) 
+        {
+            m_Position -= m_Speed * m_Up;
+        }
 
         if(window.IsButtomPressed(GLFW_MOUSE_BUTTON_LEFT))
         {
