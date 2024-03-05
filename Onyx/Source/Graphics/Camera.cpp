@@ -53,7 +53,7 @@ namespace Onyx {
 
         if(window.IsButtomPressed(GLFW_MOUSE_BUTTON_LEFT))
         {
-            //glfwSetInputMode(window.WindowGUI(), GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+            glfwSetInputMode(window.WindowGUI(), GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 
             double mouseX;
             double mouseY;
@@ -94,7 +94,7 @@ namespace Onyx {
         if(window.IsButtomReleased(GLFW_MOUSE_BUTTON_LEFT))
         {
             m_FirstClick = true;
-            //glfwSetInputMode(window.WindowGUI(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            glfwSetInputMode(window.WindowGUI(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         }
     }
 
