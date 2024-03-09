@@ -85,4 +85,9 @@ namespace Onyx {
 		glUniformMatrix4fv(glGetUniformLocation(shader.m_ProgramID, transformName), 1, GL_FALSE, &matrix[0][0]);
 	}
 
+    void Shader::SetInt(const std::string &name, int value) const
+    { 
+        glUniform1i(glGetUniformLocation(GL_MAX_PROGRAM_ADDRESS_REGISTERS_ARB, name.c_str()), value); 
+    }
+
 } 
