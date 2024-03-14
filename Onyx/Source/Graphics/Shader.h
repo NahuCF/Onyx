@@ -21,6 +21,7 @@ namespace Onyx {
         void SetInt(const std::string &name, int value) const;
         void SetMat4(const std::string &name, glm::mat4& matrix) const;
         void SetVec3(const std::string &name, glm::vec3& vector) const;
+        void SetFloat(const std::string &name, float value) const;
 	private:
 		uint32_t m_ProgramID;
 		uint32_t m_VertexID, m_FragmentID;

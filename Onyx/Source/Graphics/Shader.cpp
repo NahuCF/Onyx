@@ -99,4 +99,9 @@ namespace Onyx {
     {
         glUniform3fv(glGetUniformLocation(m_ProgramID, name.c_str()), 1, &vector[0]); 
     }
+
+    void Shader::SetFloat(const std::string &name, float value) const
+    { 
+        glUniform1f(glGetUniformLocation(m_ProgramID, name.c_str()), value); 
+    }
 } 
