@@ -15,7 +15,9 @@ namespace Onyx {
 
         void Inputs(Onyx::Window& window);
 
-        glm::vec3 const GetPosition() const { return m_Position; }
+        glm::vec3 GetPosition() const { return m_Position; }
+        glm::mat4 GetViewMatrix() const;
+        float GetFOV() const { return m_FOVdeg; }
     private:
         glm::vec3 m_Position;
         glm::vec3 m_Orientation = glm::vec3(0.0f, 0.0f, -1.0f);
@@ -32,6 +34,8 @@ namespace Onyx {
 
         float m_Yaw = -90.0f;
         float m_Pitch = 0.0f;
+
+        float m_FOVdeg;
     };
     
 }
