@@ -87,7 +87,7 @@ namespace Onyx {
 
     void Shader::SetInt(const std::string &name, int value) const
     { 
-        glUniform1i(glGetUniformLocation(GL_MAX_PROGRAM_ADDRESS_REGISTERS_ARB, name.c_str()), value); 
+        glUniform1i(glGetUniformLocation(m_ProgramID, name.c_str()), value); 
     }
 
     void Shader::SetMat4(const std::string &name, glm::mat4& matrix) const
