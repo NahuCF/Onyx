@@ -53,15 +53,21 @@ namespace Onyx {
 		curtime = (float)glfwGetTime();
 		lasttime = (float)glfwGetTime();
 
-
-        if(m_FullScreen)
-        {
-            const GLFWvidmode * mode = glfwGetVideoMode(m_Monitor);
-            m_Width = mode->width;
-            m_Height = mode->height;
-        }
-
 		m_Window = glfwCreateWindow(m_Width, m_Height, m_Title, NULL, NULL);
+
+        m_Monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(m_Monitor);
+        if (!mode) {
+            glfwTerminate();
+            return -1;
+        }
+        m_PrimaryMonitorWidth = mode->width;
+        m_PrimaryMonitorHeight = mode->height;
+
+        // Center window
+        int posX = (m_PrimaryMonitorWidth - m_Width) / 2;
+        int posY = (m_PrimaryMonitorHeight - m_Height) / 2;
+        glfwSetWindowPos(m_Window, posX, posY);
 
         if(m_FullScreen)
             MakeFullScreen();
@@ -110,7 +116,7 @@ namespace Onyx {
 
 	void Window::Update() 
 	{
-        glfwSetWindowMonitor(m_Window, m_Monitor, m_WindowPosX, m_WindowPosY, m_Width, m_Height, GLFW_DONT_CARE);
+        //glfwSetWindowMonitor(m_Window, m_Monitor, m_WindowPosX, m_WindowPosY, m_Width, m_Height, GLFW_DONT_CARE);
 		m_LastTime = (float)glfwGetTime();
 		m_IsMouseMoving = false;
 	

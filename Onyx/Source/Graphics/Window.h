@@ -10,7 +10,7 @@ namespace Onyx {
 	class Window
 	{
 	public:
-		Window(const char* title = "Temporal name", uint32_t width = 900, uint32_t height = 900, float aspectRatio = 1.0f, bool fullscreen = true);
+		Window(const char* title = "Temporal name", uint32_t width = 900, uint32_t height = 900, float aspectRatio = 1.0f, bool fullscreen = false);
 		~Window();
 
 		bool ShouldClose() const;
@@ -61,6 +61,7 @@ namespace Onyx {
 	private:
 		const char* m_Title;
 		int m_Height, m_Width;
+        int m_PrimaryMonitorWidth, m_PrimaryMonitorHeight;
 		float m_AspectRatio;
 		float m_LastTime = 0.0f, m_CurrentTime = 0.0f;
 		int m_FPS = 0;
