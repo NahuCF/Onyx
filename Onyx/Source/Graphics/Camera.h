@@ -19,6 +19,8 @@ namespace Onyx {
         glm::mat4 GetViewMatrix() const;
         glm::vec3 GetOrientation() const { return m_Orientation; }
         float GetFOV() const { return m_FOVdeg; }
+
+        void SetPosition(glm::vec3 position) { m_Position = position; }
     private:
         glm::vec3 m_Position;
         glm::vec3 m_Orientation = glm::vec3(0.0f, 0.0f, -1.0f);
