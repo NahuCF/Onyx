@@ -1,9 +1,9 @@
 #include "pch.h"
-#include <GL/glew.h>
 
 #include "Shader.h"
-#include "glm.hpp"
-#include "gtc/matrix_transform.hpp"
+#include "Source/Maths/glm/glm.hpp"
+#include "Source/Maths/glm/gtc/matrix_transform.hpp"
+#include "Source/Vendor/GLEW/include/GL/glew.h"
 
 namespace Onyx {
 
