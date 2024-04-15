@@ -1,0 +1,3 @@
+[submodule "Onyx/Vendor/glm"]
+	path = Onyx/Vendor/glm
+	url = https://github.com/g-truc/glm
