@@ -1,9 +1,10 @@
 #pragma once
 
-// Networking
-#include "Vendor/asio-1.28.0/include/asio.hpp"
-#include "Networking/Message.h"
+// Core
+#include "Source/Core/Application.h"
+#include "Source/Core/Layer.h"
 
+// Graphics
 #include "Graphics/Window.h"
 #include "Graphics/Texture.h"
 #include "Graphics/Shader.h"
@@ -21,8 +22,6 @@
 #include "Vendor/ImGUI/imgui_impl_glfw.h"
 #include "Vendor/ImGUI/imgui_internal.h"
 #include "Vendor/ImGUI/imgui_impl_opengl3.h"
-
-#include "GL/glew.h"
 
 // std
 #include <string>
