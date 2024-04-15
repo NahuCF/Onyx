@@ -2,8 +2,8 @@
 
 #include <iostream>
 
-#include "Source/Vendor/GLEW/include/GL/glew.h"
-#include "Source/Vendor/GLFW/include/glfw3.h"
+#include "Vendor/GLEW/include/GL/glew.h"
+#include "Vendor/GLFW/glfw3.h"
 
 #define STB_IMAGE_STATIC
 #include "Vendor/stb_image/stb_image.h"

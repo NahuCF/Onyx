@@ -1,7 +1,7 @@
 #include "pch.h"
 
-#include "Source/Vendor/GLEW/include/GL/glew.h"
-#include "Source/Vendor/GLFW/include/glfw3.h"
+#include "Vendor/GLEW/include/GL/glew.h"
+#include "Vendor/GLFW/glfw3.h"
 
 #include "Framebuffer.h"
 

@@ -4,7 +4,7 @@
 #include <iostream>
 
 #include "Functions.h"
-#include "Source/Maths/glm/glm.hpp"
+#include "glm/glm.hpp"
 
 #define PI 3.14159265358979323846
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "GL/glew.h"
-#include "GLFW/glfw3.h"
+#include "Vendor/GLEW/include/GL/glew.h"
+#include "Vendor/GLFW/glfw3.h"
 
 #include "Maths/Maths.h"
 

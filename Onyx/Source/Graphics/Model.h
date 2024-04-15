@@ -3,9 +3,9 @@
 #include <string>
 #include <vector>
 
-#include "Source/Vendor/assimp/include/assimp/Importer.hpp"
-#include "Source/Vendor/assimp/include/assimp/scene.h"
-#include "Source/Vendor/assimp/include/assimp/postprocess.h"
+#include "Vendor/assimp/include/assimp/Importer.hpp"
+#include "Vendor/assimp/include/assimp/scene.h"
+#include "Vendor/assimp/include/assimp/postprocess.h"
 
 #include "Mesh.h"
 
