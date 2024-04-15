@@ -1,9 +1,7 @@
 #Folders
-
 Bin/
 Bin-Int/
-Onyx/Source/Vendor
+Build/
 
 #Visual studio folder
-
 .vs/
