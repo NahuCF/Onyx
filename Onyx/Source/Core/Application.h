@@ -12,6 +12,7 @@ namespace Onyx {
     {
     public:
         Application();
+        virtual ~Application();
 
         void PushLayer(Layer* layer);
     private:

@@ -1,19 +1,23 @@
 #include "pch.h"
 
-#include "Application.h"
+#include "Source/Core/Application.h"
 
 namespace Onyx {
 
     Application::Application()
     {
 
-    };
+    }
+
+    Application::~Application()
+    {
+    }
 
     void Application::Run()
     {
-        while(m_IsRunning) 
+        while (m_IsRunning)
         {
-            for(Layer* layer: m_LayerStack)
+            for (Layer* layer : m_LayerStack)
             {
                 layer->OnUpdate();
                 layer->OnImGui();
