@@ -92,12 +92,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)Onyx;$(SolutionDir)Onyx\Source;$(SolutionDir)Onyx\Source\maths\glm;$(SolutionDir)Onyx\Vendor;$(SolutionDir)Onyx\Vendor\imgui;$(SolutionDir)Onyx\Vendor\GLFW;$(SolutionDir)Onyx\Vendor\GLEW\include;$(SolutionDir)Onyx\Vendor\assimp\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)Onyx;$(SolutionDir)Onyx\Source;$(SolutionDir)Onyx\Vendor;$(SolutionDir)Onyx\Vendor\glm;$(SolutionDir)Onyx\Vendor\imgui;$(SolutionDir)Onyx\Vendor\GLFW;$(SolutionDir)Onyx\Vendor\GLEW\include;$(SolutionDir)Onyx\Vendor\assimp\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(SolutionDir)Onyx\Vendor\assimp\lib\assimp-vc143-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;glew32.lib;glew32s.lib;glfw3.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)Onyx\Vendor\GLFW\lib-vc2019;$(SolutionDir)Onyx\Vendor\GLEW\lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -108,14 +109,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)Onyx;$(SolutionDir)Onyx\Source;$(SolutionDir)Onyx\Source\maths\glm;$(SolutionDir)Onyx\Vendor;$(SolutionDir)Onyx\Vendor\imgui;$(SolutionDir)Onyx\Vendor\GLFW;$(SolutionDir)Onyx\Vendor\GLEW\include;$(SolutionDir)Onyx\Vendor\assimp\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)Onyx;$(SolutionDir)Onyx\Source;$(SolutionDir)Onyx\Vendor;$(SolutionDir)Onyx\Vendor\glm;$(SolutionDir)Onyx\Vendor\imgui;$(SolutionDir)Onyx\Vendor\GLFW;$(SolutionDir)Onyx\Vendor\GLEW\include;$(SolutionDir)Onyx\Vendor\assimp\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(SolutionDir)Onyx\Vendor\assimp\lib\assimp-vc143-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;glew32.lib;glew32s.lib;glfw3.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)Onyx\Vendor\GLFW\lib-vc2019;$(SolutionDir)Onyx\Vendor\GLEW\lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -124,12 +126,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)Onyx;$(SolutionDir)Onyx\Source;$(SolutionDir)Onyx\Source\maths\glm;$(SolutionDir)Onyx\Vendor;$(SolutionDir)Onyx\Vendor\imgui;$(SolutionDir)Onyx\Vendor\GLFW;$(SolutionDir)Onyx\Vendor\GLEW\include;$(SolutionDir)Onyx\Vendor\assimp\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)Onyx;$(SolutionDir)Onyx\Source;$(SolutionDir)Onyx\Vendor;$(SolutionDir)Onyx\Vendor\glm;$(SolutionDir)Onyx\Vendor\imgui;$(SolutionDir)Onyx\Vendor\GLFW;$(SolutionDir)Onyx\Vendor\GLEW\include;$(SolutionDir)Onyx\Vendor\assimp\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(SolutionDir)Onyx\Vendor\assimp\lib\assimp-vc143-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;glew32.lib;glew32s.lib;glfw3.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)Onyx\Vendor\GLFW\lib-vc2019;$(SolutionDir)Onyx\Vendor\GLEW\lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -140,14 +143,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)Onyx;$(SolutionDir)Onyx\Source;$(SolutionDir)Onyx\Source\maths\glm;$(SolutionDir)Onyx\Vendor;$(SolutionDir)Onyx\Vendor\imgui;$(SolutionDir)Onyx\Vendor\GLFW;$(SolutionDir)Onyx\Vendor\GLEW\include;$(SolutionDir)Onyx\Vendor\assimp\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)Onyx;$(SolutionDir)Onyx\Source;$(SolutionDir)Onyx\Vendor;$(SolutionDir)Onyx\Vendor\glm;$(SolutionDir)Onyx\Vendor\imgui;$(SolutionDir)Onyx\Vendor\GLFW;$(SolutionDir)Onyx\Vendor\GLEW\include;$(SolutionDir)Onyx\Vendor\assimp\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(SolutionDir)Onyx\Vendor\assimp\lib\assimp-vc143-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;glew32.lib;glew32s.lib;glfw3.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)Onyx\Vendor\GLFW\lib-vc2019;$(SolutionDir)Onyx\Vendor\GLEW\lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
