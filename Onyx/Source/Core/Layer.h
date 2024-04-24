@@ -5,10 +5,11 @@ namespace Onyx {
     class Layer
     {
     public:
-        Layer();
+        Layer() {};
 
-        virtual void OnUpdate();
-        virtual void OnImGui();
+        virtual void OnUpdate() = 0;
+        virtual void OnImGui() {};
+        virtual void OnAttach() {};
     };
 
 }
