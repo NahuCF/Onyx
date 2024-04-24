@@ -40,7 +40,7 @@ namespace Onyx {
         //}
 
 		void CloseWindow() const;
-		GLFWwindow* WindowGUI() { return m_Window; }
+		GLFWwindow* GetWindow() { return m_Window; }
 
         void MakeFullScreen();
         void MakeWindowed() { m_Monitor = nullptr; }
