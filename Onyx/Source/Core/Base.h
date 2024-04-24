@@ -2,8 +2,8 @@
 
 #include <memory>
 
-namespace Onyx
-{
+namespace Onyx {
+
 	template<typename T>
 	using Ref = std::shared_ptr<T>;
 
@@ -12,4 +12,5 @@ namespace Onyx
 	{
 		return std::make_shared<T>(std::forward<Args>(args)...);
 	}
+
 }
