@@ -60,7 +60,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>SE_PLATFORM_WINDOWS;STB_IMAGE_IMPLEMENTATION;_CRT_SECURE_NO_WARNINGS;GLEW_STATIC</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)Onyx;$(SolutionDir)Onyx\Source;$(SolutionDir)Onyx\Vendor;$(SolutionDir)Onyx\Vendor\glm;$(SolutionDir)Onyx\Vendor\imgui;$(SolutionDir)Onyx\Vendor\GLFW;$(SolutionDir)Onyx\Vendor\GLEW\include;$(SolutionDir)Onyx\Vendor\assimp\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)Onyx;$(SolutionDir)Onyx\Source;$(SolutionDir)Onyx\Vendor;$(SolutionDir)Onyx\Vendor\glm;$(SolutionDir)Onyx\Vendor\imgui;$(SolutionDir)Onyx\Vendor\imgui\backends;$(SolutionDir)Onyx\Vendor\GLFW;$(SolutionDir)Onyx\Vendor\GLEW\include;$(SolutionDir)Onyx\Vendor\assimp\include</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
@@ -86,7 +86,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>SE_PLATFORM_WINDOWS;STB_IMAGE_IMPLEMENTATION;_CRT_SECURE_NO_WARNINGS;GLEW_STATIC</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)Onyx;$(SolutionDir)Onyx\Source;$(SolutionDir)Onyx\Vendor;$(SolutionDir)Onyx\Vendor\glm;$(SolutionDir)Onyx\Vendor\imgui;$(SolutionDir)Onyx\Vendor\GLFW;$(SolutionDir)Onyx\Vendor\GLEW\include;$(SolutionDir)Onyx\Vendor\assimp\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)Onyx;$(SolutionDir)Onyx\Source;$(SolutionDir)Onyx\Vendor;$(SolutionDir)Onyx\Vendor\glm;$(SolutionDir)Onyx\Vendor\imgui;$(SolutionDir)Onyx\Vendor\imgui\backends;$(SolutionDir)Onyx\Vendor\GLFW;$(SolutionDir)Onyx\Vendor\GLEW\include;$(SolutionDir)Onyx\Vendor\assimp\include</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
@@ -107,12 +107,14 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Source\Core\ImGuiLayer.cpp" />
     <ClCompile Include="Source\Core\Application.cpp" />
     <ClCompile Include="Source\Core\Base.h" />
     <ClCompile Include="Source\Graphics\Buffers.cpp" />
     <ClCompile Include="Source\Graphics\Camera.cpp" />
     <ClCompile Include="Source\Graphics\Framebuffer.cpp" />
     <ClCompile Include="Source\Graphics\Mesh.cpp" />
+    <ClCompile Include="Source\Graphics\Model.cpp" />
     <ClCompile Include="Source\Graphics\ParticleSystem.cpp" />
     <ClCompile Include="Source\Graphics\Renderer2D.cpp" />
     <ClCompile Include="Source\Graphics\Shader.cpp" />
@@ -130,14 +132,16 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="Vendor\imgui\backends\imgui_impl_glfw.cpp" />
+    <ClCompile Include="Vendor\imgui\backends\imgui_impl_opengl3.cpp" />
     <ClCompile Include="Vendor\imgui\imgui.cpp" />
+    <ClCompile Include="Vendor\imgui\imgui_demo.cpp" />
     <ClCompile Include="Vendor\imgui\imgui_draw.cpp" />
-    <ClCompile Include="Vendor\imgui\imgui_impl_glfw.cpp" />
-    <ClCompile Include="Vendor\imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="Vendor\imgui\imgui_tables.cpp" />
     <ClCompile Include="Vendor\imgui\imgui_widgets.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Source\Core\ImGuiLayer.h" />
     <ClInclude Include="Source\Core\Application.h" />
     <ClInclude Include="Source\Core\EntryPoint.h" />
     <ClInclude Include="Source\Core\Layer.h" />
@@ -167,15 +171,17 @@
     <ClInclude Include="Vendor\assimp\include\assimp\types.h" />
     <ClInclude Include="Vendor\GLEW\include\GL\glew.h" />
     <ClInclude Include="Vendor\GLFW\glfw3.h" />
-    <ClInclude Include="Vendor\imgui\imconfig.h" />
+    <ClInclude Include="Vendor\imgui\backends\imgui_impl_glfw.h" />
+    <ClInclude Include="Vendor\imgui\backends\imgui_impl_opengl3.h" />
+    <ClInclude Include="Vendor\imgui\backends\imgui_impl_opengl3_loader.h" />
     <ClInclude Include="Vendor\imgui\imgui.h" />
     <ClInclude Include="Vendor\imgui\imgui_impl_glfw.h" />
     <ClInclude Include="Vendor\imgui\imgui_impl_opengl3.h" />
+    <ClInclude Include="src\stb_image\stb_image.h" />
     <ClInclude Include="Vendor\imgui\imgui_internal.h" />
     <ClInclude Include="Vendor\imgui\imstb_rectpack.h" />
     <ClInclude Include="Vendor\imgui\imstb_textedit.h" />
     <ClInclude Include="Vendor\imgui\imstb_truetype.h" />
-    <ClInclude Include="src\stb_image\stb_image.h" />
     <ClInclude Include="Vendor\stb_image\stb_image.h" />
   </ItemGroup>
   <ItemGroup>
