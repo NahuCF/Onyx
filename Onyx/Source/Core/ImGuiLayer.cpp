@@ -3,8 +3,6 @@
 #include "Vendor/imgui/imgui.h"
 #include "Vendor/imgui/backends/imgui_impl_glfw.h"
 #include "Vendor/imgui/backends/imgui_impl_opengl3.h"
-#include "Vendor/GLEW/include/GL/glew.h"
-#include "Vendor/GLFW/glfw3.h"
 
 #include "Source/Core/Application.h"
 
