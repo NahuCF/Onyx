@@ -2,6 +2,7 @@
 Bin/
 Bin-Int/
 Build/
+build/
 
 #Visual studio folder
 .vs/
