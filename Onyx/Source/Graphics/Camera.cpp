@@ -61,11 +61,11 @@ namespace Onyx {
 
         if(window.IsButtomPressed(GLFW_MOUSE_BUTTON_LEFT))
         {
-            glfwSetInputMode(window.WindowGUI(), GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+            glfwSetInputMode(window.GetWindow(), GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 
             double mouseX;
             double mouseY;
-            glfwGetCursorPos(window.WindowGUI(), &mouseX, &mouseY);
+            glfwGetCursorPos(window.GetWindow(), &mouseX, &mouseY);
             
             float xPos = static_cast<float>(mouseX);
             float yPos = static_cast<float>(mouseY);
@@ -102,7 +102,7 @@ namespace Onyx {
         if(window.IsButtomReleased(GLFW_MOUSE_BUTTON_LEFT))
         {
             m_FirstClick = true;
-            glfwSetInputMode(window.WindowGUI(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            glfwSetInputMode(window.GetWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         }
     }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include "Maths/Maths.h"
 #include "Buffers.h"
 #include "Texture.h"
@@ -70,6 +71,7 @@ namespace Onyx {
 
 		int32_t m_TextureUnits[Renderer2DSpecification::MaxTextureUnits];
 		const Onyx::Shader* m_Shader = nullptr;
+		std::unique_ptr<Onyx::Shader> m_DefaultShader;
 
 		std::weak_ptr<Onyx::Camera> m_Camera;
 

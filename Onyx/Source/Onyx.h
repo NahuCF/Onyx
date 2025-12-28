@@ -18,9 +18,9 @@
 #include "Maths/Maths.h"
 
 // ImGUI
-#include "Vendor/imgui/imgui.h"
-#include "Vendor/imgui/backends/imgui_impl_glfw.h"
-#include "Vendor/imgui/backends/imgui_impl_opengl3.h"
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 
 // std
 #include <string>

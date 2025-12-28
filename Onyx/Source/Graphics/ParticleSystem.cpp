@@ -1,6 +1,6 @@
 #include "pch.h"
 
-#include "ParticleSystem.h";
+#include "ParticleSystem.h"
 
 namespace Onyx {
 

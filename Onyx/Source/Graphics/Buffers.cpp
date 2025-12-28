@@ -1,7 +1,7 @@
 #include "pch.h"
 
-#include "Vendor/GLEW/include/GL/glew.h"
-#include "Vendor/GLFW/glfw3.h"
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 
 #include "Buffers.h"
 
@@ -108,7 +108,7 @@ namespace Onyx {
 	void VertexArray::AddBuffer(uint32_t attribCount, uint32_t stride, uint32_t offset, uint32_t attribIndex)
 	{
 		glEnableVertexAttribArray(attribIndex);
-		glVertexAttribPointer(attribIndex, attribCount, GL_FLOAT, GL_FALSE, stride * sizeof(float), (const void*)offset);
+		glVertexAttribPointer(attribIndex, attribCount, GL_FLOAT, GL_FALSE, stride * sizeof(float), (const void*)(uintptr_t)offset);
 	}
 
 }

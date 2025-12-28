@@ -3,9 +3,12 @@
 #include <string>
 #include <vector>
 
-#include "Vendor/assimp/include/assimp/Importer.hpp"
-#include "Vendor/assimp/include/assimp/scene.h"
-#include "Vendor/assimp/include/assimp/postprocess.h"
+// Assimp includes - commented out unless ONYX_USE_ASSIMP is defined
+#ifdef ONYX_USE_ASSIMP
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+#endif
 
 #include "Mesh.h"
 

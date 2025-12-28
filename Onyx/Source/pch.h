@@ -7,7 +7,7 @@
 #include <vector>
 #include <string>
 
-#include "Vendor/GLEW/include/GL/glew.h"
+#include <GL/glew.h>
  
 #ifdef SE_PLATFORM_WINDOWS
 	#include <Windows.h>

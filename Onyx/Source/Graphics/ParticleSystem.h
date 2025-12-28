@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Maths/Maths.h";
-#include "Renderer2D.h";
+#include "Maths/Maths.h"
+#include "Renderer2D.h"
 
 namespace Onyx {
 

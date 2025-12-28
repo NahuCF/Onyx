@@ -1,8 +1,8 @@
 #include "ImGuiLayer.h"
 
-#include "Vendor/imgui/imgui.h"
-#include "Vendor/imgui/backends/imgui_impl_glfw.h"
-#include "Vendor/imgui/backends/imgui_impl_opengl3.h"
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 
 #include "Source/Core/Application.h"
 
@@ -15,20 +15,22 @@ namespace Onyx {
         ImGuiIO& io = ImGui::GetIO(); (void)io;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;    
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      
-        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         
-        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;       
+        // Note: Docking and Viewports require ImGui docking branch
+        // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         
+        // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;       
 
         ImGui::StyleColorsDark();
 
         ImGuiStyle& style = ImGui::GetStyle();
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-        {
-            style.WindowRounding = 0.0f;
-            style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-        }
+        // Viewport specific styling disabled for now
+        // if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        // {
+        //     style.WindowRounding = 0.0f;
+        //     style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+        // }
 
         ImGui_ImplGlfw_InitForOpenGL(Application::GetInstance().GetWindow()->GetWindow(), true);
-        ImGui_ImplOpenGL3_Init("#version 460");
+        ImGui_ImplOpenGL3_Init("#version 450");
 	}
 
     void ImGuiLayer::OnImGui()
@@ -46,10 +48,11 @@ namespace Onyx {
     {
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        GLFWwindow* backup_current_context = glfwGetCurrentContext();
-        ImGui::UpdatePlatformWindows();
-        ImGui::RenderPlatformWindowsDefault();
-        glfwMakeContextCurrent(backup_current_context);
+        // Viewport rendering disabled for now (requires docking branch)
+        // GLFWwindow* backup_current_context = glfwGetCurrentContext();
+        // ImGui::UpdatePlatformWindows();
+        // ImGui::RenderPlatformWindowsDefault();
+        // glfwMakeContextCurrent(backup_current_context);
     }
 
 }

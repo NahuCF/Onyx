@@ -1,9 +1,10 @@
 #include "pch.h"
 
 #include "Shader.h"
-#include "Vendor/glm/glm/glm.hpp"
-#include "Vendor/glm/glm/gtc/matrix_transform.hpp"
-#include "Vendor/GLEW/include/GL/glew.h"
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <GL/glew.h>
 
 namespace Onyx {
 
@@ -12,6 +13,13 @@ namespace Onyx {
 		//Open files
 		m_VShaderFile.open(vertexPath);
 		m_FShaderFile.open(fragmentPath);
+
+		if (!m_VShaderFile.is_open()) {
+			std::cout << "ERROR::SHADER::VERTEX::FILE_NOT_FOUND: " << vertexPath << std::endl;
+		}
+		if (!m_FShaderFile.is_open()) {
+			std::cout << "ERROR::SHADER::FRAGMENT::FILE_NOT_FOUND: " << fragmentPath << std::endl;
+		}
 
 		m_VShaderStream << m_VShaderFile.rdbuf();
 		m_FShaderStream << m_FShaderFile.rdbuf();

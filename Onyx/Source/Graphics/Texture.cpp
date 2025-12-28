@@ -1,10 +1,10 @@
 #include "pch.h"
 
-#include "Vendor/GLEW/include/GL/glew.h"
-#include "Vendor/GLFW/glfw3.h"
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 
 #define STB_IMAGE_STATIC
-#include "Vendor/stb_image/stb_image.h"
+#include <stb_image.h>
 
 #include "Texture.h"
 
@@ -26,7 +26,27 @@ namespace Onyx {
 
 		m_TextureData = stbi_load(texturePath, &m_TextureWidth, &m_TextureHeight, &m_NChannels, 0);
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_TextureWidth, m_TextureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, m_TextureData);
+		if (!m_TextureData) {
+			std::cout << "ERROR::TEXTURE::FILE_NOT_FOUND: " << texturePath << std::endl;
+		}
+
+		GLenum internalFormat, dataFormat;
+		if (m_NChannels == 4) {
+			internalFormat = GL_RGBA8;
+			dataFormat = GL_RGBA;
+		} else if (m_NChannels == 3) {
+			internalFormat = GL_RGB8;
+			dataFormat = GL_RGB;
+		} else if (m_NChannels == 1) {
+			internalFormat = GL_R8;
+			dataFormat = GL_RED;
+		} else {
+			// Default to RGBA
+			internalFormat = GL_RGBA8;
+			dataFormat = GL_RGBA;
+		}
+
+		glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, m_TextureWidth, m_TextureHeight, 0, dataFormat, GL_UNSIGNED_BYTE, m_TextureData);
 
 		if(!m_TextureData)	
 			std::cout << "FAILED TO LOAD TEXTURE" << std::endl;

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Vector3.h"
+#include <cmath>
 
 namespace Onyx {
 

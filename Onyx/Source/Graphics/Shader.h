@@ -2,7 +2,7 @@
 
 #include "pch.h"
 
-#include "Vendor/glm/glm/glm.hpp"
+#include <glm/glm.hpp>
 
 namespace Onyx {
 

@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "Renderer2D.h"
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace Onyx {
 
@@ -9,6 +11,11 @@ namespace Onyx {
 		, m_Window(window)
         , m_Camera(camera)
 	{
+		m_DefaultShader = std::make_unique<Onyx::Shader>(
+			"assets/shaders/basic.vert", 
+			"assets/shaders/basic.frag"
+		);
+
 		for (uint32_t i = 0; i < Renderer2DSpecification::IndexBufferSize; i += 6)
 		{
 			m_IndexBufferData[i + 0] = 0 + m_IndexBufferOffset;
@@ -51,6 +58,9 @@ namespace Onyx {
 		m_VertexCount += 4;
 		m_IndexCount += 6;
 		m_VertexBufferOffset += sizeof(vertices) / sizeof(float);
+		
+		// Use default shader for colored quads
+		m_Shader = m_DefaultShader.get();
 	}
 
 	void Renderer2D::RenderQuad(Onyx::Vector2D size, Onyx::Vector3 position, const Onyx::Texture& texture, const Onyx::Shader* shader)
@@ -89,10 +99,10 @@ namespace Onyx {
 		spriteUV[3] = { (spriteCoord.x * spriteSize.x) / texture->GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture->GetTextureSize().y };		// Top left
 	
 		float vertices[] = {
-			-size.x + position.x * 2, -size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[3].x, spriteUV[3].y,		(float)textureUnit,
-			 size.x + position.x * 2, -size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[2].x, spriteUV[2].y,		(float)textureUnit,
-			 size.x + position.x * 2,  size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[1].x, spriteUV[1].y,		(float)textureUnit,
-			-size.x + position.x * 2,  size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[0].x, spriteUV[0].y,		(float)textureUnit
+			-size.x + position.x * 2, -size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[0].x, spriteUV[0].y,		(float)textureUnit,
+			 size.x + position.x * 2, -size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[1].x, spriteUV[1].y,		(float)textureUnit,
+			 size.x + position.x * 2,  size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[2].x, spriteUV[2].y,		(float)textureUnit,
+			-size.x + position.x * 2,  size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[3].x, spriteUV[3].y,		(float)textureUnit
 		};
 
 		for (uint32_t i = 0; i < sizeof(vertices) / sizeof(float); i++)
@@ -193,6 +203,8 @@ namespace Onyx {
 		m_IndexCount += 6;
 
 		m_VertexBufferOffset += sizeof(vertices) / sizeof(float);
+		
+		m_Shader = m_DefaultShader.get();
 	}
 
 	void Renderer2D::RenderRotatedQuad(Onyx::Vector2D size, Onyx::Vector3 position, const Onyx::Texture& texture, const Onyx::Shader* shader, float rotation)
@@ -262,7 +274,23 @@ namespace Onyx {
 	void Renderer2D::Flush()
 	{
 		if(m_Shader != nullptr)
+		{
+			m_Shader->Bind();
+			
+			// Set up orthographic projection matrix for 2D rendering
+			auto camera = m_Camera.lock();
+			if (camera)
+			{
+				float aspectRatio = m_Window.GetAspectRatio();
+				glm::mat4 projection = glm::ortho(-aspectRatio, aspectRatio, -1.0f, 1.0f, -1.0f, 100.0f);
+				glm::mat4 view = camera->GetViewMatrix();
+				glm::mat4 viewProjection = projection * view;
+				
+				glUniformMatrix4fv(glGetUniformLocation(m_Shader->GetProgramID(), "u_ViewProjection"), 1, GL_FALSE, glm::value_ptr(viewProjection));
+			}
+			
 			glUniform1iv(glGetUniformLocation(m_Shader->GetProgramID(), "u_Textures"), Renderer2DSpecification::MaxTextureUnits, m_TextureUnits);
+		}
 		
 		m_VAO->Bind();
 		m_VBO->Bind();
@@ -276,6 +304,8 @@ namespace Onyx {
 		glBufferSubData(GL_ARRAY_BUFFER, 0, m_VertexCount * sizeof(BufferDisposition), m_VertexBufferData);
 		glDrawElements(GL_TRIANGLES, m_IndexCount, GL_UNSIGNED_INT, 0);
 
+		if(m_Shader != nullptr)
+			m_Shader->UnBind();
 		m_VBO->UnBind();
 		m_VAO->UnBind();
 		m_EBO->UnBind();

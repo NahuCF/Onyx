@@ -2,11 +2,11 @@
 
 #include <iostream>
 
-#include "Vendor/GLEW/include/GL/glew.h"
-#include "Vendor/GLFW/glfw3.h"
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 
 #define STB_IMAGE_STATIC
-#include "Vendor/stb_image/stb_image.h"
+#include <stb_image.h>
 
 namespace Onyx {
 
