@@ -20,8 +20,10 @@ namespace Onyx {
 		void SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix);
         void SetInt(const std::string &name, int value) const;
         void SetMat4(const std::string &name, glm::mat4& matrix) const;
+        void SetVec2(const std::string &name, float x, float y) const;
         void SetVec3(const std::string &name, glm::vec3& vector) const;
         void SetVec3(const std::string &name, float x, float y, float z) const;
+        void SetVec4(const std::string &name, float x, float y, float z, float w) const;
         void SetFloat(const std::string &name, float value) const;
 	private:
 		uint32_t m_ProgramID;

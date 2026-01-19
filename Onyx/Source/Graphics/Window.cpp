@@ -50,8 +50,12 @@ namespace Onyx {
 			std::cout << "Failed to load GLFW :c" << std::endl;
 			return false;
 		}
+
 		curtime = (float)glfwGetTime();
 		lasttime = (float)glfwGetTime();
+
+		// Request MSAA samples for antialiasing
+		glfwWindowHint(GLFW_SAMPLES, 4);
 
 		m_Window = glfwCreateWindow(m_Width, m_Height, m_Title, NULL, NULL);
 
@@ -95,6 +99,7 @@ namespace Onyx {
 		}
 
 		glEnable(GL_DEPTH_TEST);
+		glEnable(GL_MULTISAMPLE);  // Enable MSAA
 
 		return true;
 	}
@@ -157,7 +162,8 @@ namespace Onyx {
 		if (curtime - lasttime > 1)
 		{
             m_LastFPS = m_FPS;
-			std::cout << "FPS: " << m_FPS << std::endl;
+            if(m_ShowFPS) 
+			    std::cout << "FPS: " << m_FPS << std::endl;
 			m_FPS = 0;
 
 			curtime = (float)glfwGetTime();

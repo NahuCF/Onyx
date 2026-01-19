@@ -12,8 +12,8 @@ namespace Onyx {
         , m_Camera(camera)
 	{
 		m_DefaultShader = std::make_unique<Onyx::Shader>(
-			"assets/shaders/basic.vert", 
-			"assets/shaders/basic.frag"
+			"MMOGame/assets/shaders/basic.vert",
+			"MMOGame/assets/shaders/basic.frag"
 		);
 
 		for (uint32_t i = 0; i < Renderer2DSpecification::IndexBufferSize; i += 6)
@@ -97,7 +97,7 @@ namespace Onyx {
 		spriteUV[1] = { ((spriteCoord.x + 1) * spriteSize.x) / texture->GetTextureSize().x, (spriteCoord.y * spriteSize.y) / texture->GetTextureSize().y };		// Bottom right
 		spriteUV[2] = { ((spriteCoord.x + 1) * spriteSize.x) / texture->GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture->GetTextureSize().y }; // Top right
 		spriteUV[3] = { (spriteCoord.x * spriteSize.x) / texture->GetTextureSize().x, ((spriteCoord.y + 1) * spriteSize.y) / texture->GetTextureSize().y };		// Top left
-	
+
 		float vertices[] = {
 			-size.x + position.x * 2, -size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[0].x, spriteUV[0].y,		(float)textureUnit,
 			 size.x + position.x * 2, -size.y + position.y * 2, position.z,		1.0f, 1.0f, 1.0f, 1.0f,		spriteUV[1].x, spriteUV[1].y,		(float)textureUnit,
@@ -115,6 +115,117 @@ namespace Onyx {
 		m_Shader = shader;
 		m_TextureUnits[textureUnit] = textureUnit;
 		glBindTextureUnit(textureUnit, texture->GetTextureID());
+	}
+
+	void Renderer2D::BeginScreenSpace(float viewportX, float viewportY, float viewportWidth, float viewportHeight)
+	{
+		m_ScreenSpaceMode = true;
+		m_ScreenSpaceViewport[0] = viewportX;
+		m_ScreenSpaceViewport[1] = viewportY;
+		m_ScreenSpaceViewport[2] = viewportWidth;
+		m_ScreenSpaceViewport[3] = viewportHeight;
+	}
+
+	void Renderer2D::RenderQuadScreenSpace(Onyx::Vector2D position, Onyx::Vector2D size, const Onyx::Texture* texture, Onyx::Vector2D uvMin, Onyx::Vector2D uvMax)
+	{
+		if (!m_ScreenSpaceMode) return;
+		m_Stats.QuadCount++;
+
+		int textureUnit = texture->GetTextureID() - 1;
+
+		// Convert screen pixels to normalized coordinates [0, 1] relative to viewport
+		float vpW = m_ScreenSpaceViewport[2];
+		float vpH = m_ScreenSpaceViewport[3];
+
+		// Normalize position and size to [-1, 1] range for clip space
+		float left = (position.x / vpW) * 2.0f - 1.0f;
+		float right = ((position.x + size.x) / vpW) * 2.0f - 1.0f;
+		float top = 1.0f - (position.y / vpH) * 2.0f;         // Flip Y for screen coords
+		float bottom = 1.0f - ((position.y + size.y) / vpH) * 2.0f;
+
+		float vertices[] = {
+			left,  top,    0.0f,   1.0f, 1.0f, 1.0f, 1.0f,   uvMin.x, uvMin.y,   (float)textureUnit,  // Top-left
+			right, top,    0.0f,   1.0f, 1.0f, 1.0f, 1.0f,   uvMax.x, uvMin.y,   (float)textureUnit,  // Top-right
+			right, bottom, 0.0f,   1.0f, 1.0f, 1.0f, 1.0f,   uvMax.x, uvMax.y,   (float)textureUnit,  // Bottom-right
+			left,  bottom, 0.0f,   1.0f, 1.0f, 1.0f, 1.0f,   uvMin.x, uvMax.y,   (float)textureUnit   // Bottom-left
+		};
+
+		for (uint32_t i = 0; i < sizeof(vertices) / sizeof(float); i++)
+			m_VertexBufferData[m_VertexBufferOffset + i] = vertices[i];
+
+		m_VertexCount += 4;
+		m_IndexCount += 6;
+		m_VertexBufferOffset += sizeof(vertices) / sizeof(float);
+
+		m_TextureUnits[textureUnit] = textureUnit;
+		glBindTextureUnit(textureUnit, texture->GetTextureID());
+	}
+
+	void Renderer2D::UploadScreenSpaceData()
+	{
+		if (m_VertexCount == 0) return;
+
+		m_VAO->Bind();
+		m_VBO->Bind();
+		m_EBO->Bind();
+
+		m_VAO->AddBuffer(3, sizeof(BufferDisposition) / sizeof(float), offsetof(BufferDisposition, position), 0);
+		m_VAO->AddBuffer(4, sizeof(BufferDisposition) / sizeof(float), offsetof(BufferDisposition, color), 1);
+		m_VAO->AddBuffer(2, sizeof(BufferDisposition) / sizeof(float), offsetof(BufferDisposition, texCoord), 2);
+		m_VAO->AddBuffer(1, sizeof(BufferDisposition) / sizeof(float), offsetof(BufferDisposition, texIndex), 3);
+
+		glBufferSubData(GL_ARRAY_BUFFER, 0, m_VertexCount * sizeof(BufferDisposition), m_VertexBufferData);
+
+		m_VBO->UnBind();
+		m_VAO->UnBind();
+		m_EBO->UnBind();
+	}
+
+	void Renderer2D::DrawScreenSpaceBatch(uint32_t indexCount)
+	{
+		if (indexCount == 0) return;
+
+		m_Stats.DrawCalls++;
+
+		// Save GL state
+		GLint lastProgram;
+		GLint lastVAO;
+		glGetIntegerv(GL_CURRENT_PROGRAM, &lastProgram);
+		glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &lastVAO);
+
+		m_DefaultShader->Bind();
+
+		// Use identity matrix for screen-space rendering (positions are already in clip space)
+		glm::mat4 identity(1.0f);
+		glUniformMatrix4fv(glGetUniformLocation(m_DefaultShader->GetProgramID(), "u_ViewProjection"), 1, GL_FALSE, glm::value_ptr(identity));
+		glUniform1iv(glGetUniformLocation(m_DefaultShader->GetProgramID(), "u_Textures"), Renderer2DSpecification::MaxTextureUnits, m_TextureUnits);
+
+		m_VAO->Bind();
+		m_EBO->Bind();
+
+		glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+
+		m_VAO->UnBind();
+		m_EBO->UnBind();
+		m_DefaultShader->UnBind();
+
+		// Restore GL state
+		glUseProgram(lastProgram);
+		glBindVertexArray(lastVAO);
+	}
+
+	void Renderer2D::EndScreenSpace()
+	{
+		if (!m_ScreenSpaceMode) return;
+
+		// Reset state for next batch
+		m_IndexCount = 0;
+		m_VertexCount = 0;
+		m_VertexBufferOffset = 0;
+		CleanBuffer();
+		CleanTextureUnits();
+
+		m_ScreenSpaceMode = false;
 	}
 
     void Renderer2D::RenderRotatedLine(Onyx::Vector2D start, Onyx::Vector2D end, float width, Onyx::Vector4D color, float rotation)
@@ -273,6 +384,10 @@ namespace Onyx {
 
 	void Renderer2D::Flush()
 	{
+		if (m_IndexCount == 0) return;  // Nothing to draw
+
+		m_Stats.DrawCalls++;
+
 		if(m_Shader != nullptr)
 		{
 			m_Shader->Bind();

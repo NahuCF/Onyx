@@ -4,8 +4,9 @@
 
 namespace Onyx {
 
-    Mesh::Mesh(std::vector<MeshVertex> vertices, std::vector<unsigned int> indices, std::vector<MeshTexture> textures)
-        : m_Vertices(vertices)
+    Mesh::Mesh(std::vector<MeshVertex> vertices, std::vector<unsigned int> indices, std::vector<MeshTexture> textures, const std::string& name)
+        : m_Name(name)
+        , m_Vertices(vertices)
         , m_Indices(indices)
         , m_Textures(textures)
     {
@@ -39,6 +40,13 @@ namespace Onyx {
         glBindVertexArray(0);
     }
 
+    void Mesh::DrawGeometryOnly()
+    {
+        glBindVertexArray(m_VAO);
+        glDrawElements(GL_TRIANGLES, m_Indices.size(), GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+    }
+
     Mesh::~Mesh() 
 	{
 		//delete m_VAO;
@@ -63,12 +71,21 @@ namespace Onyx {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_Indices.size() * sizeof(unsigned int),  &m_Indices[0], GL_STATIC_DRAW);
 
-        glEnableVertexAttribArray(0);	
+        // Position
+        glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)0);
-        glEnableVertexAttribArray(1);	
+        // Normal
+        glEnableVertexAttribArray(1);
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, normal));
-        glEnableVertexAttribArray(2);	
+        // TexCoord
+        glEnableVertexAttribArray(2);
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, texCoord));
+        // Tangent
+        glEnableVertexAttribArray(3);
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, tangent));
+        // Bitangent
+        glEnableVertexAttribArray(4);
+        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, bitangent));
 
         glBindVertexArray(0);
     }

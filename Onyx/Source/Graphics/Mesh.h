@@ -9,11 +9,13 @@
 
 namespace Onyx {
 
-    struct MeshVertex 
+    struct MeshVertex
     {
         glm::vec3 position;
         glm::vec3 normal;
         glm::vec2 texCoord;
+        glm::vec3 tangent;
+        glm::vec3 bitangent;
     };
 
     struct MeshTexture 
@@ -26,14 +28,16 @@ namespace Onyx {
     class Mesh
     {
     public:
-        Mesh(std::vector<MeshVertex> vertices, std::vector<unsigned int> indices, std::vector<MeshTexture> textures);
+        Mesh(std::vector<MeshVertex> vertices, std::vector<unsigned int> indices, std::vector<MeshTexture> textures, const std::string& name = "");
         ~Mesh();
 
+        std::string m_Name;
         std::vector<MeshVertex> m_Vertices;
         std::vector<unsigned int> m_Indices;
         std::vector<MeshTexture> m_Textures;
 
         void Draw(Shader &shader);
+        void DrawGeometryOnly();  // Draw without rebinding textures
     private:
         void SetupMesh();
 

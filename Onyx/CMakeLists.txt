@@ -52,6 +52,11 @@ target_link_libraries(Onyx
 if(ONYX_USE_ASSIMP)
     target_link_libraries(Onyx PUBLIC assimp)
     target_compile_definitions(Onyx PUBLIC ONYX_USE_ASSIMP)
+    # Explicitly add Assimp include directories (FetchContent paths)
+    target_include_directories(Onyx PUBLIC
+        ${assimp_SOURCE_DIR}/include
+        ${assimp_BINARY_DIR}/include
+    )
 endif()
 
 # Platform-specific settings

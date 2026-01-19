@@ -39,7 +39,6 @@ namespace Onyx {
             m_ImGuiLayer->End();
 
             m_Window->Update();
-
         }
     }
 

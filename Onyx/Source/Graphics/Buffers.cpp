@@ -24,6 +24,15 @@ namespace Onyx {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
+	VertexBuffer::VertexBuffer(const void* data, uint32_t sizeBytes)
+		: m_BufferCount(0)
+	{
+		glGenBuffers(1, &m_BufferID);
+		glBindBuffer(GL_ARRAY_BUFFER, m_BufferID);
+		glBufferData(GL_ARRAY_BUFFER, sizeBytes, data, GL_STATIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
+
 	VertexBuffer::~VertexBuffer()
 	{
 		glDeleteBuffers(1, &m_BufferID);
@@ -39,14 +48,36 @@ namespace Onyx {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
+	void VertexBuffer::SetData(const void* data, uint32_t sizeBytes)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, m_BufferID);
+		glBufferData(GL_ARRAY_BUFFER, sizeBytes, data, GL_STATIC_DRAW);
+	}
+
+	void VertexBuffer::SetSubData(const void* data, uint32_t offset, uint32_t sizeBytes)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, m_BufferID);
+		glBufferSubData(GL_ARRAY_BUFFER, offset, sizeBytes, data);
+	}
+
 	// --------------------------------------------
 	// --------------------------------------------
 
-	IndexBuffer::IndexBuffer(uint32_t* indices, uint32_t size)
+	IndexBuffer::IndexBuffer(uint32_t* indices, uint32_t sizeBytes)
+		: m_Count(sizeBytes / sizeof(uint32_t))
 	{
 		glGenBuffers(1, &m_BufferID);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_BufferID);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, indices, GL_STATIC_DRAW);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeBytes, indices, GL_STATIC_DRAW);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	}
+
+	IndexBuffer::IndexBuffer(const void* data, uint32_t sizeBytes)
+		: m_Count(sizeBytes / sizeof(uint32_t))
+	{
+		glGenBuffers(1, &m_BufferID);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_BufferID);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeBytes, data, GL_STATIC_DRAW);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	}
 
@@ -109,6 +140,63 @@ namespace Onyx {
 	{
 		glEnableVertexAttribArray(attribIndex);
 		glVertexAttribPointer(attribIndex, attribCount, GL_FLOAT, GL_FALSE, stride * sizeof(float), (const void*)(uintptr_t)offset);
+	}
+
+	void VertexArray::SetVertexBuffer(VertexBuffer* vbo)
+	{
+		Bind();
+		vbo->Bind();
+	}
+
+	void VertexArray::SetIndexBuffer(IndexBuffer* ebo)
+	{
+		m_IndexBuffer = ebo;
+		Bind();
+		ebo->Bind();
+	}
+
+	void VertexArray::SetLayout(const VertexLayout& layout)
+	{
+		Bind();
+
+		const auto& attributes = layout.GetAttributes();
+		for (uint32_t index = 0; index < attributes.size(); index++) {
+			const auto& attr = attributes[index];
+
+			GLenum glType = GL_FLOAT;
+			switch (attr.type) {
+				case VertexAttributeType::Float:
+				case VertexAttributeType::Float2:
+				case VertexAttributeType::Float3:
+				case VertexAttributeType::Float4:
+					glType = GL_FLOAT;
+					break;
+				case VertexAttributeType::Int:
+				case VertexAttributeType::Int2:
+				case VertexAttributeType::Int3:
+				case VertexAttributeType::Int4:
+					glType = GL_INT;
+					break;
+				case VertexAttributeType::UInt:
+					glType = GL_UNSIGNED_INT;
+					break;
+				case VertexAttributeType::Bool:
+					glType = GL_BOOL;
+					break;
+			}
+
+			glEnableVertexAttribArray(index);
+			glVertexAttribPointer(
+				index,
+				GetAttributeComponentCount(attr.type),
+				glType,
+				attr.normalized ? GL_TRUE : GL_FALSE,
+				layout.GetStride(),
+				(const void*)(uintptr_t)attr.offset
+			);
+		}
+
+		UnBind();
 	}
 
 }
