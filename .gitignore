@@ -6,3 +6,6 @@ build/
 
 #Visual studio folder
 .vs/
+
+#files
+*.idx
