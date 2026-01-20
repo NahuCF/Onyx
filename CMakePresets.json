@@ -58,14 +58,9 @@
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             },
-            "generator": "Visual Studio 18 2026",
+            "generator": "Ninja",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
-            },
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
+                "CMAKE_BUILD_TYPE": "Debug"
             }
         },
         {
@@ -78,14 +73,9 @@
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             },
-            "generator": "Visual Studio 18 2026",
+            "generator": "Ninja",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
-            },
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
+                "CMAKE_BUILD_TYPE": "Release"
             }
         },
         {
