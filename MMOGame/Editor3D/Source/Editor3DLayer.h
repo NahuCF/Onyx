@@ -6,6 +6,7 @@
 #include "Panels/InspectorPanel.h"
 #include "Panels/AssetBrowserPanel.h"
 #include "Panels/StatisticsPanel.h"
+#include "Panels/LightingPanel.h"
 #include "World/EditorWorld.h"
 #include <memory>
 
@@ -36,6 +37,7 @@ private:
     std::unique_ptr<InspectorPanel> m_InspectorPanel;
     std::unique_ptr<AssetBrowserPanel> m_AssetBrowserPanel;
     std::unique_ptr<StatisticsPanel> m_StatisticsPanel;
+    std::unique_ptr<LightingPanel> m_LightingPanel;
 };
 
 } // namespace MMO

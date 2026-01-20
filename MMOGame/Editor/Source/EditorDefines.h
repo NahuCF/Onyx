@@ -14,9 +14,9 @@ namespace MMO {
 constexpr int32_t CHUNK_SIZE = 64;           // Tiles per chunk dimension
 constexpr int32_t MAX_TILE_LAYERS = 16;      // Maximum supported layers
 
-// Default tile dimensions (isometric 2:1 ratio)
-constexpr int32_t DEFAULT_TILE_WIDTH = 160;   // Screen width of tile
-constexpr int32_t DEFAULT_TILE_HEIGHT = 80;  // Screen height of tile
+// Default tile dimensions (orthographic square tiles)
+constexpr int32_t DEFAULT_TILE_WIDTH = 64;   // Screen width of tile
+constexpr int32_t DEFAULT_TILE_HEIGHT = 64;  // Screen height of tile
 
 // ============================================================
 // EDITOR ENUMS

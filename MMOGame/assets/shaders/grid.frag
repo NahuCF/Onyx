@@ -13,20 +13,16 @@ uniform vec4 u_GridColor;
 uniform vec4 u_ChunkColor;
 uniform float u_LineWidth;
 
-// Convert screen position to isometric world position
+// Convert screen position to orthographic world position
 vec2 screenToWorld(vec2 screenPos)
 {
     // Get position relative to viewport center
     vec2 viewportCenter = u_ViewportSize * 0.5;
     vec2 relPos = (screenPos - viewportCenter) / u_Zoom;
 
-    // Isometric tile dimensions (using configured width/height)
-    float halfTileW = u_TileSize.x * 0.5;
-    float halfTileH = u_TileSize.y * 0.5;
-
-    // Reverse isometric projection
-    float worldX = (relPos.x / halfTileW + relPos.y / halfTileH) * 0.5 + u_CameraPos.x;
-    float worldY = (relPos.y / halfTileH - relPos.x / halfTileW) * 0.5 + u_CameraPos.y;
+    // Orthographic: simple divide by tile size
+    float worldX = relPos.x / u_TileSize.x + u_CameraPos.x;
+    float worldY = relPos.y / u_TileSize.y + u_CameraPos.y;
 
     return vec2(worldX, worldY);
 }
@@ -41,8 +37,8 @@ void main()
     float distToYLine = abs(fract(worldPos.y + 0.5) - 0.5);
 
     // Convert distance from world units to screen pixels for consistent line width
-    // Use tile height as the base unit (smaller dimension in isometric)
-    float pixelsPerUnit = u_Zoom * u_TileSize.y;
+    // Use average tile size for orthographic
+    float pixelsPerUnit = u_Zoom * (u_TileSize.x + u_TileSize.y) * 0.5;
     float lineWidthWorld = u_LineWidth / pixelsPerUnit;
 
     // Calculate line intensity with anti-aliasing

@@ -2,6 +2,7 @@
 
 #include <Graphics/Shader.h>
 #include <Graphics/Framebuffer.h>
+#include <Graphics/ShadowMap.h>
 #include <Graphics/Buffers.h>
 #include <Graphics/Texture.h>
 #include <Graphics/Model.h>
@@ -39,6 +40,21 @@ public:
     uint32_t GetTriangleCount() const { return m_TriangleCount; }
     uint32_t GetDrawCalls() const { return m_DrawCalls; }
 
+    // Lighting settings
+    glm::vec3& GetLightDir() { return m_LightDir; }
+    glm::vec3& GetLightColor() { return m_LightColor; }
+    float& GetAmbientStrength() { return m_AmbientStrength; }
+    bool& GetEnableShadows() { return m_EnableShadows; }
+    float& GetShadowBias() { return m_ShadowBias; }
+    float& GetShadowDistance() { return m_ShadowDistance; }
+    uint32_t GetShadowMapSize() const { return m_ShadowMapSize; }
+    void SetShadowMapSize(uint32_t size);
+
+    // Visual settings
+    bool& GetShowGrid() { return m_ShowGrid; }
+    bool& GetShowWireframe() { return m_ShowWireframe; }
+    bool& GetEnableMSAA() { return m_EnableMSAA; }
+
     // Focus camera on object
     void FocusOnObject(const WorldObject* object);
     void FocusOnSelection();
@@ -48,6 +64,8 @@ public:
 
 private:
     void RenderScene();
+    void RenderShadowPass();
+    void UpdateLightSpaceMatrix();
     void RenderGrid();
     void RenderWorldObjects();
     void RenderSelectionOutline();
@@ -110,6 +128,10 @@ private:
     std::unique_ptr<Onyx::VertexBuffer> m_CubeVBO;
     std::unique_ptr<Onyx::IndexBuffer> m_CubeEBO;
 
+    std::unique_ptr<Onyx::VertexArray> m_PlaneVAO;
+    std::unique_ptr<Onyx::VertexBuffer> m_PlaneVBO;
+    std::unique_ptr<Onyx::IndexBuffer> m_PlaneEBO;
+
     // Grid geometry (fullscreen quad for infinite grid shader)
     std::unique_ptr<Onyx::VertexArray> m_GridVAO;
     std::unique_ptr<Onyx::VertexBuffer> m_GridVBO;
@@ -144,12 +166,24 @@ private:
 
     // Visual settings
     glm::vec3 m_LightDir = glm::vec3(-0.5f, -1.0f, -0.3f);
+    glm::vec3 m_LightColor = glm::vec3(1.0f, 1.0f, 1.0f);
     float m_AmbientStrength = 0.3f;
     bool m_ShowGrid = true;
     bool m_ShowWireframe = false;
     bool m_EnableMSAA = true;  // 4x MSAA toggle
     float m_GridSize = 100.0f;
     float m_GridSpacing = 1.0f;
+
+    // Shadow settings
+    bool m_EnableShadows = true;
+    float m_ShadowBias = 0.005f;
+    float m_ShadowDistance = 100.0f;     // How far shadows extend from camera
+    uint32_t m_ShadowMapSize = 2048;     // Shadow map resolution
+    glm::mat4 m_LightSpaceMatrix = glm::mat4(1.0f);
+
+    // Shadow map
+    std::unique_ptr<Onyx::ShadowMap> m_ShadowMap;
+    std::unique_ptr<Onyx::Shader> m_ShadowDepthShader;
 
     // Statistics
     uint32_t m_TriangleCount = 0;

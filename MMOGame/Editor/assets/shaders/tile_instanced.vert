@@ -13,27 +13,19 @@ uniform vec2 u_TileScreenSize;  // Tile size in screen pixels (after zoom)
 uniform vec2 u_ViewportSize;    // Viewport dimensions
 uniform vec2 u_CameraPos;       // Camera position in tile/world units
 uniform float u_Zoom;           // Camera zoom
-uniform float u_TileSize;       // Base tile size in pixels (before zoom)
+uniform vec2 u_TileSize;        // Base tile size in pixels (width, height)
 
 void main()
 {
     // Get world position from instance data (in tile units)
     vec2 worldPos = a_InstanceData.xy;
 
-    // Apply camera offset BEFORE isometric projection (like CPU version)
+    // Apply camera offset
     vec2 relPos = worldPos - u_CameraPos;
 
-    // Isometric projection (matching WorldToScreen)
-    // halfTileW = tileSize, halfTileH = tileSize / 2
-    float halfTileW = u_TileSize;
-    float halfTileH = u_TileSize * 0.5;
-
-    float isoX = (relPos.x - relPos.y) * halfTileW;
-    float isoY = (relPos.x + relPos.y) * halfTileH;
-
-    // Apply zoom and center in viewport
+    // Orthographic projection: simple multiply by tile size
     vec2 screenCenter = u_ViewportSize * 0.5;
-    vec2 screenPos = screenCenter + vec2(isoX, isoY) * u_Zoom;
+    vec2 screenPos = screenCenter + relPos * u_TileSize * u_Zoom;
 
     // Offset to tile corner (screenPos is tile center)
     screenPos -= u_TileScreenSize * 0.5;

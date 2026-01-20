@@ -273,20 +273,18 @@ void ViewportPanel::RenderTileCursor() {
             break;
     }
 
-    // Helper to draw a single tile outline
+    // Helper to draw a single tile outline (orthographic rectangle)
     auto drawTileOutline = [&](int32_t tileX, int32_t tileY) {
         float screenX, screenY;
         WorldToScreen(static_cast<float>(tileX) + 0.5f,
                       static_cast<float>(tileY) + 0.5f,
                       screenX, screenY);
 
-        ImVec2 points[4] = {
-            ImVec2(screenX - halfW, screenY),
-            ImVec2(screenX, screenY - halfH),
-            ImVec2(screenX + halfW, screenY),
-            ImVec2(screenX, screenY + halfH)
-        };
-        drawList->AddPolyline(points, 4, cursorColor, ImDrawFlags_Closed, 2.0f);
+        // Draw axis-aligned rectangle
+        drawList->AddRect(
+            ImVec2(screenX - halfW, screenY - halfH),
+            ImVec2(screenX + halfW, screenY + halfH),
+            cursorColor, 0.0f, 0, 2.0f);
     };
 
     // Draw cursor based on tool
@@ -296,21 +294,13 @@ void ViewportPanel::RenderTileCursor() {
         int32_t cx = ctx.hoveredTileX;
         int32_t cy = ctx.hoveredTileY;
 
-        // Get screen positions of the 4 corner tiles of the fill area
-        float topX, topY, bottomX, bottomY, leftX, leftY, rightX, rightY;
-        WorldToScreen(static_cast<float>(cx - radius) + 0.5f, static_cast<float>(cy - radius) + 0.5f, topX, topY);
-        WorldToScreen(static_cast<float>(cx + radius) + 0.5f, static_cast<float>(cy + radius) + 0.5f, bottomX, bottomY);
-        WorldToScreen(static_cast<float>(cx - radius) + 0.5f, static_cast<float>(cy + radius) + 0.5f, leftX, leftY);
-        WorldToScreen(static_cast<float>(cx + radius) + 0.5f, static_cast<float>(cy - radius) + 0.5f, rightX, rightY);
+        // Get screen positions of top-left and bottom-right corners of fill area
+        float minX, minY, maxX, maxY;
+        WorldToScreen(static_cast<float>(cx - radius), static_cast<float>(cy - radius), minX, minY);
+        WorldToScreen(static_cast<float>(cx + radius + 1), static_cast<float>(cy + radius + 1), maxX, maxY);
 
-        // Draw outer diamond border (using outer edges of corner tiles)
-        ImVec2 outerPoints[4] = {
-            ImVec2(topX, topY - halfH),      // Top vertex of top-left corner tile
-            ImVec2(rightX + halfW, rightY),  // Right vertex of top-right corner tile
-            ImVec2(bottomX, bottomY + halfH),// Bottom vertex of bottom-right corner tile
-            ImVec2(leftX - halfW, leftY)     // Left vertex of bottom-left corner tile
-        };
-        drawList->AddPolyline(outerPoints, 4, cursorColor, ImDrawFlags_Closed, 2.0f);
+        // Draw outer rectangle border
+        drawList->AddRect(ImVec2(minX, minY), ImVec2(maxX, maxY), cursorColor, 0.0f, 0, 2.0f);
     } else {
         // Other tools show single tile
         drawTileOutline(ctx.hoveredTileX, ctx.hoveredTileY);
@@ -369,15 +359,17 @@ void ViewportPanel::ScreenToWorld(float screenX, float screenY, float& worldX, f
         return;
     }
 
+    // Get position relative to viewport center
     float relX = (screenX - ctx.viewportX - ctx.viewportWidth / 2.0f) / ctx.cameraZoom;
     float relY = (screenY - ctx.viewportY - ctx.viewportHeight / 2.0f) / ctx.cameraZoom;
 
     const auto& meta = ctx.tileMap->GetMetadata();
-    float halfTileW = static_cast<float>(meta.tileWidth) / 2.0f;
-    float halfTileH = static_cast<float>(meta.tileHeight) / 2.0f;
+    float tileW = static_cast<float>(meta.tileWidth);
+    float tileH = static_cast<float>(meta.tileHeight);
 
-    worldX = (relX / halfTileW + relY / halfTileH) / 2.0f + ctx.cameraX;
-    worldY = (relY / halfTileH - relX / halfTileW) / 2.0f + ctx.cameraY;
+    // Orthographic: simple divide by tile size
+    worldX = relX / tileW + ctx.cameraX;
+    worldY = relY / tileH + ctx.cameraY;
 }
 
 void ViewportPanel::WorldToScreen(float worldX, float worldY, float& screenX, float& screenY) {
@@ -388,17 +380,15 @@ void ViewportPanel::WorldToScreen(float worldX, float worldY, float& screenX, fl
     }
 
     const auto& meta = ctx.tileMap->GetMetadata();
-    float halfTileW = static_cast<float>(meta.tileWidth) / 2.0f;
-    float halfTileH = static_cast<float>(meta.tileHeight) / 2.0f;
+    float tileW = static_cast<float>(meta.tileWidth);
+    float tileH = static_cast<float>(meta.tileHeight);
 
     float relX = worldX - ctx.cameraX;
     float relY = worldY - ctx.cameraY;
 
-    float isoX = (relX - relY) * halfTileW;
-    float isoY = (relX + relY) * halfTileH;
-
-    screenX = ctx.viewportX + ctx.viewportWidth / 2.0f + isoX * ctx.cameraZoom;
-    screenY = ctx.viewportY + ctx.viewportHeight / 2.0f + isoY * ctx.cameraZoom;
+    // Orthographic: simple multiply by tile size
+    screenX = ctx.viewportX + ctx.viewportWidth / 2.0f + relX * tileW * ctx.cameraZoom;
+    screenY = ctx.viewportY + ctx.viewportHeight / 2.0f + relY * tileH * ctx.cameraZoom;
 }
 
 void ViewportPanel::WorldToTile(float worldX, float worldY, int32_t& tileX, int32_t& tileY) {

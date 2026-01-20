@@ -90,6 +90,36 @@ void ViewportPanel::Init(EditorWorld* world) {
     m_CubeVAO->SetIndexBuffer(m_CubeEBO.get());
     m_CubeVAO->SetLayout(cubeLayout);
 
+    // Create plane geometry (1x1 unit, centered at origin, facing up +Y)
+    // Format: position (3), normal (3), texcoord (2), tangent (3), bitangent (3)
+    float planeVertices[] = {
+        // Positions            Normals          TexCoords   Tangent           Bitangent
+        -0.5f, 0.0f, -0.5f,    0.0f, 1.0f, 0.0f,  0.0f, 0.0f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
+         0.5f, 0.0f, -0.5f,    0.0f, 1.0f, 0.0f,  1.0f, 0.0f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
+         0.5f, 0.0f,  0.5f,    0.0f, 1.0f, 0.0f,  1.0f, 1.0f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
+        -0.5f, 0.0f,  0.5f,    0.0f, 1.0f, 0.0f,  0.0f, 1.0f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
+    };
+
+    uint32_t planeIndices[] = {
+        0, 2, 1,
+        0, 3, 2
+    };
+
+    m_PlaneVBO = std::make_unique<Onyx::VertexBuffer>(static_cast<const void*>(planeVertices), sizeof(planeVertices));
+    m_PlaneEBO = std::make_unique<Onyx::IndexBuffer>(static_cast<const void*>(planeIndices), sizeof(planeIndices));
+    m_PlaneVAO = std::make_unique<Onyx::VertexArray>();
+
+    Onyx::VertexLayout planeLayout;
+    planeLayout.PushFloat(3);  // Position
+    planeLayout.PushFloat(3);  // Normal
+    planeLayout.PushFloat(2);  // TexCoord
+    planeLayout.PushFloat(3);  // Tangent
+    planeLayout.PushFloat(3);  // Bitangent
+
+    m_PlaneVAO->SetVertexBuffer(m_PlaneVBO.get());
+    m_PlaneVAO->SetIndexBuffer(m_PlaneEBO.get());
+    m_PlaneVAO->SetLayout(planeLayout);
+
     // Create infinite grid shader
     m_InfiniteGridShader = std::make_unique<Onyx::Shader>(
         "MMOGame/Editor3D/assets/shaders/infinite_grid.vert",
@@ -186,6 +216,15 @@ void ViewportPanel::Init(EditorWorld* world) {
     m_PortalIconTexture = Onyx::Texture::CreateSolidColor(50, 200, 255);
     // Orange for triggers
     m_TriggerIconTexture = Onyx::Texture::CreateSolidColor(255, 150, 50);
+
+    // ===== Shadow Mapping Setup =====
+    m_ShadowMap = std::make_unique<Onyx::ShadowMap>();
+    m_ShadowMap->Create(m_ShadowMapSize, m_ShadowMapSize);
+
+    m_ShadowDepthShader = std::make_unique<Onyx::Shader>(
+        "MMOGame/Editor3D/assets/shaders/shadow_depth.vert",
+        "MMOGame/Editor3D/assets/shaders/shadow_depth.frag"
+    );
 }
 
 void ViewportPanel::OnImGuiRender() {
@@ -304,10 +343,128 @@ void ViewportPanel::OnImGuiRender() {
     ImGui::PopStyleVar();
 }
 
+void ViewportPanel::UpdateLightSpaceMatrix() {
+    // Calculate orthographic projection matrix for directional light
+    // The light looks at the scene from the light direction
+    glm::vec3 lightDir = glm::normalize(m_LightDir);
+
+    // Calculate scene center based on camera position
+    glm::vec3 sceneCenter = m_CameraPosition + m_CameraFront * (m_ShadowDistance * 0.5f);
+
+    // Light position is offset from scene center in opposite of light direction
+    glm::vec3 lightPos = sceneCenter - lightDir * m_ShadowDistance;
+
+    // Create light view matrix
+    glm::mat4 lightView = glm::lookAt(lightPos, sceneCenter, glm::vec3(0.0f, 1.0f, 0.0f));
+
+    // Create orthographic projection for directional light
+    // Size should cover the shadow distance
+    float orthoSize = m_ShadowDistance;
+    glm::mat4 lightProjection = glm::ortho(
+        -orthoSize, orthoSize,
+        -orthoSize, orthoSize,
+        0.1f, m_ShadowDistance * 2.0f
+    );
+
+    m_LightSpaceMatrix = lightProjection * lightView;
+}
+
+void ViewportPanel::RenderShadowPass() {
+    if (!m_EnableShadows || !m_ShadowMap || !m_ShadowDepthShader) return;
+
+    // Update light space matrix
+    UpdateLightSpaceMatrix();
+
+    // Bind shadow map framebuffer
+    m_ShadowMap->Bind();
+    m_ShadowMap->Clear();
+
+    // Enable depth testing and front face culling to reduce peter panning
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_FRONT);
+
+    m_ShadowDepthShader->Bind();
+    m_ShadowDepthShader->SetMat4("u_LightSpaceMatrix", m_LightSpaceMatrix);
+
+    // Render all shadow-casting objects
+    if (m_World) {
+        // Render static objects that cast shadows
+        for (const auto& obj : m_World->GetStaticObjects()) {
+            if (!obj->IsVisible() || !obj->CastsShadow()) continue;
+
+            glm::mat4 modelMatrix = m_World->GetWorldMatrix(obj.get());
+            const std::string& modelPath = obj->GetModelPath();
+
+            // Handle plane primitive
+            if (modelPath == "#plane") {
+                m_ShadowDepthShader->SetMat4("u_Model", modelMatrix);
+                Onyx::RenderCommand::DrawIndexed(*m_PlaneVAO, 6);
+                continue;
+            }
+
+            if (!modelPath.empty()) {
+                Onyx::Model* model = GetOrLoadModel(modelPath);
+                if (model) {
+                    for (size_t meshIdx = 0; meshIdx < model->GetMeshes().size(); meshIdx++) {
+                        auto& mesh = model->GetMeshes()[meshIdx];
+
+                        // Get per-mesh material for visibility and transform
+                        std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(meshIdx)) : mesh.m_Name;
+                        const MeshMaterial* meshMat = obj->GetMeshMaterial(meshName);
+
+                        if (meshMat && !meshMat->visible) continue;
+
+                        // Calculate per-mesh model matrix
+                        glm::mat4 meshModelMatrix = modelMatrix;
+                        if (meshMat) {
+                            glm::vec3 meshCenter(0.0f);
+                            if (!mesh.m_Vertices.empty()) {
+                                glm::vec3 minBounds(std::numeric_limits<float>::max());
+                                glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
+                                for (const auto& v : mesh.m_Vertices) {
+                                    minBounds = glm::min(minBounds, v.position);
+                                    maxBounds = glm::max(maxBounds, v.position);
+                                }
+                                meshCenter = (minBounds + maxBounds) * 0.5f;
+                            }
+
+                            meshModelMatrix = glm::translate(meshModelMatrix, meshMat->positionOffset);
+                            meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.x), glm::vec3(1, 0, 0));
+                            meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.y), glm::vec3(0, 1, 0));
+                            meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.z), glm::vec3(0, 0, 1));
+                            meshModelMatrix = glm::translate(meshModelMatrix, meshCenter);
+                            meshModelMatrix = glm::scale(meshModelMatrix, glm::vec3(meshMat->scaleMultiplier));
+                            meshModelMatrix = glm::translate(meshModelMatrix, -meshCenter);
+                        }
+
+                        m_ShadowDepthShader->SetMat4("u_Model", meshModelMatrix);
+                        mesh.DrawGeometryOnly();
+                    }
+                }
+            } else {
+                // Render placeholder cube for objects without models
+                m_ShadowDepthShader->SetMat4("u_Model", modelMatrix);
+                Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
+            }
+        }
+    }
+
+    // Restore culling state
+    glCullFace(GL_BACK);
+    glDisable(GL_CULL_FACE);
+
+    m_ShadowMap->UnBind();
+}
+
 void ViewportPanel::RenderScene() {
     // Reset statistics
     m_TriangleCount = 0;
     m_DrawCalls = 0;
+
+    // Render shadow map first
+    RenderShadowPass();
 
     m_Framebuffer->Bind();
     m_Framebuffer->Clear(0.15f, 0.15f, 0.18f, 1.0f);
@@ -373,6 +530,55 @@ void ViewportPanel::RenderWorldObjects() {
 
         // Check if object has a model path
         const std::string& modelPath = obj->GetModelPath();
+
+        // Check for primitive types (prefixed with #)
+        if (modelPath == "#plane") {
+            // Render plane primitive using model shader
+            m_ModelShader->Bind();
+            m_ModelShader->SetMat4("u_Model", modelMatrix);
+            m_ModelShader->SetMat4("u_View", m_ViewMatrix);
+            m_ModelShader->SetMat4("u_Projection", m_ProjectionMatrix);
+            m_ModelShader->SetMat4("u_LightSpaceMatrix", m_LightSpaceMatrix);
+            m_ModelShader->SetVec3("u_LightDir", m_LightDir);
+            m_ModelShader->SetVec3("u_LightColor", m_LightColor);
+            m_ModelShader->SetVec3("u_ViewPos", m_CameraPosition);
+            m_ModelShader->SetFloat("u_AmbientStrength", m_AmbientStrength);
+            m_ModelShader->SetInt("u_AlbedoMap", 0);
+            m_ModelShader->SetInt("u_NormalMap", 1);
+            m_ModelShader->SetInt("u_ShadowMap", 2);
+            m_ModelShader->SetInt("u_EnableShadows", m_EnableShadows ? 1 : 0);
+            m_ModelShader->SetFloat("u_ShadowBias", m_ShadowBias);
+            m_ModelShader->SetInt("u_UseNormalMap", 0);
+
+            // Bind shadow map
+            if (m_EnableShadows && m_ShadowMap) {
+                glActiveTexture(GL_TEXTURE2);
+                glBindTexture(GL_TEXTURE_2D, m_ShadowMap->GetDepthTextureID());
+            }
+
+            // Bind textures
+            Onyx::Texture* diffuseTexture = GetOrLoadTexture(obj->GetDiffuseTexture());
+            if (diffuseTexture) {
+                diffuseTexture->Bind(0);
+            } else {
+                m_DefaultWhiteTexture->Bind(0);
+            }
+
+            Onyx::RenderCommand::DrawIndexed(*m_PlaneVAO, 6);
+            m_TriangleCount += 2;
+            m_DrawCalls++;
+
+            // Selection wireframe
+            if (obj->IsSelected()) {
+                Onyx::RenderCommand::SetWireframeMode(true);
+                Onyx::RenderCommand::SetLineWidth(2.0f);
+                Onyx::RenderCommand::DrawIndexed(*m_PlaneVAO, 6);
+                m_DrawCalls++;
+                Onyx::RenderCommand::SetWireframeMode(false);
+            }
+            continue;
+        }
+
         if (!modelPath.empty()) {
             // Try to load and render the actual model
             Onyx::Model* model = GetOrLoadModel(modelPath);
@@ -383,12 +589,22 @@ void ViewportPanel::RenderWorldObjects() {
                 m_ModelShader->SetMat4("u_Model", modelMatrix);
                 m_ModelShader->SetMat4("u_View", m_ViewMatrix);
                 m_ModelShader->SetMat4("u_Projection", m_ProjectionMatrix);
+                m_ModelShader->SetMat4("u_LightSpaceMatrix", m_LightSpaceMatrix);
                 m_ModelShader->SetVec3("u_LightDir", m_LightDir);
-                m_ModelShader->SetVec3("u_LightColor", lightColor);
+                m_ModelShader->SetVec3("u_LightColor", m_LightColor);
                 m_ModelShader->SetVec3("u_ViewPos", m_CameraPosition);
                 m_ModelShader->SetFloat("u_AmbientStrength", m_AmbientStrength);
                 m_ModelShader->SetInt("u_AlbedoMap", 0);
                 m_ModelShader->SetInt("u_NormalMap", 1);
+                m_ModelShader->SetInt("u_ShadowMap", 2);
+                m_ModelShader->SetInt("u_EnableShadows", m_EnableShadows ? 1 : 0);
+                m_ModelShader->SetFloat("u_ShadowBias", m_ShadowBias);
+
+                // Bind shadow map to texture unit 2
+                if (m_EnableShadows && m_ShadowMap) {
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_2D, m_ShadowMap->GetDepthTextureID());
+                }
 
                 // Default textures from object properties
                 Onyx::Texture* defaultDiffuse = GetOrLoadTexture(obj->GetDiffuseTexture());
@@ -1510,6 +1726,14 @@ void ViewportPanel::FocusOnObject(const WorldObject* object) {
 
     // Move camera to look at object
     m_CameraPosition = targetPos - m_CameraFront * distance;
+}
+
+void ViewportPanel::SetShadowMapSize(uint32_t size) {
+    if (size == m_ShadowMapSize) return;
+    m_ShadowMapSize = size;
+    if (m_ShadowMap) {
+        m_ShadowMap->Resize(size, size);
+    }
 }
 
 void ViewportPanel::FocusOnSelection() {

@@ -15,19 +15,12 @@ uniform vec2 u_TileSize;        // Tile size (width, height) in pixels
 
 void main()
 {
-    // Apply camera offset before isometric projection
+    // Apply camera offset
     vec2 relPos = a_WorldPos - u_CameraPos;
 
-    // Isometric projection using configured tile dimensions
-    float halfTileW = u_TileSize.x * 0.5;
-    float halfTileH = u_TileSize.y * 0.5;
-
-    float isoX = (relPos.x - relPos.y) * halfTileW;
-    float isoY = (relPos.x + relPos.y) * halfTileH;
-
-    // Apply zoom and center
+    // Orthographic projection: simple multiply by tile size
     vec2 screenCenter = u_ViewportSize * 0.5;
-    vec2 screenPos = screenCenter + vec2(isoX, isoY) * u_Zoom;
+    vec2 screenPos = screenCenter + relPos * u_TileSize * u_Zoom;
 
     // Offset to corner
     // Corner (0,0) = top-left, (1,0) = top-right, (1,1) = bottom-right, (0,1) = bottom-left

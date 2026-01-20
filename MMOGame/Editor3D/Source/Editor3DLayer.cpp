@@ -15,15 +15,21 @@ void Editor3DLayer::OnAttach() {
     // Initialize world with a new map
     m_World.NewMap("Untitled Map");
 
+    // Create ground plane for shadow testing
+    auto* groundPlane = m_World.CreateStaticObject("Ground Plane");
+    groundPlane->SetPosition(glm::vec3(0.0f, -0.5f, 0.0f));
+    groundPlane->SetScale(50.0f);  // Large ground plane
+    groundPlane->SetModelPath("#plane");
+
     // Create some test objects
     auto* obj1 = m_World.CreateStaticObject("Test Cube 1");
-    obj1->SetPosition(glm::vec3(0.0f, 0.0f, 0.0f));
+    obj1->SetPosition(glm::vec3(0.0f, 0.5f, 0.0f));
 
     auto* obj2 = m_World.CreateStaticObject("Test Cube 2");
-    obj2->SetPosition(glm::vec3(5.0f, 0.0f, 0.0f));
+    obj2->SetPosition(glm::vec3(5.0f, 0.5f, 0.0f));
 
     auto* obj3 = m_World.CreateStaticObject("Test Cube 3");
-    obj3->SetPosition(glm::vec3(-5.0f, 0.0f, 0.0f));
+    obj3->SetPosition(glm::vec3(-5.0f, 0.5f, 0.0f));
 
     auto* spawn = m_World.CreateSpawnPoint("Goblin Spawn");
     spawn->SetPosition(glm::vec3(0.0f, 0.0f, 5.0f));
@@ -49,6 +55,9 @@ void Editor3DLayer::OnAttach() {
 
     m_StatisticsPanel = std::make_unique<StatisticsPanel>();
     m_StatisticsPanel->Init(m_ViewportPanel.get());
+
+    m_LightingPanel = std::make_unique<LightingPanel>();
+    m_LightingPanel->Init(m_ViewportPanel.get());
 }
 
 void Editor3DLayer::OnUpdate() {
@@ -123,6 +132,7 @@ void Editor3DLayer::SetupDockspace() {
     m_InspectorPanel->OnImGuiRender();
     m_AssetBrowserPanel->OnImGuiRender();
     m_StatisticsPanel->OnImGuiRender();
+    m_LightingPanel->OnImGuiRender();
 }
 
 void Editor3DLayer::RenderMenuBar() {
@@ -216,6 +226,11 @@ void Editor3DLayer::RenderMenuBar() {
         bool statsOpen = m_StatisticsPanel->IsOpen();
         if (ImGui::MenuItem("Statistics", nullptr, &statsOpen)) {
             m_StatisticsPanel->SetOpen(statsOpen);
+        }
+
+        bool lightingOpen = m_LightingPanel->IsOpen();
+        if (ImGui::MenuItem("Lighting", nullptr, &lightingOpen)) {
+            m_LightingPanel->SetOpen(lightingOpen);
         }
 
         ImGui::Separator();

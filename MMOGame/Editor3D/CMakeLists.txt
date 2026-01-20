@@ -21,6 +21,7 @@ set(EDITOR3D_SOURCES
     Source/Panels/InspectorPanel.cpp
     Source/Panels/AssetBrowserPanel.cpp
     Source/Panels/StatisticsPanel.cpp
+    Source/Panels/LightingPanel.cpp
     Source/World/EditorWorld.cpp
     Source/Gizmo/TransformGizmo.cpp
     Source/Commands/EditorCommand.cpp
@@ -33,6 +34,7 @@ set(EDITOR3D_HEADERS
     Source/Panels/InspectorPanel.h
     Source/Panels/AssetBrowserPanel.h
     Source/Panels/StatisticsPanel.h
+    Source/Panels/LightingPanel.h
     Source/World/EditorWorld.h
     Source/Gizmo/TransformGizmo.h
     Source/Commands/EditorCommand.h
