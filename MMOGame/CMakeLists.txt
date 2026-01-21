@@ -1,63 +1,51 @@
 # MMO Game Project
 project(MMOGame)
 
-# Set source files
-set(MMOGAME_SOURCES
-    Main.cpp
+# ========== External Dependencies ==========
+
+# ENet (networking)
+FetchContent_Declare(
+    enet
+    GIT_REPOSITORY https://github.com/lsalzman/enet.git
+    GIT_TAG        v1.3.18
+    GIT_SHALLOW    TRUE
+    GIT_PROGRESS   TRUE
 )
+FetchContent_MakeAvailable(enet)
 
-# Create executable
-add_executable(MMOGame ${MMOGAME_SOURCES})
-
-# Link with Onyx engine
-target_link_libraries(MMOGame PRIVATE Onyx)
-
-# Include directories
-target_include_directories(MMOGame 
-    PRIVATE 
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_SOURCE_DIR}/Onyx
-        ${CMAKE_SOURCE_DIR}/Onyx/Source
-)
-
-# Platform-specific settings
-if(WIN32)
-    # Windows subsystem for release builds (no console)
-    set_target_properties(MMOGame PROPERTIES
-        LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
-        LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
-    )
+# libpqxx (PostgreSQL C++ client) - for servers only
+find_package(PkgConfig)
+if(PkgConfig_FOUND)
+    pkg_check_modules(LIBPQXX libpqxx)
 endif()
 
-# Set properties
-set_target_properties(MMOGame PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED ON
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-    OUTPUT_NAME "MMOGame"
-    FOLDER "Games"
-)
+# OpenSSL for password hashing
+find_package(OpenSSL)
 
-# Copy assets to build directory if they exist
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Assets")
-    add_custom_command(TARGET MMOGame POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/Assets"
-        "$<TARGET_FILE_DIR:MMOGame>/Assets"
-    )
+# ========== Shared Library ==========
+add_subdirectory(Shared)
+
+# ========== Server Projects ==========
+# Only build servers if we have required dependencies
+if(LIBPQXX_FOUND AND OPENSSL_FOUND)
+    add_subdirectory(LoginServer)
+    add_subdirectory(WorldServer)
+    message(STATUS "LoginServer and WorldServer will be built (libpqxx and OpenSSL found)")
+else()
+    message(WARNING "Servers will NOT be built (requires libpqxx and OpenSSL)")
+    if(NOT LIBPQXX_FOUND)
+        message(STATUS "  - libpqxx not found. Install with: sudo apt install libpqxx-dev")
+    endif()
+    if(NOT OPENSSL_FOUND)
+        message(STATUS "  - OpenSSL not found. Install with: sudo apt install libssl-dev")
+    endif()
 endif()
 
-# Group source files for IDEs
-source_group("Source Files" FILES ${MMOGAME_SOURCES})
+# ========== Client Project ==========
+add_subdirectory(Client)
 
-# Installation rules
-install(TARGETS MMOGame
-    RUNTIME DESTINATION bin
-)
+# ========== Editor Project ==========
+add_subdirectory(Editor)
 
-# Install assets if they exist
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Assets")
-    install(DIRECTORY Assets/
-        DESTINATION bin/Assets
-    )
-endif()
+# ========== Editor 3D Project ==========
+add_subdirectory(Editor3D)
