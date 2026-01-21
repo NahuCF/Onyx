@@ -1,11 +1,67 @@
-#Folders
+# Build outputs
 Bin/
 Bin-Int/
 Build/
 build/
+out/
+cmake-build-*/
 
-#Visual studio folder
+# Visual Studio
 .vs/
+*.vcxproj.user
+*.suo
+*.sdf
+*.opensdf
+*.db
 
-#files
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Compiled files
+*.obj
+*.o
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+*.ilk
+*.lib
+*.a
 *.idx
+
+# Asset files (textures, models, audio) - keep shaders!
+*.png
+*.jpg
+*.jpeg
+*.tga
+*.bmp
+*.gif
+*.hdr
+*.exr
+*.fbx
+*.obj
+*.gltf
+*.glb
+*.dae
+*.3ds
+*.blend
+*.wav
+*.mp3
+*.ogg
+*.ttf
+*.otf
+
+# OS files
+.DS_Store
+Thumbs.db
+*.Zone.Identifier
+
+# Temporary/cache
+*.log
+*.tmp
+*.temp
+imgui.ini
