@@ -1,11 +1,11 @@
 #pragma once
 
+#include "EditorPanel.h"
 #include <string>
 #include <functional>
 
 namespace MMO {
 
-class EditorWorld;
 class ViewportPanel;
 class WorldObject;
 class StaticObject;
@@ -15,13 +15,13 @@ class ParticleEmitter;
 class TriggerVolume;
 class InstancePortal;
 
-class InspectorPanel {
+class InspectorPanel : public EditorPanel {
 public:
-    InspectorPanel() = default;
-    ~InspectorPanel() = default;
+    InspectorPanel() { m_Name = "Inspector"; }
+    ~InspectorPanel() override = default;
 
-    void Init(EditorWorld* world, ViewportPanel* viewport);
-    void OnImGuiRender();
+    void SetViewport(ViewportPanel* viewport) { m_Viewport = viewport; }
+    void OnImGuiRender() override;
 
 private:
     void RenderTransform(WorldObject* object);
@@ -44,7 +44,6 @@ private:
                            const std::function<std::string(int)>& getTexture,
                            const std::function<void(int, const std::string&)>& setTexture);
 
-    EditorWorld* m_World = nullptr;
     ViewportPanel* m_Viewport = nullptr;
 
     // File browser state

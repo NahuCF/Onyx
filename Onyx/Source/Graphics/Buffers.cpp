@@ -163,37 +163,57 @@ namespace Onyx {
 		for (uint32_t index = 0; index < attributes.size(); index++) {
 			const auto& attr = attributes[index];
 
-			GLenum glType = GL_FLOAT;
+			glEnableVertexAttribArray(index);
+
 			switch (attr.type) {
 				case VertexAttributeType::Float:
 				case VertexAttributeType::Float2:
 				case VertexAttributeType::Float3:
 				case VertexAttributeType::Float4:
-					glType = GL_FLOAT;
+					glVertexAttribPointer(
+						index,
+						GetAttributeComponentCount(attr.type),
+						GL_FLOAT,
+						attr.normalized ? GL_TRUE : GL_FALSE,
+						layout.GetStride(),
+						(const void*)(uintptr_t)attr.offset
+					);
 					break;
+
 				case VertexAttributeType::Int:
 				case VertexAttributeType::Int2:
 				case VertexAttributeType::Int3:
 				case VertexAttributeType::Int4:
-					glType = GL_INT;
+					// Use glVertexAttribIPointer for integer attributes (bone IDs, etc.)
+					glVertexAttribIPointer(
+						index,
+						GetAttributeComponentCount(attr.type),
+						GL_INT,
+						layout.GetStride(),
+						(const void*)(uintptr_t)attr.offset
+					);
 					break;
+
 				case VertexAttributeType::UInt:
-					glType = GL_UNSIGNED_INT;
+					glVertexAttribIPointer(
+						index,
+						GetAttributeComponentCount(attr.type),
+						GL_UNSIGNED_INT,
+						layout.GetStride(),
+						(const void*)(uintptr_t)attr.offset
+					);
 					break;
+
 				case VertexAttributeType::Bool:
-					glType = GL_BOOL;
+					glVertexAttribIPointer(
+						index,
+						1,
+						GL_INT,
+						layout.GetStride(),
+						(const void*)(uintptr_t)attr.offset
+					);
 					break;
 			}
-
-			glEnableVertexAttribArray(index);
-			glVertexAttribPointer(
-				index,
-				GetAttributeComponentCount(attr.type),
-				glType,
-				attr.normalized ? GL_TRUE : GL_FALSE,
-				layout.GetStride(),
-				(const void*)(uintptr_t)attr.offset
-			);
 		}
 
 		UnBind();

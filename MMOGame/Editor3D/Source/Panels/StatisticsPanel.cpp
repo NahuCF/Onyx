@@ -5,13 +5,7 @@
 
 namespace MMO {
 
-void StatisticsPanel::Init(ViewportPanel* viewport) {
-    m_Viewport = viewport;
-}
-
 void StatisticsPanel::OnImGuiRender() {
-    if (!m_IsOpen) return;
-
     ImGui::Begin("Statistics", &m_IsOpen);
 
     if (ImGui::BeginTabBar("StatsTabs")) {

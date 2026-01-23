@@ -7,16 +7,14 @@
 
 namespace MMO {
 
-void AssetBrowserPanel::Init(EditorWorld* world) {
-    m_World = world;
-
-    // Default to assets directory
-    m_RootDirectory = "MMOGame/assets";
-    m_CurrentDirectory = m_RootDirectory;
-    RefreshDirectory();
-}
-
 void AssetBrowserPanel::OnImGuiRender() {
+    // Initialize on first render if needed
+    if (m_RootDirectory.empty()) {
+        m_RootDirectory = "MMOGame/assets";
+        m_CurrentDirectory = m_RootDirectory;
+        RefreshDirectory();
+    }
+
     ImGui::Begin("Asset Browser");
 
     // Navigation bar

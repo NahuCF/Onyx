@@ -1,19 +1,17 @@
 #pragma once
 
+#include "EditorPanel.h"
 #include <string>
 #include <cstdint>
 
 namespace MMO {
 
-class EditorWorld;
-
-class HierarchyPanel {
+class HierarchyPanel : public EditorPanel {
 public:
-    HierarchyPanel() = default;
-    ~HierarchyPanel() = default;
+    HierarchyPanel() { m_Name = "Hierarchy"; }
+    ~HierarchyPanel() override = default;
 
-    void Init(EditorWorld* world);
-    void OnImGuiRender();
+    void OnImGuiRender() override;
 
 private:
     void RenderObjectNode(class WorldObject* object, size_t indexInParent, class GroupObject* parent);
@@ -23,7 +21,6 @@ private:
     void StartRename(class WorldObject* object);
     void FinishRename();
 
-    EditorWorld* m_World = nullptr;
     std::string m_SearchFilter;
 
     // Rename state

@@ -20,11 +20,6 @@ static const char* TextureTypeNames[] = {
     "AO"
 };
 
-void InspectorPanel::Init(EditorWorld* world, ViewportPanel* viewport) {
-    m_World = world;
-    m_Viewport = viewport;
-}
-
 void InspectorPanel::OnImGuiRender() {
     ImGui::Begin("Inspector");
 

@@ -1,23 +1,21 @@
 #pragma once
 
+#include "EditorPanel.h"
+
 namespace MMO {
 
 class ViewportPanel;
 
-class LightingPanel {
+class LightingPanel : public EditorPanel {
 public:
-    LightingPanel() = default;
-    ~LightingPanel() = default;
+    LightingPanel() { m_Name = "Lighting"; }
+    ~LightingPanel() override = default;
 
-    void Init(ViewportPanel* viewport);
-    void OnImGuiRender();
-
-    bool IsOpen() const { return m_IsOpen; }
-    void SetOpen(bool open) { m_IsOpen = open; }
+    void SetViewport(ViewportPanel* viewport) { m_Viewport = viewport; }
+    void OnImGuiRender() override;
 
 private:
     ViewportPanel* m_Viewport = nullptr;
-    bool m_IsOpen = true;
 };
 
 } // namespace MMO

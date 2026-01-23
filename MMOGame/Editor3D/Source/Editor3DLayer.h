@@ -1,16 +1,16 @@
 #pragma once
 
 #include <Core/Layer.h>
-#include "Panels/ViewportPanel.h"
-#include "Panels/HierarchyPanel.h"
-#include "Panels/InspectorPanel.h"
-#include "Panels/AssetBrowserPanel.h"
-#include "Panels/StatisticsPanel.h"
-#include "Panels/LightingPanel.h"
+#include "Panels/PanelManager.h"
 #include "World/EditorWorld.h"
 #include <memory>
 
 namespace MMO {
+
+class ViewportPanel;
+class InspectorPanel;
+class StatisticsPanel;
+class LightingPanel;
 
 class Editor3DLayer : public Onyx::Layer {
 public:
@@ -31,13 +31,11 @@ private:
     // World data
     EditorWorld m_World;
 
-    // Panels
-    std::unique_ptr<ViewportPanel> m_ViewportPanel;
-    std::unique_ptr<HierarchyPanel> m_HierarchyPanel;
-    std::unique_ptr<InspectorPanel> m_InspectorPanel;
-    std::unique_ptr<AssetBrowserPanel> m_AssetBrowserPanel;
-    std::unique_ptr<StatisticsPanel> m_StatisticsPanel;
-    std::unique_ptr<LightingPanel> m_LightingPanel;
+    // Panel manager
+    PanelManager m_PanelManager;
+
+    // Quick access to specific panels
+    ViewportPanel* m_ViewportPanel = nullptr;
 };
 
 } // namespace MMO

@@ -7,10 +7,6 @@
 
 namespace MMO {
 
-void HierarchyPanel::Init(EditorWorld* world) {
-    m_World = world;
-}
-
 void HierarchyPanel::OnImGuiRender() {
     // Hazel-style window padding
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));

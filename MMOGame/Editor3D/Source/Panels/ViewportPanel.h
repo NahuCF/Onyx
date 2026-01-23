@@ -1,5 +1,6 @@
 #pragma once
 
+#include "EditorPanel.h"
 #include <Graphics/Shader.h>
 #include <Graphics/Framebuffer.h>
 #include <Graphics/ShadowMap.h>
@@ -15,15 +16,13 @@
 
 namespace MMO {
 
-class EditorWorld;
-
-class ViewportPanel {
+class ViewportPanel : public EditorPanel {
 public:
     ViewportPanel();
-    ~ViewportPanel() = default;
+    ~ViewportPanel() override = default;
 
-    void Init(EditorWorld* world);
-    void OnImGuiRender();
+    void OnInit() override;
+    void OnImGuiRender() override;
 
     // Getters for camera state (other systems may need these)
     const glm::vec3& GetCameraPosition() const { return m_CameraPosition; }
@@ -92,9 +91,6 @@ private:
 
     // Ray casting for picking (kept as fallback)
     glm::vec3 ScreenToWorldRay(float screenX, float screenY);
-
-    // World reference
-    EditorWorld* m_World = nullptr;
 
     // Framebuffer for viewport
     std::unique_ptr<Onyx::Framebuffer> m_Framebuffer;

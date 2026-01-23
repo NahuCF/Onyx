@@ -1,4 +1,10 @@
 #include "Editor3DLayer.h"
+#include "Panels/ViewportPanel.h"
+#include "Panels/HierarchyPanel.h"
+#include "Panels/InspectorPanel.h"
+#include "Panels/AssetBrowserPanel.h"
+#include "Panels/StatisticsPanel.h"
+#include "Panels/LightingPanel.h"
 #include "Commands/EditorCommand.h"
 #include <Core/Application.h>
 #include <imgui.h>
@@ -40,24 +46,25 @@ void Editor3DLayer::OnAttach() {
     light->SetColor(glm::vec3(1.0f, 0.9f, 0.8f));
     light->SetRadius(50.0f);
 
-    // Create panels
-    m_ViewportPanel = std::make_unique<ViewportPanel>();
-    m_ViewportPanel->Init(&m_World);
+    // Create panels via PanelManager
+    m_ViewportPanel = m_PanelManager.AddPanel<ViewportPanel>("Viewport", true);
 
-    m_HierarchyPanel = std::make_unique<HierarchyPanel>();
-    m_HierarchyPanel->Init(&m_World);
+    m_PanelManager.AddPanel<HierarchyPanel>("Hierarchy", true);
 
-    m_InspectorPanel = std::make_unique<InspectorPanel>();
-    m_InspectorPanel->Init(&m_World, m_ViewportPanel.get());
+    auto* inspector = m_PanelManager.AddPanel<InspectorPanel>("Inspector", true);
+    inspector->SetViewport(m_ViewportPanel);
 
-    m_AssetBrowserPanel = std::make_unique<AssetBrowserPanel>();
-    m_AssetBrowserPanel->Init(&m_World);
+    m_PanelManager.AddPanel<AssetBrowserPanel>("Asset Browser", true);
 
-    m_StatisticsPanel = std::make_unique<StatisticsPanel>();
-    m_StatisticsPanel->Init(m_ViewportPanel.get());
+    auto* stats = m_PanelManager.AddPanel<StatisticsPanel>("Statistics", false);
+    stats->SetViewport(m_ViewportPanel);
 
-    m_LightingPanel = std::make_unique<LightingPanel>();
-    m_LightingPanel->Init(m_ViewportPanel.get());
+    auto* lighting = m_PanelManager.AddPanel<LightingPanel>("Lighting", true);
+    lighting->SetViewport(m_ViewportPanel);
+
+    // Set world for all panels and initialize
+    m_PanelManager.SetWorld(&m_World);
+    m_PanelManager.OnInit();
 }
 
 void Editor3DLayer::OnUpdate() {
@@ -126,13 +133,8 @@ void Editor3DLayer::SetupDockspace() {
 
     ImGui::End();  // DockSpace
 
-    // Render panels (they will dock into the dockspace)
-    m_HierarchyPanel->OnImGuiRender();
-    m_ViewportPanel->OnImGuiRender();
-    m_InspectorPanel->OnImGuiRender();
-    m_AssetBrowserPanel->OnImGuiRender();
-    m_StatisticsPanel->OnImGuiRender();
-    m_LightingPanel->OnImGuiRender();
+    // Render all panels via PanelManager
+    m_PanelManager.OnImGuiRender();
 }
 
 void Editor3DLayer::RenderMenuBar() {
@@ -222,18 +224,11 @@ void Editor3DLayer::RenderMenuBar() {
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("View")) {
-        // Panels
-        bool statsOpen = m_StatisticsPanel->IsOpen();
-        if (ImGui::MenuItem("Statistics", nullptr, &statsOpen)) {
-            m_StatisticsPanel->SetOpen(statsOpen);
-        }
+        // Panels (auto-generated from PanelManager)
+        ImGui::SeparatorText("Panels");
+        m_PanelManager.RenderPanelToggles();
 
-        bool lightingOpen = m_LightingPanel->IsOpen();
-        if (ImGui::MenuItem("Lighting", nullptr, &lightingOpen)) {
-            m_LightingPanel->SetOpen(lightingOpen);
-        }
-
-        ImGui::Separator();
+        ImGui::SeparatorText("Object Visibility");
 
         // Object visibility
         bool staticVisible = m_World.IsTypeVisible(WorldObjectType::STATIC_OBJECT);

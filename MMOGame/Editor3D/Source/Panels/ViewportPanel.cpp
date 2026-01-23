@@ -13,11 +13,11 @@
 
 namespace MMO {
 
-ViewportPanel::ViewportPanel() = default;
+ViewportPanel::ViewportPanel() {
+    m_Name = "Viewport";
+}
 
-void ViewportPanel::Init(EditorWorld* world) {
-    m_World = world;
-
+void ViewportPanel::OnInit() {
     // Create framebuffer with 4x MSAA
     m_Framebuffer = std::make_unique<Onyx::Framebuffer>();
     m_Framebuffer->Create(800, 600, 4);  // 4x MSAA

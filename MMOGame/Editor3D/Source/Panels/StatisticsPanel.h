@@ -1,25 +1,22 @@
 #pragma once
 
+#include "EditorPanel.h"
 #include <cstdint>
 
 namespace MMO {
 
 class ViewportPanel;
 
-class StatisticsPanel {
+class StatisticsPanel : public EditorPanel {
 public:
-    StatisticsPanel() = default;
-    ~StatisticsPanel() = default;
+    StatisticsPanel() { m_Name = "Statistics"; m_IsOpen = false; }
+    ~StatisticsPanel() override = default;
 
-    void Init(ViewportPanel* viewport);
-    void OnImGuiRender();
-
-    bool IsOpen() const { return m_IsOpen; }
-    void SetOpen(bool open) { m_IsOpen = open; }
+    void SetViewport(ViewportPanel* viewport) { m_Viewport = viewport; }
+    void OnImGuiRender() override;
 
 private:
     ViewportPanel* m_Viewport = nullptr;
-    bool m_IsOpen = false;
 };
 
 } // namespace MMO

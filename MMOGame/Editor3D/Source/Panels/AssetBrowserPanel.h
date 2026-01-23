@@ -1,12 +1,11 @@
 #pragma once
 
+#include "EditorPanel.h"
 #include <string>
 #include <vector>
 #include <filesystem>
 
 namespace MMO {
-
-class EditorWorld;
 
 struct AssetEntry {
     std::string name;
@@ -16,10 +15,12 @@ struct AssetEntry {
     // TODO: Add thumbnail texture ID
 };
 
-class AssetBrowserPanel {
+class AssetBrowserPanel : public EditorPanel {
 public:
-    void Init(EditorWorld* world);
-    void OnImGuiRender();
+    AssetBrowserPanel() { m_Name = "Asset Browser"; }
+    ~AssetBrowserPanel() override = default;
+
+    void OnImGuiRender() override;
 
     // Set the root directory for asset browsing
     void SetRootDirectory(const std::string& path);
@@ -34,8 +35,6 @@ private:
     bool IsModelFile(const std::string& extension) const;
     bool IsTextureFile(const std::string& extension) const;
     bool IsShaderFile(const std::string& extension) const;
-
-    EditorWorld* m_World = nullptr;
 
     std::string m_RootDirectory;
     std::string m_CurrentDirectory;

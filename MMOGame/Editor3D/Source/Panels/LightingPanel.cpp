@@ -5,12 +5,8 @@
 
 namespace MMO {
 
-void LightingPanel::Init(ViewportPanel* viewport) {
-    m_Viewport = viewport;
-}
-
 void LightingPanel::OnImGuiRender() {
-    if (!m_IsOpen || !m_Viewport) return;
+    if (!m_Viewport) return;
 
     ImGui::Begin("Lighting", &m_IsOpen);
 
