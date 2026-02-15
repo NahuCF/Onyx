@@ -10,7 +10,6 @@ namespace Onyx {
 
 	Shader::Shader(const char* vertexPath, const char* fragmentPath)
 	{
-		//Open files
 		m_VShaderFile.open(vertexPath);
 		m_FShaderFile.open(fragmentPath);
 
@@ -33,7 +32,6 @@ namespace Onyx {
 		m_VShaderCode = m_VertexCode.c_str();
 		m_FShaderCode = m_FragmentCode.c_str();
 
-		//Compile and check for errores
 		m_VertexID = glCreateShader(GL_VERTEX_SHADER);
 		m_FragmentID = glCreateShader(GL_FRAGMENT_SHADER);
 		
@@ -88,7 +86,7 @@ namespace Onyx {
 		glUseProgram(0);
 	}
 
-	void Shader::SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix)
+	void Shader::SetUniform(Shader& shader, const char* transformName, const glm::mat4& matrix)
 	{
 		glUniformMatrix4fv(glGetUniformLocation(shader.m_ProgramID, transformName), 1, GL_FALSE, &matrix[0][0]);
 	}
@@ -98,8 +96,8 @@ namespace Onyx {
         glUniform1i(glGetUniformLocation(m_ProgramID, name.c_str()), value); 
     }
 
-    void Shader::SetMat4(const std::string &name, glm::mat4& matrix) const
-    { 
+    void Shader::SetMat4(const std::string &name, const glm::mat4& matrix) const
+    {
         glUniformMatrix4fv(glGetUniformLocation(m_ProgramID, name.c_str()), 1, GL_FALSE, &matrix[0][0]);
     }
 
@@ -108,7 +106,7 @@ namespace Onyx {
         glUniform2f(glGetUniformLocation(m_ProgramID, name.c_str()), x, y);
     }
 
-    void Shader::SetVec3(const std::string &name, glm::vec3& vector) const
+    void Shader::SetVec3(const std::string &name, const glm::vec3& vector) const
     {
         glUniform3fv(glGetUniformLocation(m_ProgramID, name.c_str()), 1, &vector[0]);
     }
@@ -126,5 +124,15 @@ namespace Onyx {
     void Shader::SetFloat(const std::string &name, float value) const
     {
         glUniform1f(glGetUniformLocation(m_ProgramID, name.c_str()), value);
+    }
+
+    void Shader::SetIntArray(const std::string &name, const int* values, int count) const
+    {
+        glUniform1iv(glGetUniformLocation(m_ProgramID, name.c_str()), count, values);
+    }
+
+    void Shader::SetFloatArray(const std::string &name, const float* values, int count) const
+    {
+        glUniform1fv(glGetUniformLocation(m_ProgramID, name.c_str()), count, values);
     }
 } 

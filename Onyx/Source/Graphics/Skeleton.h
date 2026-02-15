@@ -24,6 +24,7 @@ public:
 
     void AddBone(const std::string& name, int parentIndex, const glm::mat4& offsetMatrix);
     void SetBoneLocalTransform(int index, const glm::mat4& transform);
+    void SetBoneParent(int boneIndex, int parentIndex);
 
     int GetBoneIndex(const std::string& name) const;
     const Bone* GetBone(int index) const;

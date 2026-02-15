@@ -10,6 +10,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(ImGuiFileDialog)
 
+# nlohmann/json - JSON for Modern C++
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG        v3.11.3
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 # ImGuiFileDialog needs imgui headers
 target_include_directories(ImGuiFileDialog PUBLIC ${imgui_SOURCE_DIR})
 
@@ -22,9 +31,16 @@ set(EDITOR3D_SOURCES
     Source/Panels/AssetBrowserPanel.cpp
     Source/Panels/StatisticsPanel.cpp
     Source/Panels/LightingPanel.cpp
+    Source/Panels/TerrainPanel.cpp
     Source/World/EditorWorld.cpp
     Source/Gizmo/TransformGizmo.cpp
     Source/Commands/EditorCommand.cpp
+    Source/Rendering/SceneRenderer.cpp
+    Source/Terrain/EditorTerrainSystem.cpp
+    Source/Terrain/TerrainChunk.cpp
+    Source/Terrain/TerrainMaterial.cpp
+    Source/Terrain/TerrainMaterialLibrary.cpp
+    Source/Panels/MaterialEditorPanel.cpp
 )
 
 set(EDITOR3D_HEADERS
@@ -35,9 +51,17 @@ set(EDITOR3D_HEADERS
     Source/Panels/AssetBrowserPanel.h
     Source/Panels/StatisticsPanel.h
     Source/Panels/LightingPanel.h
+    Source/Panels/TerrainPanel.h
     Source/World/EditorWorld.h
     Source/Gizmo/TransformGizmo.h
     Source/Commands/EditorCommand.h
+    Source/Rendering/SceneRenderer.h
+    Source/Rendering/EditorVisuals.h
+    Source/Terrain/TerrainChunk.h
+    Source/Terrain/EditorTerrainSystem.h
+    Source/Terrain/TerrainMaterial.h
+    Source/Terrain/TerrainMaterialLibrary.h
+    Source/Panels/MaterialEditorPanel.h
 )
 
 add_executable(MMOEditor3D ${EDITOR3D_SOURCES} ${EDITOR3D_HEADERS})
@@ -56,6 +80,7 @@ target_link_libraries(MMOEditor3D PRIVATE
     Onyx
     assimp
     ImGuiFileDialog
+    nlohmann_json::nlohmann_json
 )
 
 set_target_properties(MMOEditor3D PROPERTIES

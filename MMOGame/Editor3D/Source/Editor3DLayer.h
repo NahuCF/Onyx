@@ -11,6 +11,7 @@ class ViewportPanel;
 class InspectorPanel;
 class StatisticsPanel;
 class LightingPanel;
+class MaterialEditorPanel;
 
 class Editor3DLayer : public Onyx::Layer {
 public:
@@ -28,13 +29,8 @@ private:
     void RenderMenuBar();
     void HandleGlobalShortcuts();
 
-    // World data
     EditorWorld m_World;
-
-    // Panel manager
     PanelManager m_PanelManager;
-
-    // Quick access to specific panels
     ViewportPanel* m_ViewportPanel = nullptr;
 };
 

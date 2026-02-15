@@ -3,7 +3,7 @@
 #include "Commands/EditorCommand.h"
 #include <Graphics/RenderCommand.h>
 #include <Graphics/VertexLayout.h>
-#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -18,51 +18,40 @@ ViewportPanel::ViewportPanel() {
 }
 
 void ViewportPanel::OnInit() {
-    // Create framebuffer with 4x MSAA
     m_Framebuffer = std::make_unique<Onyx::Framebuffer>();
-    m_Framebuffer->Create(800, 600, 4);  // 4x MSAA
+    m_Framebuffer->Create(800, 600, 4);
 
-    // Create object shader (for simple objects like grid, placeholder cubes)
     m_ObjectShader = std::make_unique<Onyx::Shader>(
         "MMOGame/Editor3D/assets/shaders/basic3d.vert",
         "MMOGame/Editor3D/assets/shaders/basic3d.frag"
     );
 
-    // Create model shader (for loaded 3D models with textures)
     m_ModelShader = std::make_unique<Onyx::Shader>(
         "MMOGame/Editor3D/assets/shaders/model.vert",
         "MMOGame/Editor3D/assets/shaders/model.frag"
     );
 
-    // Create cube geometry
     float cubeVertices[] = {
-        // Position              // Color (will be replaced by uniform)
-        // Front face
         -0.5f, -0.5f,  0.5f,    0.8f, 0.8f, 0.8f,
          0.5f, -0.5f,  0.5f,    0.8f, 0.8f, 0.8f,
          0.5f,  0.5f,  0.5f,    0.9f, 0.9f, 0.9f,
         -0.5f,  0.5f,  0.5f,    0.9f, 0.9f, 0.9f,
-        // Back face
         -0.5f, -0.5f, -0.5f,    0.7f, 0.7f, 0.7f,
          0.5f, -0.5f, -0.5f,    0.7f, 0.7f, 0.7f,
          0.5f,  0.5f, -0.5f,    0.8f, 0.8f, 0.8f,
         -0.5f,  0.5f, -0.5f,    0.8f, 0.8f, 0.8f,
-        // Top face
         -0.5f,  0.5f, -0.5f,    0.85f, 0.85f, 0.85f,
          0.5f,  0.5f, -0.5f,    0.85f, 0.85f, 0.85f,
          0.5f,  0.5f,  0.5f,    0.95f, 0.95f, 0.95f,
         -0.5f,  0.5f,  0.5f,    0.95f, 0.95f, 0.95f,
-        // Bottom face
         -0.5f, -0.5f, -0.5f,    0.6f, 0.6f, 0.6f,
          0.5f, -0.5f, -0.5f,    0.6f, 0.6f, 0.6f,
          0.5f, -0.5f,  0.5f,    0.7f, 0.7f, 0.7f,
         -0.5f, -0.5f,  0.5f,    0.7f, 0.7f, 0.7f,
-        // Right face
          0.5f, -0.5f, -0.5f,    0.75f, 0.75f, 0.75f,
          0.5f,  0.5f, -0.5f,    0.75f, 0.75f, 0.75f,
          0.5f,  0.5f,  0.5f,    0.85f, 0.85f, 0.85f,
          0.5f, -0.5f,  0.5f,    0.85f, 0.85f, 0.85f,
-        // Left face
         -0.5f, -0.5f, -0.5f,    0.65f, 0.65f, 0.65f,
         -0.5f,  0.5f, -0.5f,    0.65f, 0.65f, 0.65f,
         -0.5f,  0.5f,  0.5f,    0.75f, 0.75f, 0.75f,
@@ -70,12 +59,12 @@ void ViewportPanel::OnInit() {
     };
 
     uint32_t cubeIndices[] = {
-        0, 1, 2,  0, 2, 3,    // Front
-        4, 6, 5,  4, 7, 6,    // Back
-        8, 9, 10,  8, 10, 11, // Top
-        12, 14, 13,  12, 15, 14, // Bottom
-        16, 17, 18,  16, 18, 19, // Right
-        20, 22, 21,  20, 23, 22, // Left
+        0, 1, 2,  0, 2, 3,
+        4, 6, 5,  4, 7, 6,
+        8, 9, 10,  8, 10, 11,
+        12, 14, 13,  12, 15, 14,
+        16, 17, 18,  16, 18, 19,
+        20, 22, 21,  20, 23, 22,
     };
 
     m_CubeVBO = std::make_unique<Onyx::VertexBuffer>(static_cast<const void*>(cubeVertices), sizeof(cubeVertices));
@@ -83,17 +72,14 @@ void ViewportPanel::OnInit() {
     m_CubeVAO = std::make_unique<Onyx::VertexArray>();
 
     Onyx::VertexLayout cubeLayout;
-    cubeLayout.PushFloat(3);  // Position
-    cubeLayout.PushFloat(3);  // Color
+    cubeLayout.PushFloat(3);
+    cubeLayout.PushFloat(3);
 
     m_CubeVAO->SetVertexBuffer(m_CubeVBO.get());
     m_CubeVAO->SetIndexBuffer(m_CubeEBO.get());
     m_CubeVAO->SetLayout(cubeLayout);
 
-    // Create plane geometry (1x1 unit, centered at origin, facing up +Y)
-    // Format: position (3), normal (3), texcoord (2), tangent (3), bitangent (3)
     float planeVertices[] = {
-        // Positions            Normals          TexCoords   Tangent           Bitangent
         -0.5f, 0.0f, -0.5f,    0.0f, 1.0f, 0.0f,  0.0f, 0.0f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
          0.5f, 0.0f, -0.5f,    0.0f, 1.0f, 0.0f,  1.0f, 0.0f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
          0.5f, 0.0f,  0.5f,    0.0f, 1.0f, 0.0f,  1.0f, 1.0f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
@@ -110,26 +96,22 @@ void ViewportPanel::OnInit() {
     m_PlaneVAO = std::make_unique<Onyx::VertexArray>();
 
     Onyx::VertexLayout planeLayout;
-    planeLayout.PushFloat(3);  // Position
-    planeLayout.PushFloat(3);  // Normal
-    planeLayout.PushFloat(2);  // TexCoord
-    planeLayout.PushFloat(3);  // Tangent
-    planeLayout.PushFloat(3);  // Bitangent
+    planeLayout.PushFloat(3);
+    planeLayout.PushFloat(3);
+    planeLayout.PushFloat(2);
+    planeLayout.PushFloat(3);
+    planeLayout.PushFloat(3);
 
     m_PlaneVAO->SetVertexBuffer(m_PlaneVBO.get());
     m_PlaneVAO->SetIndexBuffer(m_PlaneEBO.get());
     m_PlaneVAO->SetLayout(planeLayout);
 
-    // Create infinite grid shader
     m_InfiniteGridShader = std::make_unique<Onyx::Shader>(
         "MMOGame/Editor3D/assets/shaders/infinite_grid.vert",
         "MMOGame/Editor3D/assets/shaders/infinite_grid.frag"
     );
 
-    // Create fullscreen quad for infinite grid
-    // These are NDC coordinates that will be unprojected in the shader
     float gridVertices[] = {
-        // Position (XY in NDC)
         -1.0f, -1.0f,
          1.0f, -1.0f,
          1.0f,  1.0f,
@@ -146,29 +128,22 @@ void ViewportPanel::OnInit() {
     m_GridVAO = std::make_unique<Onyx::VertexArray>();
 
     Onyx::VertexLayout gridLayout;
-    gridLayout.PushFloat(2);  // Position (XY)
+    gridLayout.PushFloat(2);
 
     m_GridVAO->SetVertexBuffer(m_GridVBO.get());
     m_GridVAO->SetIndexBuffer(m_GridEBO.get());
     m_GridVAO->SetLayout(gridLayout);
 
-    // Initialize camera
     UpdateCameraVectors();
 
-    // Initialize gizmo
     m_Gizmo = std::make_unique<TransformGizmo>();
     m_Gizmo->Init();
 
-    // Create default textures
     CreateDefaultTextures();
 
-    // ===== GPU Picking Setup =====
-
-    // Create picking framebuffer (no MSAA - need exact colors for ID reading)
     m_PickingFramebuffer = std::make_unique<Onyx::Framebuffer>();
-    m_PickingFramebuffer->Create(800, 600, 1);  // No MSAA
+    m_PickingFramebuffer->Create(800, 600, 1);
 
-    // Create picking shaders
     m_PickingShader = std::make_unique<Onyx::Shader>(
         "MMOGame/Editor3D/assets/shaders/picking.vert",
         "MMOGame/Editor3D/assets/shaders/picking.frag"
@@ -179,9 +154,7 @@ void ViewportPanel::OnInit() {
         "MMOGame/Editor3D/assets/shaders/picking_billboard.frag"
     );
 
-    // Create billboard quad for icons
     float billboardVertices[] = {
-        // Position (XY)   // TexCoord
         -0.5f, -0.5f,      0.0f, 0.0f,
          0.5f, -0.5f,      1.0f, 0.0f,
          0.5f,  0.5f,      1.0f, 1.0f,
@@ -198,33 +171,43 @@ void ViewportPanel::OnInit() {
     m_BillboardVAO = std::make_unique<Onyx::VertexArray>();
 
     Onyx::VertexLayout billboardLayout;
-    billboardLayout.PushFloat(2);  // Position (XY)
-    billboardLayout.PushFloat(2);  // TexCoord
+    billboardLayout.PushFloat(2);
+    billboardLayout.PushFloat(2);
 
     m_BillboardVAO->SetVertexBuffer(m_BillboardVBO.get());
     m_BillboardVAO->SetIndexBuffer(m_BillboardEBO.get());
     m_BillboardVAO->SetLayout(billboardLayout);
 
-    // Create simple colored icon textures (circles with different colors)
-    // Yellow for lights
     m_LightIconTexture = Onyx::Texture::CreateSolidColor(255, 220, 50);
-    // Green for spawn points
     m_SpawnIconTexture = Onyx::Texture::CreateSolidColor(50, 220, 100);
-    // Magenta for particle emitters
     m_ParticleIconTexture = Onyx::Texture::CreateSolidColor(220, 50, 220);
-    // Cyan for portals
     m_PortalIconTexture = Onyx::Texture::CreateSolidColor(50, 200, 255);
-    // Orange for triggers
     m_TriggerIconTexture = Onyx::Texture::CreateSolidColor(255, 150, 50);
 
-    // ===== Shadow Mapping Setup =====
-    m_ShadowMap = std::make_unique<Onyx::ShadowMap>();
-    m_ShadowMap->Create(m_ShadowMapSize, m_ShadowMapSize);
+    m_CSM = std::make_unique<Onyx::CascadedShadowMap>();
+    m_CSM->Create(m_ShadowMapSize);
 
     m_ShadowDepthShader = std::make_unique<Onyx::Shader>(
         "MMOGame/Editor3D/assets/shaders/shadow_depth.vert",
         "MMOGame/Editor3D/assets/shaders/shadow_depth.frag"
     );
+
+    m_TerrainShader = std::make_unique<Onyx::Shader>(
+        "MMOGame/Editor3D/assets/shaders/terrain.vert",
+        "MMOGame/Editor3D/assets/shaders/terrain.frag"
+    );
+    m_TerrainMaterialLibrary.Init("MMOGame/Editor3D/assets");
+
+    const char* defaultMatIds[] = {"dirt", "grass", "rock", "sand"};
+    std::string defaults[Editor3D::MAX_TERRAIN_LAYERS] = {};
+    for (int i = 0; i < 4; i++) {
+        if (m_TerrainMaterialLibrary.GetMaterial(defaultMatIds[i])) {
+            defaults[i] = defaultMatIds[i];
+        }
+    }
+    m_TerrainSystem.SetDefaultMaterialIds(defaults);
+
+    m_TerrainSystem.Init("");
 }
 
 void ViewportPanel::OnImGuiRender() {
@@ -236,7 +219,6 @@ void ViewportPanel::OnImGuiRender() {
     m_ViewportFocused = ImGui::IsWindowFocused();
     m_ViewportHovered = ImGui::IsWindowHovered();
 
-    // Get viewport position for mouse picking
     ImVec2 vpPos = ImGui::GetCursorScreenPos();
     m_ViewportPos = glm::vec2(vpPos.x, vpPos.y);
 
@@ -250,20 +232,15 @@ void ViewportPanel::OnImGuiRender() {
         m_ViewportHeight = static_cast<float>(newHeight);
         uint32_t samples = m_EnableMSAA ? 4 : 1;
         m_Framebuffer->Create(newWidth, newHeight, samples);
-        // Resize picking framebuffer (full resolution for accurate picking)
         m_PickingFramebuffer->Create(newWidth, newHeight, 1);
     }
 
-    // Check for right-click context menu BEFORE camera input captures it
-    // Only open menu if not already in camera rotation mode
     if (m_ViewportHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !m_RightMouseDown) {
         m_WantsContextMenu = true;
     }
 
-    // Handle input before rendering
     HandleCameraInput();
 
-    // Update matrices BEFORE picking and rendering (picking needs current matrices)
     m_ViewMatrix = glm::lookAt(m_CameraPosition, m_CameraPosition + m_CameraFront, m_CameraUp);
     m_ProjectionMatrix = glm::perspective(
         glm::radians(60.0f),
@@ -275,33 +252,38 @@ void ViewportPanel::OnImGuiRender() {
     HandleGizmoInteraction();
     HandleObjectPicking();
 
-    // Render scene to framebuffer
+    if (m_TerrainEnabled) {
+        m_TerrainSystem.SetNormalMode(m_TerrainTool.sobelNormals, m_TerrainTool.smoothNormals);
+        m_TerrainSystem.SetDiamondGrid(m_TerrainTool.diamondGrid);
+        m_TerrainSystem.SetMeshResolution(m_TerrainTool.meshResolution);
+        glm::mat4 VP = m_ProjectionMatrix * m_ViewMatrix;
+        m_TerrainSystem.Update(m_CameraPosition, VP, 0.016f);
+        if (m_TerrainTool.toolActive && m_ViewportHovered) {
+            HandleTerrainInput();
+        }
+    }
+
     RenderScene();
 
-    // Display framebuffer
     ImGui::Image(
         static_cast<ImTextureID>(m_Framebuffer->GetColorBufferID()),
         ImVec2(m_ViewportWidth, m_ViewportHeight),
         ImVec2(0, 1), ImVec2(1, 0)
     );
 
-    // Overlay controls
-    ImGui::SetCursorPos(ImVec2(10, 30));
+    ImGui::SetCursorPos(ImVec2(0, 30));
     ImGui::Checkbox("Show Grid", &m_ShowGrid);
     ImGui::Checkbox("Wireframe", &m_ShowWireframe);
     if (ImGui::Checkbox("MSAA 4x", &m_EnableMSAA)) {
-        // Recreate framebuffer with new sample count
         uint32_t samples = m_EnableMSAA ? 4 : 1;
         m_Framebuffer->Create(static_cast<uint32_t>(m_ViewportWidth),
                               static_cast<uint32_t>(m_ViewportHeight), samples);
     }
 
-    // Right-click context menu (open if we detected right-click earlier and mouse was released quickly)
     if (m_WantsContextMenu && ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
         ImGui::OpenPopup("ViewportContextMenu");
         m_WantsContextMenu = false;
     }
-    // Cancel context menu if user starts dragging (camera rotation)
     if (m_WantsContextMenu && m_RightMouseDown) {
         m_WantsContextMenu = false;
     }
@@ -310,7 +292,6 @@ void ViewportPanel::OnImGuiRender() {
         bool hasSelection = m_World && m_World->HasSelection();
         bool hasGroupSelected = false;
 
-        // Check if any selected object is a group
         if (hasSelection) {
             for (WorldObject* obj : m_World->GetSelectedObjects()) {
                 if (obj->GetObjectType() == WorldObjectType::GROUP) {
@@ -343,162 +324,139 @@ void ViewportPanel::OnImGuiRender() {
     ImGui::PopStyleVar();
 }
 
-void ViewportPanel::UpdateLightSpaceMatrix() {
-    // Calculate orthographic projection matrix for directional light
-    // The light looks at the scene from the light direction
-    glm::vec3 lightDir = glm::normalize(m_LightDir);
-
-    // Calculate scene center based on camera position
-    glm::vec3 sceneCenter = m_CameraPosition + m_CameraFront * (m_ShadowDistance * 0.5f);
-
-    // Light position is offset from scene center in opposite of light direction
-    glm::vec3 lightPos = sceneCenter - lightDir * m_ShadowDistance;
-
-    // Create light view matrix
-    glm::mat4 lightView = glm::lookAt(lightPos, sceneCenter, glm::vec3(0.0f, 1.0f, 0.0f));
-
-    // Create orthographic projection for directional light
-    // Size should cover the shadow distance
-    float orthoSize = m_ShadowDistance;
-    glm::mat4 lightProjection = glm::ortho(
-        -orthoSize, orthoSize,
-        -orthoSize, orthoSize,
-        0.1f, m_ShadowDistance * 2.0f
-    );
-
-    m_LightSpaceMatrix = lightProjection * lightView;
-}
-
 void ViewportPanel::RenderShadowPass() {
-    if (!m_EnableShadows || !m_ShadowMap || !m_ShadowDepthShader) return;
+    if (!m_EnableShadows || !m_EnableDirectionalLight || !m_CSM || !m_ShadowDepthShader) return;
 
-    // Update light space matrix
-    UpdateLightSpaceMatrix();
+    m_CSM->Update(m_ViewMatrix, m_ProjectionMatrix,
+                  glm::normalize(m_LightDir), 0.1f, m_ShadowDistance, m_SplitLambda);
+    m_CSM->ClearAll();
 
-    // Bind shadow map framebuffer
-    m_ShadowMap->Bind();
-    m_ShadowMap->Clear();
-
-    // Enable depth testing and front face culling to reduce peter panning
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_FRONT);
+    Onyx::RenderCommand::EnableDepthTest();
+    Onyx::RenderCommand::EnableCulling();
+    Onyx::RenderCommand::SetCullFace(true);
 
     m_ShadowDepthShader->Bind();
-    m_ShadowDepthShader->SetMat4("u_LightSpaceMatrix", m_LightSpaceMatrix);
 
-    // Render all shadow-casting objects
-    if (m_World) {
-        // Render static objects that cast shadows
-        for (const auto& obj : m_World->GetStaticObjects()) {
-            if (!obj->IsVisible() || !obj->CastsShadow()) continue;
+    for (uint32_t cascade = 0; cascade < Onyx::NUM_SHADOW_CASCADES; cascade++) {
+        m_CSM->BindCascade(cascade);
+        m_ShadowDepthShader->SetMat4("u_LightSpaceMatrix", m_CSM->GetLightSpaceMatrix(cascade));
 
-            glm::mat4 modelMatrix = m_World->GetWorldMatrix(obj.get());
-            const std::string& modelPath = obj->GetModelPath();
+        if (m_World) {
+            for (const auto& obj : m_World->GetStaticObjects()) {
+                if (!obj->IsVisible() || !obj->CastsShadow()) continue;
 
-            // Handle plane primitive
-            if (modelPath == "#plane") {
-                m_ShadowDepthShader->SetMat4("u_Model", modelMatrix);
-                Onyx::RenderCommand::DrawIndexed(*m_PlaneVAO, 6);
-                continue;
-            }
+                glm::mat4 modelMatrix = m_World->GetWorldMatrix(obj.get());
+                const std::string& modelPath = obj->GetModelPath();
 
-            if (!modelPath.empty()) {
-                Onyx::Model* model = GetOrLoadModel(modelPath);
-                if (model) {
-                    for (size_t meshIdx = 0; meshIdx < model->GetMeshes().size(); meshIdx++) {
-                        auto& mesh = model->GetMeshes()[meshIdx];
-
-                        // Get per-mesh material for visibility and transform
-                        std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(meshIdx)) : mesh.m_Name;
-                        const MeshMaterial* meshMat = obj->GetMeshMaterial(meshName);
-
-                        if (meshMat && !meshMat->visible) continue;
-
-                        // Calculate per-mesh model matrix
-                        glm::mat4 meshModelMatrix = modelMatrix;
-                        if (meshMat) {
-                            glm::vec3 meshCenter(0.0f);
-                            if (!mesh.m_Vertices.empty()) {
-                                glm::vec3 minBounds(std::numeric_limits<float>::max());
-                                glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
-                                for (const auto& v : mesh.m_Vertices) {
-                                    minBounds = glm::min(minBounds, v.position);
-                                    maxBounds = glm::max(maxBounds, v.position);
-                                }
-                                meshCenter = (minBounds + maxBounds) * 0.5f;
-                            }
-
-                            meshModelMatrix = glm::translate(meshModelMatrix, meshMat->positionOffset);
-                            meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.x), glm::vec3(1, 0, 0));
-                            meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.y), glm::vec3(0, 1, 0));
-                            meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.z), glm::vec3(0, 0, 1));
-                            meshModelMatrix = glm::translate(meshModelMatrix, meshCenter);
-                            meshModelMatrix = glm::scale(meshModelMatrix, glm::vec3(meshMat->scaleMultiplier));
-                            meshModelMatrix = glm::translate(meshModelMatrix, -meshCenter);
-                        }
-
-                        m_ShadowDepthShader->SetMat4("u_Model", meshModelMatrix);
-                        mesh.DrawGeometryOnly();
-                    }
+                if (modelPath == "#plane") {
+                    m_ShadowDepthShader->SetMat4("u_Model", modelMatrix);
+                    Onyx::RenderCommand::DrawIndexed(*m_PlaneVAO, 6);
+                    continue;
                 }
-            } else {
-                // Render placeholder cube for objects without models
-                m_ShadowDepthShader->SetMat4("u_Model", modelMatrix);
-                Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
+
+                if (!modelPath.empty()) {
+                    Onyx::Model* model = GetOrLoadModel(modelPath);
+                    if (model) {
+                        for (size_t meshIdx = 0; meshIdx < model->GetMeshes().size(); meshIdx++) {
+                            auto& mesh = model->GetMeshes()[meshIdx];
+                            std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(meshIdx)) : mesh.m_Name;
+                            const MeshMaterial* meshMat = obj->GetMeshMaterial(meshName);
+                            if (meshMat && !meshMat->visible) continue;
+
+                            glm::mat4 meshModelMatrix = modelMatrix;
+                            if (meshMat) {
+                                glm::vec3 meshCenter(0.0f);
+                                if (!mesh.m_Vertices.empty()) {
+                                    glm::vec3 minBounds(std::numeric_limits<float>::max());
+                                    glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
+                                    for (const auto& v : mesh.m_Vertices) {
+                                        minBounds = glm::min(minBounds, v.position);
+                                        maxBounds = glm::max(maxBounds, v.position);
+                                    }
+                                    meshCenter = (minBounds + maxBounds) * 0.5f;
+                                }
+                                meshModelMatrix = glm::translate(meshModelMatrix, meshMat->positionOffset);
+                                meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.x), glm::vec3(1, 0, 0));
+                                meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.y), glm::vec3(0, 1, 0));
+                                meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.z), glm::vec3(0, 0, 1));
+                                meshModelMatrix = glm::translate(meshModelMatrix, meshCenter);
+                                meshModelMatrix = glm::scale(meshModelMatrix, glm::vec3(meshMat->scaleMultiplier));
+                                meshModelMatrix = glm::translate(meshModelMatrix, -meshCenter);
+                            }
+                            m_ShadowDepthShader->SetMat4("u_Model", meshModelMatrix);
+                            mesh.DrawGeometryOnly();
+                        }
+                    }
+                } else {
+                    m_ShadowDepthShader->SetMat4("u_Model", modelMatrix);
+                    Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
+                }
+            }
+        }
+
+            if (m_TerrainEnabled) {
+            m_ShadowDepthShader->SetMat4("u_Model", glm::mat4(1.0f));
+            for (auto& [key, chunk] : m_TerrainSystem.GetChunks()) {
+                if (chunk->GetState() != Editor3D::ChunkState::Active) continue;
+                chunk->Draw(m_ShadowDepthShader.get());
             }
         }
     }
 
-    // Restore culling state
-    glCullFace(GL_BACK);
-    glDisable(GL_CULL_FACE);
-
-    m_ShadowMap->UnBind();
+    m_CSM->UnBind();
+    Onyx::RenderCommand::SetCullFace(false);
+    Onyx::RenderCommand::DisableCulling();
 }
 
 void ViewportPanel::RenderScene() {
-    // Reset statistics
     m_TriangleCount = 0;
     m_DrawCalls = 0;
 
-    // Render shadow map first
+    double totalStart = glfwGetTime();
+
+    double t0 = glfwGetTime();
     RenderShadowPass();
+    Onyx::RenderCommand::Finish();
+    m_ShadowPassTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
 
     m_Framebuffer->Bind();
     m_Framebuffer->Clear(0.15f, 0.15f, 0.18f, 1.0f);
 
-    // Set explicit GL state - must match picking pass exactly
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glDepthMask(GL_TRUE);
-    glDisable(GL_CULL_FACE);  // Same as picking pass
+    Onyx::RenderCommand::EnableDepthTest();
+    Onyx::RenderCommand::SetDepthMask(true);
+    Onyx::RenderCommand::DisableCulling();
 
-    // Matrices are already built in OnImGuiRender before picking/rendering
-
-    // Render grid
     if (m_ShowGrid) {
         RenderGrid();
     }
 
-    // Render world objects
-    RenderWorldObjects();
+    t0 = glfwGetTime();
+    if (m_TerrainEnabled) {
+        if (m_ShowWireframe) Onyx::RenderCommand::SetWireframeMode(true);
+        RenderTerrain();
+        if (m_ShowWireframe) Onyx::RenderCommand::SetWireframeMode(false);
+    }
+    Onyx::RenderCommand::Finish();
+    m_TerrainPassTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
 
-    // Render gizmo for selected object
+    t0 = glfwGetTime();
+    RenderWorldObjects();
+    Onyx::RenderCommand::Finish();
+    m_WorldObjectsPassTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
+
     RenderGizmo();
 
     Onyx::RenderCommand::ResetState();
     m_Framebuffer->UnBind();
 
-    // Resolve multisampled framebuffer to regular texture for display
     m_Framebuffer->Resolve();
+
+    Onyx::RenderCommand::Finish();
+    m_TotalRenderTime = static_cast<float>((glfwGetTime() - totalStart) * 1000.0);
 }
 
 void ViewportPanel::RenderGrid() {
-    // Enable blending for grid transparency
     Onyx::RenderCommand::EnableBlending();
-    // Keep depth test enabled - shader writes correct depth via gl_FragDepth
 
     m_InfiniteGridShader->Bind();
     m_InfiniteGridShader->SetMat4("u_View", m_ViewMatrix);
@@ -507,7 +465,6 @@ void ViewportPanel::RenderGrid() {
     m_InfiniteGridShader->SetFloat("u_GridFadeStart", 80.0f);
     m_InfiniteGridShader->SetFloat("u_GridFadeEnd", 200.0f);
 
-    // Draw fullscreen quad (6 indices = 2 triangles)
     Onyx::RenderCommand::DrawIndexed(*m_GridVAO, 6);
 
     Onyx::RenderCommand::DisableBlending();
@@ -516,31 +473,23 @@ void ViewportPanel::RenderGrid() {
 void ViewportPanel::RenderWorldObjects() {
     if (!m_World) return;
 
-    // Apply global wireframe mode if enabled
     if (m_ShowWireframe) {
         Onyx::RenderCommand::SetWireframeMode(true);
     }
 
-    // Render static objects
     for (const auto& obj : m_World->GetStaticObjects()) {
         if (!obj->IsVisible()) continue;
 
-        // Use world matrix to account for parent hierarchy
         glm::mat4 modelMatrix = m_World->GetWorldMatrix(obj.get());
-
-        // Check if object has a model path
         const std::string& modelPath = obj->GetModelPath();
 
-        // Check for primitive types (prefixed with #)
         if (modelPath == "#plane") {
-            // Render plane primitive using model shader
             m_ModelShader->Bind();
             m_ModelShader->SetMat4("u_Model", modelMatrix);
             m_ModelShader->SetMat4("u_View", m_ViewMatrix);
             m_ModelShader->SetMat4("u_Projection", m_ProjectionMatrix);
-            m_ModelShader->SetMat4("u_LightSpaceMatrix", m_LightSpaceMatrix);
             m_ModelShader->SetVec3("u_LightDir", m_LightDir);
-            m_ModelShader->SetVec3("u_LightColor", m_LightColor);
+            m_ModelShader->SetVec3("u_LightColor", m_EnableDirectionalLight ? m_LightColor : glm::vec3(0.0f));
             m_ModelShader->SetVec3("u_ViewPos", m_CameraPosition);
             m_ModelShader->SetFloat("u_AmbientStrength", m_AmbientStrength);
             m_ModelShader->SetInt("u_AlbedoMap", 0);
@@ -548,15 +497,19 @@ void ViewportPanel::RenderWorldObjects() {
             m_ModelShader->SetInt("u_ShadowMap", 2);
             m_ModelShader->SetInt("u_EnableShadows", m_EnableShadows ? 1 : 0);
             m_ModelShader->SetFloat("u_ShadowBias", m_ShadowBias);
+            m_ModelShader->SetInt("u_ShowCascades", m_ShowCascades ? 1 : 0);
             m_ModelShader->SetInt("u_UseNormalMap", 0);
 
-            // Bind shadow map
-            if (m_EnableShadows && m_ShadowMap) {
-                glActiveTexture(GL_TEXTURE2);
-                glBindTexture(GL_TEXTURE_2D, m_ShadowMap->GetDepthTextureID());
+            if (m_EnableShadows && m_CSM) {
+                auto& matrices = m_CSM->GetLightSpaceMatrices();
+                auto& splits = m_CSM->GetCascadeSplits();
+                for (uint32_t i = 0; i < Onyx::NUM_SHADOW_CASCADES; i++) {
+                    m_ModelShader->SetMat4("u_LightSpaceMatrices[" + std::to_string(i) + "]", matrices[i]);
+                    m_ModelShader->SetFloat("u_CascadeSplits[" + std::to_string(i) + "]", splits[i]);
+                }
+                Onyx::RenderCommand::BindTextureArray(2, m_CSM->GetDepthTextureArray());
             }
 
-            // Bind textures
             Onyx::Texture* diffuseTexture = GetOrLoadTexture(obj->GetDiffuseTexture());
             if (diffuseTexture) {
                 diffuseTexture->Bind(0);
@@ -568,7 +521,6 @@ void ViewportPanel::RenderWorldObjects() {
             m_TriangleCount += 2;
             m_DrawCalls++;
 
-            // Selection wireframe
             if (obj->IsSelected()) {
                 Onyx::RenderCommand::SetWireframeMode(true);
                 Onyx::RenderCommand::SetLineWidth(2.0f);
@@ -580,7 +532,6 @@ void ViewportPanel::RenderWorldObjects() {
         }
 
         if (!modelPath.empty()) {
-            // Try to load and render the actual model
             Onyx::Model* model = GetOrLoadModel(modelPath);
             if (model) {
                 glm::vec3 lightColor(1.0f);
@@ -589,9 +540,8 @@ void ViewportPanel::RenderWorldObjects() {
                 m_ModelShader->SetMat4("u_Model", modelMatrix);
                 m_ModelShader->SetMat4("u_View", m_ViewMatrix);
                 m_ModelShader->SetMat4("u_Projection", m_ProjectionMatrix);
-                m_ModelShader->SetMat4("u_LightSpaceMatrix", m_LightSpaceMatrix);
                 m_ModelShader->SetVec3("u_LightDir", m_LightDir);
-                m_ModelShader->SetVec3("u_LightColor", m_LightColor);
+                m_ModelShader->SetVec3("u_LightColor", m_EnableDirectionalLight ? m_LightColor : glm::vec3(0.0f));
                 m_ModelShader->SetVec3("u_ViewPos", m_CameraPosition);
                 m_ModelShader->SetFloat("u_AmbientStrength", m_AmbientStrength);
                 m_ModelShader->SetInt("u_AlbedoMap", 0);
@@ -599,31 +549,31 @@ void ViewportPanel::RenderWorldObjects() {
                 m_ModelShader->SetInt("u_ShadowMap", 2);
                 m_ModelShader->SetInt("u_EnableShadows", m_EnableShadows ? 1 : 0);
                 m_ModelShader->SetFloat("u_ShadowBias", m_ShadowBias);
+                m_ModelShader->SetInt("u_ShowCascades", m_ShowCascades ? 1 : 0);
 
-                // Bind shadow map to texture unit 2
-                if (m_EnableShadows && m_ShadowMap) {
-                    glActiveTexture(GL_TEXTURE2);
-                    glBindTexture(GL_TEXTURE_2D, m_ShadowMap->GetDepthTextureID());
+                if (m_EnableShadows && m_CSM) {
+                    auto& matrices = m_CSM->GetLightSpaceMatrices();
+                    auto& splits = m_CSM->GetCascadeSplits();
+                    for (uint32_t i = 0; i < Onyx::NUM_SHADOW_CASCADES; i++) {
+                        m_ModelShader->SetMat4("u_LightSpaceMatrices[" + std::to_string(i) + "]", matrices[i]);
+                        m_ModelShader->SetFloat("u_CascadeSplits[" + std::to_string(i) + "]", splits[i]);
+                    }
+                    Onyx::RenderCommand::BindTextureArray(2, m_CSM->GetDepthTextureArray());
                 }
 
-                // Default textures from object properties
                 Onyx::Texture* defaultDiffuse = GetOrLoadTexture(obj->GetDiffuseTexture());
                 Onyx::Texture* defaultNormal = GetOrLoadTexture(obj->GetNormalTexture());
 
-                // Draw each mesh with per-mesh materials and transforms
                 for (size_t meshIdx = 0; meshIdx < model->GetMeshes().size(); meshIdx++) {
                     auto& mesh = model->GetMeshes()[meshIdx];
 
-                    // Look up per-mesh material
                     std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(meshIdx)) : mesh.m_Name;
                     const MeshMaterial* meshMat = obj->GetMeshMaterial(meshName);
 
-                    // Skip hidden meshes
                     if (meshMat && !meshMat->visible) {
                         continue;
                     }
 
-                    // Calculate mesh bounding box center for proper pivot scaling
                     glm::vec3 meshCenter(0.0f);
                     if (!mesh.m_Vertices.empty()) {
                         glm::vec3 minBounds(std::numeric_limits<float>::max());
@@ -635,23 +585,18 @@ void ViewportPanel::RenderWorldObjects() {
                         meshCenter = (minBounds + maxBounds) * 0.5f;
                     }
 
-                    // Calculate per-mesh model matrix (base + mesh offset)
-                    // Transform order: position offset -> rotation -> scale around mesh center
                     glm::mat4 meshModelMatrix = modelMatrix;
                     if (meshMat) {
-                        // Apply per-mesh transform offset
                         meshModelMatrix = glm::translate(meshModelMatrix, meshMat->positionOffset);
                         meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.x), glm::vec3(1, 0, 0));
                         meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.y), glm::vec3(0, 1, 0));
                         meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.z), glm::vec3(0, 0, 1));
-                        // Scale around mesh center (not origin)
                         meshModelMatrix = glm::translate(meshModelMatrix, meshCenter);
                         meshModelMatrix = glm::scale(meshModelMatrix, glm::vec3(meshMat->scaleMultiplier));
                         meshModelMatrix = glm::translate(meshModelMatrix, -meshCenter);
                     }
                     m_ModelShader->SetMat4("u_Model", meshModelMatrix);
 
-                    // Determine which textures to use (per-mesh or default)
                     Onyx::Texture* diffuseTexture = nullptr;
                     Onyx::Texture* normalTexture = nullptr;
 
@@ -664,18 +609,15 @@ void ViewportPanel::RenderWorldObjects() {
                         }
                     }
 
-                    // Fall back to default textures if per-mesh not set
                     if (!diffuseTexture) diffuseTexture = defaultDiffuse;
                     if (!normalTexture) normalTexture = defaultNormal;
 
-                    // Bind diffuse/albedo texture
                     if (diffuseTexture) {
                         diffuseTexture->Bind(0);
                     } else {
                         m_DefaultWhiteTexture->Bind(0);
                     }
 
-                    // Bind normal map if available
                     if (normalTexture) {
                         normalTexture->Bind(1);
                         m_ModelShader->SetInt("u_UseNormalMap", 1);
@@ -688,19 +630,16 @@ void ViewportPanel::RenderWorldObjects() {
                     m_DrawCalls++;
                 }
 
-                // Selection highlight - render wireframe on top
                 if (obj->IsSelected()) {
                     Onyx::RenderCommand::SetWireframeMode(true);
                     Onyx::RenderCommand::SetLineWidth(2.0f);
 
                     int selectedMeshIdx = m_World->GetSelectedMeshIndex();
                     if (selectedMeshIdx >= 0 && selectedMeshIdx < static_cast<int>(model->GetMeshes().size())) {
-                        // Only highlight the selected mesh with its per-mesh transform
-                        auto& mesh = model->GetMeshes()[selectedMeshIdx];
+                            auto& mesh = model->GetMeshes()[selectedMeshIdx];
                         std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(selectedMeshIdx)) : mesh.m_Name;
                         const MeshMaterial* meshMat = obj->GetMeshMaterial(meshName);
 
-                        // Calculate mesh center for proper pivot scaling
                         glm::vec3 meshCenter(0.0f);
                         if (!mesh.m_Vertices.empty()) {
                             glm::vec3 minBounds(std::numeric_limits<float>::max());
@@ -718,7 +657,6 @@ void ViewportPanel::RenderWorldObjects() {
                             highlightMatrix = glm::rotate(highlightMatrix, glm::radians(meshMat->rotationOffset.x), glm::vec3(1, 0, 0));
                             highlightMatrix = glm::rotate(highlightMatrix, glm::radians(meshMat->rotationOffset.y), glm::vec3(0, 1, 0));
                             highlightMatrix = glm::rotate(highlightMatrix, glm::radians(meshMat->rotationOffset.z), glm::vec3(0, 0, 1));
-                            // Scale around mesh center (not origin)
                             highlightMatrix = glm::translate(highlightMatrix, meshCenter);
                             highlightMatrix = glm::scale(highlightMatrix, glm::vec3(meshMat->scaleMultiplier));
                             highlightMatrix = glm::translate(highlightMatrix, -meshCenter);
@@ -727,14 +665,12 @@ void ViewportPanel::RenderWorldObjects() {
                         mesh.DrawGeometryOnly();
                         m_DrawCalls++;
                     } else {
-                        // Highlight all meshes (no specific mesh selected) with their transforms
                         for (size_t idx = 0; idx < model->GetMeshes().size(); idx++) {
                             auto& mesh = model->GetMeshes()[idx];
                             std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(idx)) : mesh.m_Name;
                             const MeshMaterial* meshMat = obj->GetMeshMaterial(meshName);
 
-                            // Calculate mesh center for proper pivot scaling
-                            glm::vec3 meshCenter(0.0f);
+                                glm::vec3 meshCenter(0.0f);
                             if (!mesh.m_Vertices.empty()) {
                                 glm::vec3 minBounds(std::numeric_limits<float>::max());
                                 glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
@@ -751,8 +687,7 @@ void ViewportPanel::RenderWorldObjects() {
                                 highlightMatrix = glm::rotate(highlightMatrix, glm::radians(meshMat->rotationOffset.x), glm::vec3(1, 0, 0));
                                 highlightMatrix = glm::rotate(highlightMatrix, glm::radians(meshMat->rotationOffset.y), glm::vec3(0, 1, 0));
                                 highlightMatrix = glm::rotate(highlightMatrix, glm::radians(meshMat->rotationOffset.z), glm::vec3(0, 0, 1));
-                                // Scale around mesh center (not origin)
-                                highlightMatrix = glm::translate(highlightMatrix, meshCenter);
+                                    highlightMatrix = glm::translate(highlightMatrix, meshCenter);
                                 highlightMatrix = glm::scale(highlightMatrix, glm::vec3(meshMat->scaleMultiplier));
                                 highlightMatrix = glm::translate(highlightMatrix, -meshCenter);
                             }
@@ -767,7 +702,6 @@ void ViewportPanel::RenderWorldObjects() {
             }
         }
 
-        // Fallback to placeholder cube
         m_ObjectShader->Bind();
         m_ObjectShader->SetMat4("u_View", m_ViewMatrix);
         m_ObjectShader->SetMat4("u_Projection", m_ProjectionMatrix);
@@ -786,19 +720,15 @@ void ViewportPanel::RenderWorldObjects() {
         m_DrawCalls++;
     }
 
-    // Render spawn points
     for (const auto& spawn : m_World->GetSpawnPoints()) {
         if (!spawn->IsVisible()) continue;
 
-        // Use world matrix to account for parent hierarchy
         glm::mat4 modelMatrix = m_World->GetWorldMatrix(spawn.get());
-
-        // Check if spawn point has a preview model
         const std::string& modelPath = spawn->GetModelPath();
         if (!modelPath.empty()) {
             Onyx::Model* model = GetOrLoadModel(modelPath);
             if (model) {
-                glm::vec3 lightColor(1.0f);
+                glm::vec3 lightColor = m_EnableDirectionalLight ? glm::vec3(1.0f) : glm::vec3(0.0f);
 
                 m_ModelShader->Bind();
                 m_ModelShader->SetMat4("u_Model", modelMatrix);
@@ -810,11 +740,9 @@ void ViewportPanel::RenderWorldObjects() {
                 m_ModelShader->SetFloat("u_AmbientStrength", m_AmbientStrength);
                 m_ModelShader->SetInt("u_UseNormalMap", 0);
 
-                // Check for custom textures from spawn point properties
                 Onyx::Texture* diffuseTexture = GetOrLoadTexture(spawn->GetDiffuseTexture());
                 Onyx::Texture* normalTexture = GetOrLoadTexture(spawn->GetNormalTexture());
 
-                // Bind diffuse/albedo texture
                 if (diffuseTexture) {
                     diffuseTexture->Bind(0);
                 } else {
@@ -822,7 +750,6 @@ void ViewportPanel::RenderWorldObjects() {
                 }
                 m_ModelShader->SetInt("u_AlbedoMap", 0);
 
-                // Bind normal map if available
                 if (normalTexture) {
                     normalTexture->Bind(1);
                     m_ModelShader->SetInt("u_NormalMap", 1);
@@ -831,7 +758,6 @@ void ViewportPanel::RenderWorldObjects() {
                     m_ModelShader->SetInt("u_UseNormalMap", 0);
                 }
 
-                // Draw each mesh
                 for (auto& mesh : model->GetMeshes()) {
                     mesh.DrawGeometryOnly();
                     m_TriangleCount += static_cast<uint32_t>(mesh.m_Indices.size()) / 3;
@@ -851,7 +777,6 @@ void ViewportPanel::RenderWorldObjects() {
             }
         }
 
-        // Fallback to placeholder cube
         m_ObjectShader->Bind();
         m_ObjectShader->SetMat4("u_View", m_ViewMatrix);
         m_ObjectShader->SetMat4("u_Projection", m_ProjectionMatrix);
@@ -872,12 +797,10 @@ void ViewportPanel::RenderWorldObjects() {
         m_DrawCalls++;
     }
 
-    // Ensure object shader is bound for remaining objects
     m_ObjectShader->Bind();
     m_ObjectShader->SetMat4("u_View", m_ViewMatrix);
     m_ObjectShader->SetMat4("u_Projection", m_ProjectionMatrix);
 
-    // Render lights as small cubes
     for (const auto& light : m_World->GetLights()) {
         if (!light->IsVisible()) continue;
 
@@ -898,7 +821,6 @@ void ViewportPanel::RenderWorldObjects() {
         m_DrawCalls++;
     }
 
-    // Render particle emitters
     for (const auto& emitter : m_World->GetParticleEmitters()) {
         if (!emitter->IsVisible()) continue;
 
@@ -919,7 +841,6 @@ void ViewportPanel::RenderWorldObjects() {
         m_DrawCalls++;
     }
 
-    // Render trigger volumes as wireframe cubes
     for (const auto& trigger : m_World->GetTriggerVolumes()) {
         if (!trigger->IsVisible()) continue;
 
@@ -935,7 +856,6 @@ void ViewportPanel::RenderWorldObjects() {
         Onyx::RenderCommand::SetWireframeMode(false);
     }
 
-    // Render instance portals
     for (const auto& portal : m_World->GetInstancePortals()) {
         if (!portal->IsVisible()) continue;
 
@@ -956,14 +876,12 @@ void ViewportPanel::RenderWorldObjects() {
         m_DrawCalls++;
     }
 
-    // Reset wireframe mode
     if (m_ShowWireframe) {
         Onyx::RenderCommand::SetWireframeMode(false);
     }
 }
 
 void ViewportPanel::RenderSelectionOutline() {
-    // Already handled in RenderWorldObjects with wireframe
 }
 
 void ViewportPanel::RenderGizmoIcons() {
@@ -976,16 +894,13 @@ void ViewportPanel::RenderGizmo() {
     WorldObject* selection = m_World->GetPrimarySelection();
     if (!selection) return;
 
-    // Sync gizmo state from EditorWorld
     m_Gizmo->SetMode(m_World->GetGizmoMode());
     m_Gizmo->SetSnapEnabled(m_World->IsSnapEnabled());
     m_Gizmo->SetSnapValue(m_World->GetSnapValue());
 
-    // Use world position for objects in groups
     glm::mat4 worldMatrix = m_World->GetWorldMatrix(selection);
     glm::vec3 gizmoPos = glm::vec3(worldMatrix[3]);
 
-    // If a mesh is selected, position gizmo at mesh's geometric center
     int selectedMeshIdx = m_World->GetSelectedMeshIndex();
     if (selectedMeshIdx >= 0 && selection->GetObjectType() == WorldObjectType::STATIC_OBJECT) {
         StaticObject* staticObj = static_cast<StaticObject*>(selection);
@@ -997,7 +912,6 @@ void ViewportPanel::RenderGizmo() {
                 std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(selectedMeshIdx)) : mesh.m_Name;
                 const MeshMaterial* meshMat = staticObj->GetMeshMaterial(meshName);
 
-                // Calculate mesh bounding box center
                 glm::vec3 meshCenter(0.0f);
                 if (!mesh.m_Vertices.empty()) {
                     glm::vec3 minBounds(std::numeric_limits<float>::max());
@@ -1009,11 +923,9 @@ void ViewportPanel::RenderGizmo() {
                     meshCenter = (minBounds + maxBounds) * 0.5f;
                 }
 
-                // Apply per-mesh transform offset
                 glm::vec3 meshOffset = meshMat ? meshMat->positionOffset : glm::vec3(0.0f);
                 glm::vec3 localPos = meshCenter + meshOffset;
 
-                // Transform to world space (use world matrix for hierarchy support)
                 glm::mat4 objMatrix = m_World->GetWorldMatrix(staticObj);
                 gizmoPos = glm::vec3(objMatrix * glm::vec4(localPos, 1.0f));
             }
@@ -1036,14 +948,12 @@ void ViewportPanel::HandleGizmoInteraction() {
 
     ImGuiIO& io = ImGui::GetIO();
 
-    // Get mouse position relative to viewport
     float mouseX = io.MousePos.x - m_ViewportPos.x;
     float mouseY = io.MousePos.y - m_ViewportPos.y;
 
     glm::vec3 rayDir = ScreenToWorldRay(mouseX, mouseY);
     glm::vec3 rayOrigin = m_CameraPosition;
 
-    // Determine if we're working with a mesh or the whole object
     int selectedMeshIdx = m_World->GetSelectedMeshIndex();
     bool isMeshSelected = false;
     StaticObject* staticObj = nullptr;
@@ -1064,7 +974,6 @@ void ViewportPanel::HandleGizmoInteraction() {
     }
 
     // Calculate gizmo position (at mesh geometric center + offset)
-    // Use world position for objects in groups
     glm::mat4 selectionWorldMatrix = m_World->GetWorldMatrix(selection);
     glm::vec3 gizmoPos = glm::vec3(selectionWorldMatrix[3]);
     glm::vec3 meshCenter(0.0f);
@@ -1073,7 +982,6 @@ void ViewportPanel::HandleGizmoInteraction() {
         Onyx::Model* model = GetOrLoadModel(modelPath);
         if (model && selectedMeshIdx < static_cast<int>(model->GetMeshes().size())) {
             auto& mesh = model->GetMeshes()[selectedMeshIdx];
-            // Calculate mesh bounding box center
             if (!mesh.m_Vertices.empty()) {
                 glm::vec3 minBounds(std::numeric_limits<float>::max());
                 glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
@@ -1093,23 +1001,19 @@ void ViewportPanel::HandleGizmoInteraction() {
 
     float camDist = glm::length(m_CameraPosition - gizmoPos);
 
-    // Check for gizmo hover/hit (when not dragging)
     if (!m_Gizmo->IsDragging()) {
         GizmoAxis hoverAxis = m_Gizmo->TestHit(rayOrigin, rayDir, gizmoPos, camDist);
         m_Gizmo->SetActiveAxis(hoverAxis);
     }
 
-    // Start dragging on click if we hit an axis
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && m_Gizmo->GetActiveAxis() != GizmoAxis::NONE) {
         m_Gizmo->BeginDrag(gizmoPos, rayOrigin, rayDir, m_ViewMatrix);
 
         if (isMeshSelected && meshMaterial) {
-            // Store mesh transform state
             m_GizmoStartMeshOffset = meshMaterial->positionOffset;
             m_GizmoStartMeshRotation = meshMaterial->rotationOffset;
             m_GizmoStartMeshScale = meshMaterial->scaleMultiplier;
         } else {
-            // Store object transform state
             m_GizmoStartObjectPos = selection->GetPosition();
             m_GizmoStartObjectRot = selection->GetRotation();
             m_GizmoStartObjectScale = selection->GetScale();
@@ -1119,21 +1023,17 @@ void ViewportPanel::HandleGizmoInteraction() {
         }
     }
 
-    // Continue dragging
     if (m_Gizmo->IsDragging() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         GizmoMode mode = m_Gizmo->GetMode();
         GizmoAxis axis = m_Gizmo->GetActiveAxis();
 
         if (isMeshSelected && meshMaterial && staticObj) {
-            // Apply transforms to mesh offset
             if (mode == GizmoMode::TRANSLATE) {
                 glm::vec3 translation = m_Gizmo->CalculateTranslation(
                     rayOrigin, rayDir, gizmoPos, axis,
                     m_ViewMatrix, m_ProjectionMatrix
                 );
 
-                // Convert world translation to local object space
-                // Use inverse rotation (not transpose of scaled matrix)
                 glm::quat invRot = glm::inverse(staticObj->GetRotation());
                 glm::vec3 localTranslation = invRot * translation / staticObj->GetScale();
 
@@ -1144,7 +1044,6 @@ void ViewportPanel::HandleGizmoInteraction() {
                     rayOrigin, rayDir, gizmoPos, axis, m_ViewMatrix
                 );
 
-                // Apply rotation as euler angle offset
                 float deltaDegrees = glm::degrees(deltaAngle);
                 glm::vec3 newRotation = m_GizmoStartMeshRotation;
                 if (axis == GizmoAxis::X) newRotation.x += deltaDegrees;
@@ -1158,7 +1057,6 @@ void ViewportPanel::HandleGizmoInteraction() {
                     rayOrigin, rayDir, gizmoPos, axis, m_ViewMatrix
                 );
 
-                // For uniform scale
                 float factor = 1.0f;
                 if (axis == GizmoAxis::X) factor = scaleFactor.x;
                 else if (axis == GizmoAxis::Y) factor = scaleFactor.y;
@@ -1168,14 +1066,12 @@ void ViewportPanel::HandleGizmoInteraction() {
                 meshMaterial->scaleMultiplier = m_GizmoStartMeshScale * factor;
             }
         } else {
-            // Apply transforms to object
             if (mode == GizmoMode::TRANSLATE) {
                 glm::vec3 translation = m_Gizmo->CalculateTranslation(
                     rayOrigin, rayDir, gizmoPos, axis,
                     m_ViewMatrix, m_ProjectionMatrix
                 );
 
-                // Apply translation to all selected objects
                 for (WorldObject* obj : m_World->GetSelectedObjects()) {
                     obj->SetPosition(m_GizmoStartObjectPos + translation);
                 }
@@ -1185,13 +1081,11 @@ void ViewportPanel::HandleGizmoInteraction() {
                     rayOrigin, rayDir, gizmoPos, axis, m_ViewMatrix
                 );
 
-                // Determine rotation axis
                 glm::vec3 rotAxis;
                 if (axis == GizmoAxis::X) rotAxis = glm::vec3(1, 0, 0);
                 else if (axis == GizmoAxis::Y) rotAxis = glm::vec3(0, 1, 0);
                 else rotAxis = glm::vec3(0, 0, 1);
 
-                // Apply rotation
                 glm::quat deltaRot = glm::angleAxis(deltaAngle, rotAxis);
                 for (WorldObject* obj : m_World->GetSelectedObjects()) {
                     obj->SetRotation(deltaRot * m_GizmoStartObjectRot);
@@ -1202,7 +1096,6 @@ void ViewportPanel::HandleGizmoInteraction() {
                     rayOrigin, rayDir, gizmoPos, axis, m_ViewMatrix
                 );
 
-                // For uniform scale, use the component matching the active axis
                 float newScale = m_GizmoStartObjectScale;
                 if (axis == GizmoAxis::X) newScale *= scaleFactor.x;
                 else if (axis == GizmoAxis::Y) newScale *= scaleFactor.y;
@@ -1216,13 +1109,11 @@ void ViewportPanel::HandleGizmoInteraction() {
         }
     }
 
-    // End dragging - record undo command
     bool mouseReleased = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
     bool gizmoDragging = m_Gizmo->IsDragging();
     if (mouseReleased && gizmoDragging) {
         std::cout << "[Gizmo] Drag END triggered (mouseReleased=" << mouseReleased << " gizmoDragging=" << gizmoDragging << ")" << std::endl;
         if (!isMeshSelected) {
-            // Create undo command for object transform
             glm::vec3 newPos = selection->GetPosition();
             glm::quat newRot = selection->GetRotation();
             float newScale = selection->GetScale();
@@ -1232,7 +1123,6 @@ void ViewportPanel::HandleGizmoInteraction() {
                       << ") currentPos=(" << newPos.x << "," << newPos.y << "," << newPos.z
                       << ") startScale=" << m_GizmoStartObjectScale << " currentScale=" << newScale << std::endl;
 
-            // Only record if something actually changed
             bool posChanged = newPos != m_GizmoStartObjectPos;
             bool rotChanged = newRot != m_GizmoStartObjectRot;
             bool scaleChanged = newScale != m_GizmoStartObjectScale;
@@ -1243,16 +1133,13 @@ void ViewportPanel::HandleGizmoInteraction() {
                     m_GizmoStartObjectPos, m_GizmoStartObjectRot, m_GizmoStartObjectScale,
                     newPos, newRot, newScale
                 );
-                // Use AddWithoutExecute since we already applied the transform during drag
                 CommandHistory::Get().AddWithoutExecute(std::move(cmd));
             }
         } else if (isMeshSelected && meshMaterial && staticObj) {
-            // Create undo command for mesh transform
             glm::vec3 newOffset = meshMaterial->positionOffset;
             glm::vec3 newRotation = meshMaterial->rotationOffset;
             float newScale = meshMaterial->scaleMultiplier;
 
-            // Only record if something actually changed
             bool offsetChanged = newOffset != m_GizmoStartMeshOffset;
             bool rotChanged = newRotation != m_GizmoStartMeshRotation;
             bool scaleChanged = newScale != m_GizmoStartMeshScale;
@@ -1270,7 +1157,6 @@ void ViewportPanel::HandleGizmoInteraction() {
         m_Gizmo->EndDrag();
     }
 
-    // Keyboard shortcuts for gizmo mode (only when not using camera)
     if (!io.WantTextInput && !m_RightMouseDown) {
         if (ImGui::IsKeyPressed(ImGuiKey_1)) {
             m_World->SetGizmoMode(GizmoMode::TRANSLATE);
@@ -1281,29 +1167,20 @@ void ViewportPanel::HandleGizmoInteraction() {
         if (ImGui::IsKeyPressed(ImGuiKey_3)) {
             m_World->SetGizmoMode(GizmoMode::SCALE);
         }
-        // Toggle grid snap with G (only when Ctrl not held - Ctrl+G is for grouping)
         if (ImGui::IsKeyPressed(ImGuiKey_G) && !io.KeyCtrl) {
             m_World->SetSnapEnabled(!m_World->IsSnapEnabled());
         }
 
-        // Copy/Paste/Duplicate shortcuts
-        // Ctrl+C = copy object (if mesh selected, copy object with only that mesh visible)
-        // Ctrl+V = paste object
-        // Ctrl+D = duplicate (if mesh selected, duplicate with only that mesh visible)
-        // Ctrl+Shift+C/V = copy/paste mesh transforms (advanced)
         bool ctrlHeld = io.KeyCtrl;
         bool shiftHeld = io.KeyShift;
         if (ctrlHeld && ImGui::IsKeyPressed(ImGuiKey_C)) {
             if (shiftHeld && m_World->HasMeshSelected()) {
-                // Ctrl+Shift+C: Copy mesh transform only
                 std::cout << "[Copy] Copying mesh transform" << std::endl;
                 m_World->CopyMesh();
             } else if (m_World->HasMeshSelected()) {
-                // Ctrl+C with mesh selected: Copy object with only this mesh visible
                 std::cout << "[Copy] Copying single mesh as object" << std::endl;
                 m_World->CopySingleMesh();
             } else {
-                // Ctrl+C: Copy whole object
                 std::cout << "[Copy] Copying object" << std::endl;
                 m_World->Copy();
             }
@@ -1319,24 +1196,18 @@ void ViewportPanel::HandleGizmoInteraction() {
         }
         if (ctrlHeld && ImGui::IsKeyPressed(ImGuiKey_D)) {
             if (m_World->HasMeshSelected()) {
-                // Ctrl+D with mesh selected: Duplicate with only this mesh visible
                 std::cout << "[Duplicate] Duplicating single mesh as object" << std::endl;
                 m_World->CopySingleMesh();
                 m_World->Paste();
             } else {
-                // Ctrl+D: Duplicate whole object
                 m_World->Duplicate();
             }
         }
 
-        // Delete selected objects
         if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
             m_World->DeleteSelected();
         }
 
-        // Grouping shortcuts
-        // Ctrl+G = Group selected objects
-        // Ctrl+Shift+G = Ungroup selected groups
         if (ctrlHeld && ImGui::IsKeyPressed(ImGuiKey_G)) {
             if (shiftHeld) {
                 std::cout << "[Ungroup] Ungrouping selected groups" << std::endl;
@@ -1355,14 +1226,12 @@ void ViewportPanel::HandleCameraInput() {
     ImGuiIO& io = ImGui::GetIO();
     float deltaTime = io.DeltaTime > 0.0f ? io.DeltaTime : 0.016f;
 
-    // Right mouse button - look around + WASD movement
     if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
         if (!m_RightMouseDown) {
             m_RightMouseDown = true;
             m_FirstMouse = true;
         }
 
-        // Mouse look
         if (!m_FirstMouse) {
             float xOffset = io.MouseDelta.x * m_CameraSensitivity;
             float yOffset = -io.MouseDelta.y * m_CameraSensitivity;
@@ -1375,8 +1244,9 @@ void ViewportPanel::HandleCameraInput() {
         }
         m_FirstMouse = false;
 
-        // WASD movement while right mouse is held
         float speed = m_CameraSpeed * deltaTime;
+        if (ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_RightShift))
+            speed *= 3.0f;
 
         if (ImGui::IsKeyDown(ImGuiKey_W)) {
             m_CameraPosition += speed * m_CameraFront;
@@ -1400,19 +1270,16 @@ void ViewportPanel::HandleCameraInput() {
         m_RightMouseDown = false;
     }
 
-    // Middle mouse button - pan
     if (ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
         float panSpeed = 0.02f;
         m_CameraPosition -= m_CameraRight * io.MouseDelta.x * panSpeed;
         m_CameraPosition += m_CameraUp * io.MouseDelta.y * panSpeed;
     }
 
-    // Scroll wheel - dolly forward/back
     if (io.MouseWheel != 0.0f) {
         m_CameraPosition += m_CameraFront * io.MouseWheel * m_CameraSpeed * 0.1f;
     }
 
-    // F key - focus on selection
     if (ImGui::IsKeyPressed(ImGuiKey_F)) {
         FocusOnSelection();
     }
@@ -1421,15 +1288,12 @@ void ViewportPanel::HandleCameraInput() {
 void ViewportPanel::HandleObjectPicking() {
     if (!m_World || !m_ViewportHovered) return;
 
-    // Don't pick objects if we're interacting with the gizmo
     if (m_Gizmo && m_Gizmo->GetActiveAxis() != GizmoAxis::NONE) return;
 
-    // Left click to select
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
         ImGuiIO& io = ImGui::GetIO();
 
-        // Get mouse position relative to viewport
-        float mouseX = io.MousePos.x - m_ViewportPos.x;
+            float mouseX = io.MousePos.x - m_ViewportPos.x;
         float mouseY = io.MousePos.y - m_ViewportPos.y;
 
         std::cout << "[Pick] Mouse: (" << io.MousePos.x << "," << io.MousePos.y << ") "
@@ -1437,16 +1301,13 @@ void ViewportPanel::HandleObjectPicking() {
                   << "Relative: (" << mouseX << "," << mouseY << ") "
                   << "ViewportSize: (" << m_ViewportWidth << "x" << m_ViewportHeight << ")" << std::endl;
 
-        // Render picking pass and read result
         RenderPickingPass();
         PickResult pick = ReadPickingBuffer(mouseX, mouseY);
 
-        // Select (with shift for multi-select)
         bool addToSelection = io.KeyShift;
         if (pick.hit) {
             m_World->SelectByGuid(pick.objectGuid, addToSelection);
 
-            // Get mesh name and set it for clipboard operations
             std::string selectedMeshName;
             const auto& selected = m_World->GetSelectedObjects();
             if (!selected.empty()) {
@@ -1471,50 +1332,40 @@ void ViewportPanel::HandleObjectPicking() {
 }
 
 glm::vec3 ViewportPanel::ScreenToWorldRay(float screenX, float screenY) {
-    // Convert screen coordinates to normalized device coordinates
     float x = (2.0f * screenX) / m_ViewportWidth - 1.0f;
     float y = 1.0f - (2.0f * screenY) / m_ViewportHeight;
 
-    // Create ray in clip space
     glm::vec4 rayClip(x, y, -1.0f, 1.0f);
 
-    // Convert to eye space
     glm::vec4 rayEye = glm::inverse(m_ProjectionMatrix) * rayClip;
     rayEye = glm::vec4(rayEye.x, rayEye.y, -1.0f, 0.0f);
 
-    // Convert to world space
     glm::vec3 rayWorld = glm::vec3(glm::inverse(m_ViewMatrix) * rayEye);
     return glm::normalize(rayWorld);
 }
 
-// ===== GPU PICKING IMPLEMENTATION =====
 
 void ViewportPanel::RenderPickingPass() {
     if (!m_World) return;
 
     m_PickingFramebuffer->Bind();
-    m_PickingFramebuffer->Clear(0.0f, 0.0f, 0.0f, 0.0f);  // Black = no object
+    m_PickingFramebuffer->Clear(0.0f, 0.0f, 0.0f, 0.0f);
 
-    // Explicitly set all relevant GL state to ensure consistency with main render
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glDepthMask(GL_TRUE);
-    glDisable(GL_BLEND);
-    glDisable(GL_CULL_FACE);  // Render all faces for picking
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);  // Ensure solid fill, not wireframe
+    Onyx::RenderCommand::EnableDepthTest();
+    Onyx::RenderCommand::SetDepthMask(true);
+    Onyx::RenderCommand::DisableBlending();
+    Onyx::RenderCommand::DisableCulling();
+    Onyx::RenderCommand::SetWireframeMode(false);
 
-    // ===== Render solid geometry (StaticObjects with models) =====
     m_PickingShader->Bind();
     m_PickingShader->SetMat4("u_View", m_ViewMatrix);
     m_PickingShader->SetMat4("u_Projection", m_ProjectionMatrix);
 
-    // StaticObjects - render each mesh with unique ID
     for (const auto& obj : m_World->GetStaticObjects()) {
         if (!obj->IsVisible() || obj->IsLocked()) continue;
         RenderObjectForPicking(obj.get());
     }
 
-    // SpawnPoints with models
     for (const auto& obj : m_World->GetSpawnPoints()) {
         if (!obj->IsVisible() || obj->IsLocked()) continue;
         const std::string& modelPath = obj->GetModelPath();
@@ -1534,11 +1385,9 @@ void ViewportPanel::RenderPickingPass() {
                 continue;
             }
         }
-        // Fallback to billboard for spawn points without models
         RenderIconForPicking(obj.get(), WorldObjectType::SPAWN_POINT, 1.0f);
     }
 
-    // TriggerVolumes - render as solid cubes
     for (const auto& obj : m_World->GetTriggerVolumes()) {
         if (!obj->IsVisible() || obj->IsLocked()) continue;
         uint32_t objID = static_cast<uint32_t>(obj->GetGuid() & 0xFFFF);
@@ -1548,31 +1397,27 @@ void ViewportPanel::RenderPickingPass() {
 
         m_PickingShader->SetMat4("u_Model", modelMatrix);
         m_PickingShader->SetInt("u_ObjectID", static_cast<int>(objID));
-        m_PickingShader->SetInt("u_MeshIndex", 0xFFF);  // 4095 = no mesh
+        m_PickingShader->SetInt("u_MeshIndex", 0xFFF);
         m_PickingShader->SetInt("u_ObjectType", static_cast<int>(WorldObjectType::TRIGGER_VOLUME));
         Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
     }
 
-    // ===== Render billboard icons =====
     m_PickingBillboardShader->Bind();
     m_PickingBillboardShader->SetMat4("u_View", m_ViewMatrix);
     m_PickingBillboardShader->SetMat4("u_Projection", m_ProjectionMatrix);
     m_PickingBillboardShader->SetInt("u_IconTexture", 0);
-    m_PickingBillboardShader->SetInt("u_UseTexture", 0);  // Simple solid color icons
+    m_PickingBillboardShader->SetInt("u_UseTexture", 0);
 
-    // Lights
     for (const auto& obj : m_World->GetLights()) {
         if (!obj->IsVisible() || obj->IsLocked()) continue;
         RenderIconForPicking(obj.get(), WorldObjectType::LIGHT, 0.8f);
     }
 
-    // Particle Emitters
     for (const auto& obj : m_World->GetParticleEmitters()) {
         if (!obj->IsVisible() || obj->IsLocked()) continue;
         RenderIconForPicking(obj.get(), WorldObjectType::PARTICLE_EMITTER, 0.6f);
     }
 
-    // Instance Portals
     for (const auto& obj : m_World->GetInstancePortals()) {
         if (!obj->IsVisible() || obj->IsLocked()) continue;
         RenderIconForPicking(obj.get(), WorldObjectType::INSTANCE_PORTAL, 1.2f);
@@ -1590,8 +1435,7 @@ void ViewportPanel::RenderObjectForPicking(StaticObject* obj) {
         if (model) {
             glm::mat4 baseMatrix = m_World->GetWorldMatrix(obj);
 
-            // Debug: print first few mesh indices being rendered
-            static int s_DebugCount = 0;
+                    static int s_DebugCount = 0;
             if (s_DebugCount < 3) {
                 std::cout << "[PickRender] Rendering " << model->GetMeshes().size() << " meshes for object " << objID << std::endl;
                 s_DebugCount++;
@@ -1602,12 +1446,10 @@ void ViewportPanel::RenderObjectForPicking(StaticObject* obj) {
                 std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(meshIdx)) : mesh.m_Name;
                 const MeshMaterial* meshMat = obj->GetMeshMaterial(meshName);
 
-                // Skip hidden meshes
                 if (meshMat && !meshMat->visible) {
                     continue;
                 }
 
-                // Calculate mesh center for proper pivot scaling
                 glm::vec3 meshCenter(0.0f);
                 if (!mesh.m_Vertices.empty()) {
                     glm::vec3 minBounds(std::numeric_limits<float>::max());
@@ -1619,14 +1461,12 @@ void ViewportPanel::RenderObjectForPicking(StaticObject* obj) {
                     meshCenter = (minBounds + maxBounds) * 0.5f;
                 }
 
-                // Apply per-mesh transform
                 glm::mat4 meshMatrix = baseMatrix;
                 if (meshMat) {
                     meshMatrix = glm::translate(meshMatrix, meshMat->positionOffset);
                     meshMatrix = glm::rotate(meshMatrix, glm::radians(meshMat->rotationOffset.x), glm::vec3(1, 0, 0));
                     meshMatrix = glm::rotate(meshMatrix, glm::radians(meshMat->rotationOffset.y), glm::vec3(0, 1, 0));
                     meshMatrix = glm::rotate(meshMatrix, glm::radians(meshMat->rotationOffset.z), glm::vec3(0, 0, 1));
-                    // Scale around mesh center (not origin)
                     meshMatrix = glm::translate(meshMatrix, meshCenter);
                     meshMatrix = glm::scale(meshMatrix, glm::vec3(meshMat->scaleMultiplier));
                     meshMatrix = glm::translate(meshMatrix, -meshCenter);
@@ -1642,11 +1482,10 @@ void ViewportPanel::RenderObjectForPicking(StaticObject* obj) {
         }
     }
 
-    // Fallback to placeholder cube
     glm::mat4 modelMatrix = m_World->GetWorldMatrix(obj);
     m_PickingShader->SetMat4("u_Model", modelMatrix);
     m_PickingShader->SetInt("u_ObjectID", static_cast<int>(objID));
-    m_PickingShader->SetInt("u_MeshIndex", 0xFFF);  // 4095 = no mesh
+    m_PickingShader->SetInt("u_MeshIndex", 0xFFF);
     m_PickingShader->SetInt("u_ObjectType", static_cast<int>(WorldObjectType::STATIC_OBJECT));
     Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
 }
@@ -1654,7 +1493,6 @@ void ViewportPanel::RenderObjectForPicking(StaticObject* obj) {
 void ViewportPanel::RenderIconForPicking(WorldObject* obj, WorldObjectType type, float size) {
     uint32_t objID = static_cast<uint32_t>(obj->GetGuid() & 0xFFFF);
 
-    // Use world position for hierarchy support
     glm::mat4 worldMatrix = m_World->GetWorldMatrix(obj);
     glm::vec3 pos = glm::vec3(worldMatrix[3]);
     m_PickingBillboardShader->SetVec3("u_Position", pos.x, pos.y, pos.z);
@@ -1668,47 +1506,36 @@ void ViewportPanel::RenderIconForPicking(WorldObject* obj, WorldObjectType type,
 ViewportPanel::PickResult ViewportPanel::ReadPickingBuffer(float mouseX, float mouseY) {
     PickResult result;
 
-    // Convert viewport coordinates to picking buffer coordinates
     int pickWidth = m_PickingFramebuffer->GetWidth();
     int pickHeight = m_PickingFramebuffer->GetHeight();
 
     int x = static_cast<int>((mouseX / m_ViewportWidth) * pickWidth);
     int y = static_cast<int>(((m_ViewportHeight - mouseY) / m_ViewportHeight) * pickHeight);
 
-    // Clamp to valid range
     x = std::clamp(x, 0, pickWidth - 1);
     y = std::clamp(y, 0, pickHeight - 1);
 
-    // Ensure GPU has finished rendering before reading
-    glFinish();
+    Onyx::RenderCommand::Finish();
 
-    // Read pixel from picking buffer
     m_PickingFramebuffer->Bind();
     unsigned char pixel[4];
-    glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+    Onyx::RenderCommand::ReadPixels(x, y, 1, 1, pixel);
     m_PickingFramebuffer->UnBind();
 
-    // Check if we hit anything (black = nothing)
     if (pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 && pixel[3] == 0) {
         return result;
     }
 
-    // Decode the pick result
-    // R + G = Object ID (16 bits)
-    // B = Mesh Index low 8 bits
-    // A upper 4 bits = Mesh Index high 4 bits
-    // A lower 4 bits = Object Type
     result.hit = true;
     result.objectGuid = (static_cast<uint64_t>(pixel[0]) << 8) | static_cast<uint64_t>(pixel[1]);
 
     int meshLow = pixel[2];
     int meshHigh = (pixel[3] >> 4) & 0x0F;
-    int meshIndex12 = (meshHigh << 8) | meshLow;  // 12-bit mesh index
-    result.meshIndex = (meshIndex12 == 0xFFF) ? -1 : meshIndex12;  // 4095 = no mesh
+    int meshIndex12 = (meshHigh << 8) | meshLow;
+    result.meshIndex = (meshIndex12 == 0xFFF) ? -1 : meshIndex12;
 
     result.type = static_cast<WorldObjectType>(pixel[3] & 0x0F);
 
-    // Debug output
     std::cout << "[Pick] Pixel at (" << x << "," << y << "): RGBA=("
               << (int)pixel[0] << "," << (int)pixel[1] << ","
               << (int)pixel[2] << "," << (int)pixel[3] << ") -> "
@@ -1722,17 +1549,15 @@ void ViewportPanel::FocusOnObject(const WorldObject* object) {
     if (!object) return;
 
     glm::vec3 targetPos = object->GetPosition();
-    float distance = 10.0f;  // Distance from object
-
-    // Move camera to look at object
+    float distance = 10.0f;
     m_CameraPosition = targetPos - m_CameraFront * distance;
 }
 
 void ViewportPanel::SetShadowMapSize(uint32_t size) {
     if (size == m_ShadowMapSize) return;
     m_ShadowMapSize = size;
-    if (m_ShadowMap) {
-        m_ShadowMap->Resize(size, size);
+    if (m_CSM) {
+        m_CSM->Resize(size);
     }
 }
 
@@ -1744,7 +1569,6 @@ void ViewportPanel::FocusOnSelection() {
     if (selected.size() == 1) {
         FocusOnObject(selected[0]);
     } else {
-        // Focus on center of all selected objects
         glm::vec3 center(0.0f);
         for (const auto* obj : selected) {
             center += obj->GetPosition();
@@ -1773,20 +1597,17 @@ Onyx::Model* ViewportPanel::GetModel(const std::string& path) {
 Onyx::Model* ViewportPanel::GetOrLoadModel(const std::string& path) {
     if (path.empty()) return nullptr;
 
-    // Check if model is already cached
     auto it = m_ModelCache.find(path);
     if (it != m_ModelCache.end()) {
         return it->second.get();
     }
 
-    // Try to load the model (geometry only - textures assigned via Inspector)
     try {
         auto model = std::make_unique<Onyx::Model>(path.c_str(), false);
         Onyx::Model* modelPtr = model.get();
         m_ModelCache[path] = std::move(model);
         return modelPtr;
     } catch (...) {
-        // Model failed to load - cache nullptr to avoid repeated attempts
         std::cerr << "Failed to load model: " << path << std::endl;
         m_ModelCache[path] = nullptr;
         return nullptr;
@@ -1794,29 +1615,292 @@ Onyx::Model* ViewportPanel::GetOrLoadModel(const std::string& path) {
 }
 
 void ViewportPanel::CreateDefaultTextures() {
-    // Create a 1x1 white texture for models without textures
     m_DefaultWhiteTexture = Onyx::Texture::CreateSolidColor(255, 255, 255);
 }
 
 Onyx::Texture* ViewportPanel::GetOrLoadTexture(const std::string& path) {
     if (path.empty()) return nullptr;
 
-    // Check cache
     auto it = m_TextureCache.find(path);
     if (it != m_TextureCache.end()) {
         return it->second.get();
     }
 
-    // Try to load the texture using Onyx::Texture
     try {
         auto texture = std::make_unique<Onyx::Texture>(path.c_str());
         Onyx::Texture* texturePtr = texture.get();
         m_TextureCache[path] = std::move(texture);
         return texturePtr;
     } catch (...) {
-        // Failed to load - cache nullptr to avoid repeated attempts
         m_TextureCache[path] = nullptr;
         return nullptr;
+    }
+}
+
+
+bool ViewportPanel::IsAnimatedModel(const std::string& path) {
+    auto* model = GetOrLoadAnimatedModel(path);
+    return model && model->GetAnimationCount() > 0;
+}
+
+Onyx::AnimatedModel* ViewportPanel::GetAnimatedModel(const std::string& path) {
+    return GetOrLoadAnimatedModel(path);
+}
+
+Onyx::Animator* ViewportPanel::GetAnimator(uint64_t objectGuid) {
+    auto it = m_AnimatorCache.find(objectGuid);
+    if (it != m_AnimatorCache.end()) return it->second.get();
+
+    auto animator = std::make_unique<Onyx::Animator>();
+    Onyx::Animator* ptr = animator.get();
+    m_AnimatorCache[objectGuid] = std::move(animator);
+    return ptr;
+}
+
+void ViewportPanel::InvalidateAnimator(uint64_t objectGuid) {
+    m_AnimatorCache.erase(objectGuid);
+}
+
+void ViewportPanel::ReloadAnimations(uint64_t objectGuid, StaticObject* object) {
+    if (!object) return;
+    const std::string& modelPath = object->GetModelPath();
+    if (modelPath.empty()) return;
+
+    m_AnimatedModelCache.erase(modelPath);
+
+    auto* animModel = GetOrLoadAnimatedModel(modelPath);
+    if (!animModel) return;
+
+    for (const auto& animPath : object->GetAnimationPaths()) {
+        animModel->LoadAnimation(animPath);
+    }
+
+    InvalidateAnimator(objectGuid);
+}
+
+Onyx::AnimatedModel* ViewportPanel::GetOrLoadAnimatedModel(const std::string& path) {
+    if (path.empty()) return nullptr;
+
+    auto it = m_AnimatedModelCache.find(path);
+    if (it != m_AnimatedModelCache.end()) return it->second.get();
+
+    auto model = std::make_unique<Onyx::AnimatedModel>();
+    if (!model->Load(path)) {
+        return nullptr;
+    }
+    Onyx::AnimatedModel* ptr = model.get();
+    m_AnimatedModelCache[path] = std::move(model);
+    return ptr;
+}
+
+void ViewportPanel::RenderTerrain() {
+    if (!m_TerrainShader) return;
+
+    if (m_TerrainMaterialLibrary.IsArraysDirty()) {
+        m_TerrainMaterialLibrary.RebuildTextureArrays();
+    }
+
+    m_TerrainShader->Bind();
+    m_TerrainShader->SetMat4("u_View", m_ViewMatrix);
+    m_TerrainShader->SetMat4("u_Projection", m_ProjectionMatrix);
+    m_TerrainShader->SetVec3("u_LightDir", m_LightDir);
+    m_TerrainShader->SetVec3("u_LightColor", m_EnableDirectionalLight ? m_LightColor : glm::vec3(0.0f));
+    m_TerrainShader->SetVec3("u_ViewPos", m_CameraPosition);
+    m_TerrainShader->SetFloat("u_AmbientStrength", m_AmbientStrength);
+
+    m_TerrainShader->SetInt("u_Splatmap0", 1);
+    m_TerrainShader->SetInt("u_Splatmap1", 2);
+
+    m_TerrainShader->SetInt("u_DiffuseArray", 3);
+    m_TerrainShader->SetInt("u_NormalArray", 4);
+    m_TerrainShader->SetInt("u_RMAArray", 5);
+
+    auto& lib = m_TerrainMaterialLibrary;
+    if (lib.GetDiffuseArray()) lib.GetDiffuseArray()->Bind(3);
+    if (lib.GetNormalArray()) lib.GetNormalArray()->Bind(4);
+    if (lib.GetRMAArray()) lib.GetRMAArray()->Bind(5);
+
+    m_TerrainShader->SetInt("u_ShadowMap", 6);
+    m_TerrainShader->SetInt("u_EnableShadows", m_EnableShadows ? 1 : 0);
+    m_TerrainShader->SetFloat("u_ShadowBias", m_ShadowBias);
+    m_TerrainShader->SetInt("u_ShowCascades", m_ShowCascades ? 1 : 0);
+    if (m_EnableShadows && m_CSM) {
+        auto& matrices = m_CSM->GetLightSpaceMatrices();
+        auto& splits = m_CSM->GetCascadeSplits();
+        for (uint32_t i = 0; i < Onyx::NUM_SHADOW_CASCADES; i++) {
+            m_TerrainShader->SetMat4("u_LightSpaceMatrices[" + std::to_string(i) + "]", matrices[i]);
+            m_TerrainShader->SetFloat("u_CascadeSplits[" + std::to_string(i) + "]", splits[i]);
+        }
+        m_TerrainShader->SetMat4("u_View", m_ViewMatrix);
+        Onyx::RenderCommand::BindTextureArray(6, m_CSM->GetDepthTextureArray());
+    }
+
+    m_TerrainShader->SetInt("u_ShowBrush", (m_TerrainTool.toolActive && m_TerrainTool.brushValid) ? 1 : 0);
+    m_TerrainShader->SetVec3("u_BrushPos", m_TerrainTool.brushPos);
+    m_TerrainShader->SetFloat("u_BrushRadius", m_TerrainTool.brushRadius);
+
+    m_TerrainShader->SetInt("u_Heightmap", 0);
+    m_TerrainShader->SetFloat("u_HeightmapTexelSize", 1.0f / (Editor3D::CHUNK_RESOLUTION + 2));
+    m_TerrainShader->SetFloat("u_ChunkSize", Editor3D::CHUNK_SIZE);
+    m_TerrainShader->SetInt("u_UsePixelNormals", m_TerrainTool.pixelNormals ? 1 : 0);
+    m_TerrainShader->SetInt("u_EnablePBR", m_TerrainTool.pbr ? 1 : 0);
+    m_TerrainShader->SetInt("u_DebugSplatmap", m_TerrainTool.debugSplatmap);
+
+    glm::mat4 VP = m_ProjectionMatrix * m_ViewMatrix;
+    m_TerrainSystem.Render(m_TerrainShader.get(), VP,
+        [this](Editor3D::TerrainChunk* chunk, Onyx::Shader* shader) {
+            auto& lib = m_TerrainMaterialLibrary;
+            const auto& data = chunk->GetData();
+
+            glm::vec3 origin = chunk->GetWorldPosition();
+            shader->SetVec2("u_ChunkOrigin", origin.x, origin.z);
+
+            int arrayIndices[Editor3D::MAX_TERRAIN_LAYERS];
+            float tilingScales[Editor3D::MAX_TERRAIN_LAYERS];
+            float normalStrengths[Editor3D::MAX_TERRAIN_LAYERS];
+            for (int i = 0; i < Editor3D::MAX_TERRAIN_LAYERS; i++) {
+                const auto& matId = data.materialIds[i];
+                arrayIndices[i] = lib.GetMaterialArrayIndex(matId);
+                const auto* mat = lib.GetMaterial(matId);
+                tilingScales[i] = mat ? mat->tilingScale : 8.0f;
+                normalStrengths[i] = mat ? mat->normalStrength : 1.0f;
+            }
+            shader->SetIntArray("u_LayerArrayIndex[0]", arrayIndices, Editor3D::MAX_TERRAIN_LAYERS);
+            shader->SetFloatArray("u_LayerTiling[0]", tilingScales, Editor3D::MAX_TERRAIN_LAYERS);
+            shader->SetFloatArray("u_LayerNormalStrength[0]", normalStrengths, Editor3D::MAX_TERRAIN_LAYERS);
+        });
+}
+
+bool ViewportPanel::RaycastTerrain(const glm::vec3& rayOrigin, const glm::vec3& rayDir, glm::vec3& hitPoint) {
+    float stepSize = 0.5f;
+    float maxDistance = 500.0f;
+
+    for (float t = stepSize; t < maxDistance; t += stepSize) {
+        glm::vec3 pos = rayOrigin + rayDir * t;
+        float terrainHeight;
+        bool hasChunk = m_TerrainSystem.GetHeightAt(pos.x, pos.z, terrainHeight);
+
+        if (!hasChunk) terrainHeight = 0.0f;
+
+        if (pos.y <= terrainHeight) {
+            float lo = t - stepSize;
+            float hi = t;
+            for (int i = 0; i < 16; i++) {
+                float mid = (lo + hi) * 0.5f;
+                glm::vec3 midPos = rayOrigin + rayDir * mid;
+                float midHeight;
+                if (!m_TerrainSystem.GetHeightAt(midPos.x, midPos.z, midHeight))
+                    midHeight = 0.0f;
+                if (midPos.y <= midHeight) {
+                    hi = mid;
+                } else {
+                    lo = mid;
+                }
+            }
+            float finalT = (lo + hi) * 0.5f;
+            hitPoint = rayOrigin + rayDir * finalT;
+            float finalHeight;
+            if (!m_TerrainSystem.GetHeightAt(hitPoint.x, hitPoint.z, finalHeight))
+                finalHeight = 0.0f;
+            hitPoint.y = finalHeight;
+            return true;
+        }
+    }
+    return false;
+}
+
+void ViewportPanel::HandleTerrainInput() {
+    ImGuiIO& io = ImGui::GetIO();
+
+    float mouseX = io.MousePos.x - m_ViewportPos.x;
+    float mouseY = io.MousePos.y - m_ViewportPos.y;
+
+    glm::vec3 rayDir = ScreenToWorldRay(mouseX, mouseY);
+    glm::vec3 hitPoint;
+    m_TerrainTool.brushValid = RaycastTerrain(m_CameraPosition, rayDir, hitPoint);
+    if (m_TerrainTool.brushValid) {
+        m_TerrainTool.brushPos = hitPoint;
+    }
+
+    if (m_TerrainTool.mode == TerrainToolMode::Ramp) {
+        if (m_TerrainTool.rampPlacing && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+            m_TerrainTool.rampPlacing = false;
+            return;
+        }
+        if (m_TerrainTool.brushValid && ImGui::IsMouseClicked(ImGuiMouseButton_Left)
+            && !m_RightMouseDown && !m_MiddleMouseDown) {
+            if (!m_TerrainTool.rampPlacing) {
+                m_TerrainTool.rampPlacing = true;
+                m_TerrainTool.rampStart = m_TerrainTool.brushPos;
+                m_TerrainTool.rampStartHeight = m_TerrainTool.brushPos.y;
+            } else {
+                m_TerrainTool.rampPlacing = false;
+                float endHeight = m_TerrainTool.brushPos.y;
+                float rampWidth = m_TerrainTool.brushRadius;
+                m_TerrainSystem.BeginEdit(
+                    (m_TerrainTool.rampStart.x + m_TerrainTool.brushPos.x) * 0.5f,
+                    (m_TerrainTool.rampStart.z + m_TerrainTool.brushPos.z) * 0.5f,
+                    glm::length(glm::vec2(m_TerrainTool.brushPos.x - m_TerrainTool.rampStart.x,
+                                          m_TerrainTool.brushPos.z - m_TerrainTool.rampStart.z)) + rampWidth);
+                m_TerrainSystem.RampTerrain(
+                    m_TerrainTool.rampStart.x, m_TerrainTool.rampStart.z, m_TerrainTool.rampStartHeight,
+                    m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z, endHeight, rampWidth);
+                m_TerrainSystem.EndEdit();
+            }
+        }
+        return;
+    }
+
+    bool leftDown = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+
+    if (leftDown && m_TerrainTool.brushValid && !m_RightMouseDown && !m_MiddleMouseDown) {
+        if (!m_TerrainPainting) {
+            m_TerrainPainting = true;
+            m_TerrainSystem.BeginEdit(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z, m_TerrainTool.brushRadius);
+        }
+
+        float dt = io.DeltaTime;
+        float amount = m_TerrainTool.brushStrength * dt;
+
+        switch (m_TerrainTool.mode) {
+            case TerrainToolMode::Raise:
+                m_TerrainSystem.RaiseTerrain(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
+                    m_TerrainTool.brushRadius, amount);
+                break;
+            case TerrainToolMode::Lower:
+                m_TerrainSystem.LowerTerrain(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
+                    m_TerrainTool.brushRadius, amount);
+                break;
+            case TerrainToolMode::Flatten:
+                m_TerrainSystem.FlattenTerrain(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
+                    m_TerrainTool.brushRadius, m_TerrainTool.flattenHeight, m_TerrainTool.flattenHardness);
+                break;
+            case TerrainToolMode::Smooth:
+                m_TerrainSystem.SmoothTerrain(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
+                    m_TerrainTool.brushRadius, amount);
+                break;
+            case TerrainToolMode::Paint:
+                if (!m_TerrainTool.selectedMaterialId.empty()) {
+                    m_TerrainSystem.PaintMaterial(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
+                        m_TerrainTool.brushRadius, m_TerrainTool.selectedMaterialId, amount);
+                } else {
+                    m_TerrainSystem.PaintTexture(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
+                        m_TerrainTool.brushRadius, m_TerrainTool.paintLayer, amount);
+                }
+                break;
+            case TerrainToolMode::Hole:
+                if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                    m_TerrainSystem.SetHole(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z, true);
+                }
+                break;
+            case TerrainToolMode::Ramp:
+                break;
+        }
+    }
+
+    if (!leftDown && m_TerrainPainting) {
+        m_TerrainPainting = false;
+        m_TerrainSystem.EndEdit();
     }
 }
 

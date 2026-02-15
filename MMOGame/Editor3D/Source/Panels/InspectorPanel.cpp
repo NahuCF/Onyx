@@ -3,14 +3,16 @@
 #include "World/EditorWorld.h"
 #include "World/WorldTypes.h"
 #include <Graphics/Model.h>
+#include <Graphics/AnimatedModel.h>
+#include <Graphics/Animator.h>
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <filesystem>
 #include <algorithm>
+#include <iostream>
 
 namespace MMO {
 
-// Texture type names for UI
 static const char* TextureTypeNames[] = {
     "Diffuse",
     "Normal",
@@ -36,7 +38,6 @@ void InspectorPanel::OnImGuiRender() {
         return;
     }
 
-    // Object name (editable)
     char nameBuf[256];
     strncpy(nameBuf, selection->GetName().c_str(), sizeof(nameBuf) - 1);
     nameBuf[sizeof(nameBuf) - 1] = '\0';
@@ -45,7 +46,6 @@ void InspectorPanel::OnImGuiRender() {
         selection->SetName(nameBuf);
     }
 
-    // Object type (read-only)
     const char* typeStr = "Unknown";
     switch (selection->GetObjectType()) {
         case WorldObjectType::STATIC_OBJECT: typeStr = "Static Object"; break;
@@ -61,12 +61,10 @@ void InspectorPanel::OnImGuiRender() {
 
     ImGui::Separator();
 
-    // Transform section
     if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
         RenderTransform(selection);
     }
 
-    // Type-specific properties
     switch (selection->GetObjectType()) {
         case WorldObjectType::STATIC_OBJECT:
             if (ImGui::CollapsingHeader("Static Object", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -104,24 +102,20 @@ void InspectorPanel::OnImGuiRender() {
 
     ImGui::End();
 
-    // Render file browser popup if open
     RenderFileBrowserPopup();
 }
 
 void InspectorPanel::RenderTransform(WorldObject* object) {
-    // Position
     glm::vec3 pos = object->GetPosition();
     if (ImGui::DragFloat3("Position", glm::value_ptr(pos), 0.1f)) {
         object->SetPosition(pos);
     }
 
-    // Rotation (as euler angles for easier editing)
     glm::vec3 euler = object->GetEulerAngles();
     if (ImGui::DragFloat3("Rotation", glm::value_ptr(euler), 1.0f)) {
         object->SetEulerAngles(euler);
     }
 
-    // Scale
     float scale = object->GetScale();
     if (ImGui::DragFloat("Scale", &scale, 0.01f, 0.01f, 100.0f)) {
         object->SetScale(scale);
@@ -129,7 +123,6 @@ void InspectorPanel::RenderTransform(WorldObject* object) {
 }
 
 void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
-    // Model section
     ImGui::Text("Model");
     ImGui::Indent();
 
@@ -141,7 +134,6 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
         },
         ".obj,.fbx,.gltf,.glb");
 
-    // Model ID
     uint32_t modelId = object->GetModelId();
     if (ImGui::InputScalar("Model ID", ImGuiDataType_U32, &modelId)) {
         object->SetModelId(modelId);
@@ -150,14 +142,12 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
     ImGui::Unindent();
     ImGui::Spacing();
 
-    // Per-mesh materials section
     const std::string& modelPath = object->GetModelPath();
     if (!modelPath.empty() && m_Viewport) {
         Onyx::Model* model = m_Viewport->GetModel(modelPath);
         if (model && !model->GetMeshes().empty()) {
             int selectedMeshIdx = m_World->GetSelectedMeshIndex();
 
-            // Show currently selected mesh name
             if (selectedMeshIdx >= 0 && selectedMeshIdx < static_cast<int>(model->GetMeshes().size())) {
                 auto& selectedMesh = model->GetMeshes()[selectedMeshIdx];
                 std::string selectedName = selectedMesh.m_Name.empty()
@@ -178,7 +168,6 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
 
                     ImGui::PushID(static_cast<int>(i));
 
-                    // Highlight selected mesh
                     bool isSelected = (static_cast<int>(i) == selectedMeshIdx);
                     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
                     if (isSelected) {
@@ -187,26 +176,17 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
 
                     bool nodeOpen = ImGui::TreeNodeEx(meshName.c_str(), nodeFlags);
 
-                    // Click to select mesh
                     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
                         m_World->SelectMesh(static_cast<int>(i));
                     }
 
                     if (nodeOpen) {
-                        // Get or create material for this mesh
                         MeshMaterial& material = object->GetOrCreateMeshMaterial(meshName);
 
-                        // Per-mesh transform
                         if (ImGui::TreeNode("Transform Offset")) {
-                            if (ImGui::DragFloat3("Position", glm::value_ptr(material.positionOffset), 0.1f)) {
-                                // Transform changed
-                            }
-                            if (ImGui::DragFloat3("Rotation", glm::value_ptr(material.rotationOffset), 1.0f)) {
-                                // Transform changed
-                            }
-                            if (ImGui::DragFloat("Scale", &material.scaleMultiplier, 0.01f, 0.01f, 10.0f)) {
-                                // Transform changed
-                            }
+                            ImGui::DragFloat3("Position", glm::value_ptr(material.positionOffset), 0.1f);
+                            ImGui::DragFloat3("Rotation", glm::value_ptr(material.rotationOffset), 1.0f);
+                            ImGui::DragFloat("Scale", &material.scaleMultiplier, 0.01f, 0.01f, 10.0f);
                             if (ImGui::Button("Reset Transform")) {
                                 material.positionOffset = glm::vec3(0.0f);
                                 material.rotationOffset = glm::vec3(0.0f);
@@ -215,14 +195,11 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
                             ImGui::TreePop();
                         }
 
-                        // Textures
                         if (ImGui::TreeNode("Textures")) {
-                            // Albedo texture
                             RenderPathInput("Albedo", material.albedoPath,
                                 [&material](const std::string& path) { material.albedoPath = path; },
                                 ".png,.jpg,.jpeg,.tga,.bmp");
 
-                            // Normal texture
                             RenderPathInput("Normal", material.normalPath,
                                 [&material](const std::string& path) { material.normalPath = path; },
                                 ".png,.jpg,.jpeg,.tga,.bmp");
@@ -239,7 +216,143 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
         }
     }
 
-    // Fallback textures (used when no per-mesh material is set)
+    if (!modelPath.empty() && m_Viewport && m_Viewport->IsAnimatedModel(modelPath)) {
+        ImGui::Separator();
+        if (ImGui::TreeNodeEx("Animation", ImGuiTreeNodeFlags_DefaultOpen)) {
+            Onyx::Animator* animator = m_Viewport->GetAnimator(object->GetGuid());
+            Onyx::AnimatedModel* animModel = m_Viewport->GetAnimatedModel(modelPath);
+
+            if (animator && animModel) {
+                    std::vector<std::string> animNames = animModel->GetAnimationNames();
+                const Onyx::Animation* currentAnim = animator->GetCurrentAnimation();
+                std::string currentName = currentAnim ? currentAnim->GetName() : "None";
+
+                if (ImGui::BeginCombo("Animation", currentName.c_str())) {
+                    for (int i = 0; i < static_cast<int>(animNames.size()); i++) {
+                        bool isSelected = (currentAnim && animNames[i] == currentName);
+                        if (ImGui::Selectable(animNames[i].c_str(), isSelected)) {
+                            animator->Play(animNames[i], object->GetAnimationLoop());
+                            object->SetCurrentAnimation(animNames[i]);
+                        }
+                        if (isSelected) {
+                            ImGui::SetItemDefaultFocus();
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+
+                bool loop = object->GetAnimationLoop();
+                if (ImGui::Checkbox("Loop", &loop)) {
+                    object->SetAnimationLoop(loop);
+                    animator->SetLoop(loop);
+                }
+
+                bool isPlaying = animator->IsPlaying();
+                bool isPaused = animator->IsPaused();
+
+                ImGui::SameLine();
+                if (isPaused) {
+                    if (ImGui::Button("Resume")) {
+                        animator->Resume();
+                    }
+                } else if (isPlaying) {
+                    if (ImGui::Button("Pause")) {
+                        animator->Pause();
+                    }
+                } else {
+                    if (ImGui::Button("Play")) {
+                        if (animModel->GetAnimationCount() > 0) {
+                            const std::string& savedAnim = object->GetCurrentAnimation();
+                            if (!savedAnim.empty() && animModel->GetAnimation(savedAnim)) {
+                                animator->Play(savedAnim, loop);
+                            } else {
+                                animator->Play(0, loop);
+                            }
+                        }
+                    }
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Stop")) {
+                    animator->Stop();
+                }
+
+                float speed = object->GetAnimationSpeed();
+                if (ImGui::SliderFloat("Speed", &speed, 0.0f, 3.0f, "%.2fx")) {
+                    object->SetAnimationSpeed(speed);
+                    animator->SetSpeed(speed);
+                }
+
+                if (currentAnim) {
+                    float durationSec = currentAnim->GetDuration() / currentAnim->GetTicksPerSecond();
+                    if (durationSec < 0.1f) {
+                            ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.0f, 1.0f), "Static pose (%.3fs)", durationSec);
+                    } else {
+                        float progress = animator->GetNormalizedTime();
+                        ImGui::ProgressBar(progress, ImVec2(-1, 0), nullptr);
+                        ImGui::Text("Duration: %.2fs", durationSec);
+                    }
+                }
+
+                ImGui::TextDisabled("%d animations, %d bones",
+                    animModel->GetAnimationCount(),
+                    static_cast<int>(animModel->GetSkeleton().GetBoneCount()));
+
+                ImGui::Spacing();
+                ImGui::Separator();
+
+                if (ImGui::TreeNode("Animation Files")) {
+                    ImGui::TextDisabled("Load additional animations (e.g., Mixamo \"Without Skin\")");
+
+                    const auto& animPaths = object->GetAnimationPaths();
+                    int removeIndex = -1;
+
+                    for (size_t i = 0; i < animPaths.size(); i++) {
+                        ImGui::PushID(static_cast<int>(i));
+
+                        std::string displayName = animPaths[i];
+                        size_t lastSlash = displayName.find_last_of("/\\");
+                        if (lastSlash != std::string::npos) {
+                            displayName = displayName.substr(lastSlash + 1);
+                        }
+
+                        ImGui::BulletText("%s", displayName.c_str());
+                        ImGui::SameLine();
+                        if (ImGui::SmallButton("X")) {
+                            removeIndex = static_cast<int>(i);
+                        }
+                        if (ImGui::IsItemHovered()) {
+                            ImGui::SetTooltip("%s", animPaths[i].c_str());
+                        }
+
+                        ImGui::PopID();
+                    }
+
+                    if (removeIndex >= 0) {
+                        object->RemoveAnimationPath(static_cast<size_t>(removeIndex));
+                        m_Viewport->InvalidateAnimator(object->GetGuid());
+                    }
+
+                    if (ImGui::Button("+ Add Animation File")) {
+                        m_ShowFileBrowser = true;
+                        m_BrowseFilter = ".fbx,.FBX,.dae,.DAE,.glb,.gltf";
+                        m_BrowseCurrentDir = "MMOGame/assets/models";
+                        m_BrowseCallback = [this, object](const std::string& path) {
+                            object->AddAnimationPath(path);
+                            // Reload animations for this object
+                            m_Viewport->ReloadAnimations(object->GetGuid(), object);
+                        };
+                    }
+
+                    ImGui::TreePop();
+                }
+            } else {
+                ImGui::TextDisabled("Loading animation data...");
+            }
+
+            ImGui::TreePop();
+        }
+    }
+
     if (ImGui::TreeNode("Default Textures")) {
         ImGui::TextDisabled("Used for meshes without specific materials");
         for (int i = 0; i < static_cast<int>(TextureType::COUNT); i++) {
@@ -257,7 +370,6 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
 
     ImGui::Spacing();
 
-    // Rendering options
     ImGui::Text("Rendering");
     ImGui::Indent();
 
@@ -275,7 +387,6 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
 }
 
 void InspectorPanel::RenderSpawnPointProperties(SpawnPoint* object) {
-    // Creature template ID
     uint32_t templateId = object->GetCreatureTemplateId();
     if (ImGui::InputScalar("Creature Template ID", ImGuiDataType_U32, &templateId)) {
         object->SetCreatureTemplateId(templateId);
@@ -283,15 +394,12 @@ void InspectorPanel::RenderSpawnPointProperties(SpawnPoint* object) {
 
     ImGui::Spacing();
 
-    // Preview Model section
     if (ImGui::TreeNode("Preview Model")) {
         RenderPathInput("Model", object->GetModelPath(),
             [object](const std::string& path) { object->SetModelPath(path); },
             ".obj,.fbx,.gltf,.glb");
 
-        // Textures for preview
         if (ImGui::TreeNode("Textures")) {
-            // Only show diffuse and normal for spawn point preview
             RenderPathInput("Diffuse", object->GetDiffuseTexture(),
                 [object](const std::string& path) { object->SetDiffuseTexture(path); },
                 ".png,.jpg,.jpeg,.tga,.bmp");
@@ -308,23 +416,19 @@ void InspectorPanel::RenderSpawnPointProperties(SpawnPoint* object) {
 
     ImGui::Spacing();
 
-    // Spawn behavior
     ImGui::Text("Spawn Behavior");
     ImGui::Indent();
 
-    // Respawn time
     float respawnTime = object->GetRespawnTime();
     if (ImGui::DragFloat("Respawn Time (s)", &respawnTime, 1.0f, 0.0f, 3600.0f)) {
         object->SetRespawnTime(respawnTime);
     }
 
-    // Wander radius
     float wanderRadius = object->GetWanderRadius();
     if (ImGui::DragFloat("Wander Radius", &wanderRadius, 0.5f, 0.0f, 100.0f)) {
         object->SetWanderRadius(wanderRadius);
     }
 
-    // Max count
     uint32_t maxCount = object->GetMaxCount();
     if (ImGui::InputScalar("Max Count", ImGuiDataType_U32, &maxCount)) {
         object->SetMaxCount(maxCount);
@@ -334,26 +438,22 @@ void InspectorPanel::RenderSpawnPointProperties(SpawnPoint* object) {
 }
 
 void InspectorPanel::RenderLightProperties(Light* object) {
-    // Light type
     const char* lightTypes[] = { "Point", "Spot", "Directional" };
     int currentType = static_cast<int>(object->GetLightType());
     if (ImGui::Combo("Light Type", &currentType, lightTypes, 3)) {
         object->SetLightType(static_cast<LightType>(currentType));
     }
 
-    // Color
     glm::vec3 color = object->GetColor();
     if (ImGui::ColorEdit3("Color", glm::value_ptr(color))) {
         object->SetColor(color);
     }
 
-    // Intensity
     float intensity = object->GetIntensity();
     if (ImGui::DragFloat("Intensity", &intensity, 0.1f, 0.0f, 100.0f)) {
         object->SetIntensity(intensity);
     }
 
-    // Radius (for point and spot lights)
     LightType type = object->GetLightType();
     if (type == LightType::POINT || type == LightType::SPOT) {
         float radius = object->GetRadius();
@@ -362,7 +462,6 @@ void InspectorPanel::RenderLightProperties(Light* object) {
         }
     }
 
-    // Angles (for spot lights)
     if (type == LightType::SPOT) {
         float innerAngle = object->GetInnerAngle();
         float outerAngle = object->GetOuterAngle();
@@ -375,7 +474,6 @@ void InspectorPanel::RenderLightProperties(Light* object) {
         }
     }
 
-    // Shadow options
     bool castsShadows = object->CastsShadows();
     if (ImGui::Checkbox("Casts Shadows", &castsShadows)) {
         object->SetCastsShadows(castsShadows);
@@ -388,13 +486,11 @@ void InspectorPanel::RenderLightProperties(Light* object) {
 }
 
 void InspectorPanel::RenderParticleEmitterProperties(ParticleEmitter* object) {
-    // Effect ID
     uint32_t effectId = object->GetEffectId();
     if (ImGui::InputScalar("Effect ID", ImGuiDataType_U32, &effectId)) {
         object->SetEffectId(effectId);
     }
 
-    // Effect path
     char effectPath[256];
     strncpy(effectPath, object->GetEffectPath().c_str(), sizeof(effectPath) - 1);
     effectPath[sizeof(effectPath) - 1] = '\0';
@@ -403,13 +499,11 @@ void InspectorPanel::RenderParticleEmitterProperties(ParticleEmitter* object) {
         object->SetEffectPath(effectPath);
     }
 
-    // Auto play
     bool autoPlay = object->IsAutoPlay();
     if (ImGui::Checkbox("Auto Play", &autoPlay)) {
         object->SetAutoPlay(autoPlay);
     }
 
-    // Loop
     bool loop = object->IsLooping();
     if (ImGui::Checkbox("Loop", &loop)) {
         object->SetLooping(loop);
@@ -417,14 +511,12 @@ void InspectorPanel::RenderParticleEmitterProperties(ParticleEmitter* object) {
 }
 
 void InspectorPanel::RenderTriggerVolumeProperties(TriggerVolume* object) {
-    // Shape type
     const char* shapeTypes[] = { "Box", "Sphere", "Capsule" };
     int currentShape = static_cast<int>(object->GetShape());
     if (ImGui::Combo("Shape", &currentShape, shapeTypes, 3)) {
         object->SetShape(static_cast<TriggerShape>(currentShape));
     }
 
-    // Half extents (for box)
     if (object->GetShape() == TriggerShape::BOX) {
         glm::vec3 halfExtents = object->GetHalfExtents();
         if (ImGui::DragFloat3("Half Extents", glm::value_ptr(halfExtents), 0.1f, 0.1f, 100.0f)) {
@@ -432,7 +524,6 @@ void InspectorPanel::RenderTriggerVolumeProperties(TriggerVolume* object) {
         }
     }
 
-    // Radius (for sphere/capsule)
     if (object->GetShape() == TriggerShape::SPHERE || object->GetShape() == TriggerShape::CAPSULE) {
         float radius = object->GetRadius();
         if (ImGui::DragFloat("Radius", &radius, 0.1f, 0.1f, 100.0f)) {
@@ -440,14 +531,12 @@ void InspectorPanel::RenderTriggerVolumeProperties(TriggerVolume* object) {
         }
     }
 
-    // Event type
     const char* eventTypes[] = { "On Enter", "On Exit", "On Stay" };
     int currentEvent = static_cast<int>(object->GetTriggerEvent());
     if (ImGui::Combo("Event Type", &currentEvent, eventTypes, 3)) {
         object->SetTriggerEvent(static_cast<TriggerEvent>(currentEvent));
     }
 
-    // Script name
     char scriptName[256];
     strncpy(scriptName, object->GetScriptName().c_str(), sizeof(scriptName) - 1);
     scriptName[sizeof(scriptName) - 1] = '\0';
@@ -456,13 +545,11 @@ void InspectorPanel::RenderTriggerVolumeProperties(TriggerVolume* object) {
         object->SetScriptName(scriptName);
     }
 
-    // Trigger once
     bool triggerOnce = object->IsTriggerOnce();
     if (ImGui::Checkbox("Trigger Once", &triggerOnce)) {
         object->SetTriggerOnce(triggerOnce);
     }
 
-    // Filters
     ImGui::Text("Filters:");
     bool filterPlayers = object->TriggerPlayers();
     if (ImGui::Checkbox("Players", &filterPlayers)) {
@@ -476,13 +563,11 @@ void InspectorPanel::RenderTriggerVolumeProperties(TriggerVolume* object) {
 }
 
 void InspectorPanel::RenderInstancePortalProperties(InstancePortal* object) {
-    // Dungeon ID
     uint32_t dungeonId = object->GetDungeonId();
     if (ImGui::InputScalar("Dungeon ID", ImGuiDataType_U32, &dungeonId)) {
         object->SetDungeonId(dungeonId);
     }
 
-    // Dungeon name
     char dungeonName[256];
     strncpy(dungeonName, object->GetDungeonName().c_str(), sizeof(dungeonName) - 1);
     dungeonName[sizeof(dungeonName) - 1] = '\0';
@@ -491,7 +576,6 @@ void InspectorPanel::RenderInstancePortalProperties(InstancePortal* object) {
         object->SetDungeonName(dungeonName);
     }
 
-    // Exit info
     ImGui::Separator();
     ImGui::Text("Exit Location:");
 
@@ -505,13 +589,11 @@ void InspectorPanel::RenderInstancePortalProperties(InstancePortal* object) {
         object->SetExitPosition(exitPos);
     }
 
-    // Interaction
     float interactRadius = object->GetInteractionRadius();
     if (ImGui::DragFloat("Interaction Radius", &interactRadius, 0.1f, 0.1f, 20.0f)) {
         object->SetInteractionRadius(interactRadius);
     }
 
-    // Requirements
     ImGui::Separator();
     ImGui::Text("Requirements:");
 
@@ -543,13 +625,11 @@ bool InspectorPanel::RenderPathInput(const char* label, const std::string& curre
 
     ImGui::PushID(label);
 
-    // Calculate widths
     float totalWidth = ImGui::GetContentRegionAvail().x;
     float buttonWidth = 60.0f;
     float clearButtonWidth = 20.0f;
     float inputWidth = totalWidth - buttonWidth - clearButtonWidth - 8.0f;
 
-    // Text input for path
     char pathBuf[512];
     strncpy(pathBuf, currentPath.c_str(), sizeof(pathBuf) - 1);
     pathBuf[sizeof(pathBuf) - 1] = '\0';
@@ -560,26 +640,22 @@ bool InspectorPanel::RenderPathInput(const char* label, const std::string& curre
         changed = true;
     }
 
-    // Show tooltip with full path
     if (ImGui::IsItemHovered() && !currentPath.empty()) {
         ImGui::BeginTooltip();
         ImGui::Text("%s", currentPath.c_str());
         ImGui::EndTooltip();
     }
 
-    // Drag-drop target for asset browser
     if (ImGui::BeginDragDropTarget()) {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_PATH")) {
             const char* droppedPath = static_cast<const char*>(payload->Data);
 
-            // Check if file matches filter (if filter provided)
-            bool accepted = true;
+                bool accepted = true;
             if (filter && strlen(filter) > 0) {
                 std::string ext = std::filesystem::path(droppedPath).extension().string();
                 std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
-                // Parse filter (comma-separated extensions)
-                std::string filterStr = filter;
+                    std::string filterStr = filter;
                 accepted = false;
                 size_t pos = 0;
                 while (pos < filterStr.size()) {
@@ -607,7 +683,6 @@ bool InspectorPanel::RenderPathInput(const char* label, const std::string& curre
 
     ImGui::SameLine();
 
-    // Browse button
     if (ImGui::Button("Browse", ImVec2(buttonWidth, 0))) {
         m_ShowFileBrowser = true;
         m_BrowseFilter = filter ? filter : "";
@@ -616,7 +691,6 @@ bool InspectorPanel::RenderPathInput(const char* label, const std::string& curre
 
     ImGui::SameLine();
 
-    // Clear button
     if (ImGui::Button("X", ImVec2(clearButtonWidth, 0))) {
         onPathChanged("");
         changed = true;
@@ -634,10 +708,8 @@ void InspectorPanel::RenderModelSection(const std::string& modelPath,
                                         const std::function<void(const std::string&)>& onModelChanged,
                                         const std::function<std::string(int)>& getTexture,
                                         const std::function<void(int, const std::string&)>& setTexture) {
-    // Model path
     RenderPathInput("Model", modelPath, onModelChanged, ".obj,.fbx,.gltf,.glb");
 
-    // Textures
     if (ImGui::TreeNode("Textures")) {
         for (int i = 0; i < static_cast<int>(TextureType::COUNT); i++) {
             ImGui::PushID(i);
@@ -653,14 +725,12 @@ void InspectorPanel::RenderModelSection(const std::string& modelPath,
 void InspectorPanel::RenderFileBrowserPopup() {
     if (!m_ShowFileBrowser) return;
 
-    // Initialize current directory if empty
     if (m_BrowseCurrentDir.empty()) {
         m_BrowseCurrentDir = "MMOGame/assets";
     }
 
     ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Select File", &m_ShowFileBrowser)) {
-        // Navigation bar
         if (ImGui::Button("^")) {
             std::filesystem::path current(m_BrowseCurrentDir);
             if (current.has_parent_path() && current.parent_path() != current) {
@@ -672,20 +742,17 @@ void InspectorPanel::RenderFileBrowserPopup() {
 
         ImGui::Separator();
 
-        // File filter display
         if (!m_BrowseFilter.empty()) {
             ImGui::TextDisabled("Filter: %s", m_BrowseFilter.c_str());
         }
 
         ImGui::Separator();
 
-        // File list
         ImGui::BeginChild("FileList", ImVec2(0, -30), true);
 
         namespace fs = std::filesystem;
 
         if (fs::exists(m_BrowseCurrentDir)) {
-            // Collect and sort entries
             std::vector<fs::directory_entry> entries;
             try {
                 for (const auto& entry : fs::directory_iterator(m_BrowseCurrentDir)) {
@@ -693,7 +760,6 @@ void InspectorPanel::RenderFileBrowserPopup() {
                 }
             } catch (...) {}
 
-            // Sort: directories first, then alphabetically
             std::sort(entries.begin(), entries.end(),
                 [](const fs::directory_entry& a, const fs::directory_entry& b) {
                     if (a.is_directory() != b.is_directory()) {
@@ -709,14 +775,12 @@ void InspectorPanel::RenderFileBrowserPopup() {
                 if (!name.empty() && name[0] == '.') continue;
 
                 if (entry.is_directory()) {
-                    // Directory - show with folder icon
                     if (ImGui::Selectable(("[DIR] " + name).c_str(), false, ImGuiSelectableFlags_AllowDoubleClick)) {
                         if (ImGui::IsMouseDoubleClicked(0)) {
                             m_BrowseCurrentDir = entry.path().string();
                         }
                     }
                 } else {
-                    // File - check filter
                     std::string ext = entry.path().extension().string();
                     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
@@ -742,15 +806,13 @@ void InspectorPanel::RenderFileBrowserPopup() {
                     if (matchesFilter) {
                         if (ImGui::Selectable(name.c_str(), false, ImGuiSelectableFlags_AllowDoubleClick)) {
                             if (ImGui::IsMouseDoubleClicked(0)) {
-                                // Select file
-                                if (m_BrowseCallback) {
+                                    if (m_BrowseCallback) {
                                     m_BrowseCallback(entry.path().string());
                                 }
                                 m_ShowFileBrowser = false;
                             }
                         }
                     } else {
-                        // Show filtered files as disabled
                         ImGui::TextDisabled("%s", name.c_str());
                     }
                 }
@@ -759,14 +821,12 @@ void InspectorPanel::RenderFileBrowserPopup() {
 
         ImGui::EndChild();
 
-        // Cancel button
         if (ImGui::Button("Cancel")) {
             m_ShowFileBrowser = false;
         }
     }
     ImGui::End();
 
-    // If window was closed
     if (!m_ShowFileBrowser) {
         m_BrowseCallback = nullptr;
     }

@@ -17,14 +17,16 @@ namespace Onyx {
 
 		uint32_t GetProgramID() const { return m_ProgramID; }
 
-		void SetUniform(Shader& shader, const char* transformName, glm::mat4& matrix);
+		void SetUniform(Shader& shader, const char* transformName, const glm::mat4& matrix);
         void SetInt(const std::string &name, int value) const;
-        void SetMat4(const std::string &name, glm::mat4& matrix) const;
+        void SetMat4(const std::string &name, const glm::mat4& matrix) const;
         void SetVec2(const std::string &name, float x, float y) const;
-        void SetVec3(const std::string &name, glm::vec3& vector) const;
+        void SetVec3(const std::string &name, const glm::vec3& vector) const;
         void SetVec3(const std::string &name, float x, float y, float z) const;
         void SetVec4(const std::string &name, float x, float y, float z, float w) const;
         void SetFloat(const std::string &name, float value) const;
+        void SetIntArray(const std::string &name, const int* values, int count) const;
+        void SetFloatArray(const std::string &name, const float* values, int count) const;
 	private:
 		uint32_t m_ProgramID;
 		uint32_t m_VertexID, m_FragmentID;

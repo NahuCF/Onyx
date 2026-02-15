@@ -46,37 +46,45 @@ struct AnimatedMaterial {
 class AnimatedModel {
 public:
     AnimatedModel() = default;
-    ~AnimatedModel() = default;
+    ~AnimatedModel();
 
     bool Load(const std::string& path);
 
-    // Skeleton access
+    bool LoadAnimation(const std::string& path);
+
     Skeleton& GetSkeleton() { return m_Skeleton; }
     const Skeleton& GetSkeleton() const { return m_Skeleton; }
 
-    // Animation access
     const std::vector<std::unique_ptr<Animation>>& GetAnimations() const { return m_Animations; }
     Animation* GetAnimation(const std::string& name);
     Animation* GetAnimation(int index);
     int GetAnimationCount() const { return static_cast<int>(m_Animations.size()); }
     std::vector<std::string> GetAnimationNames() const;
 
-    // Bone matrices (updated by Animator)
     void SetBoneMatrices(const std::vector<glm::mat4>& matrices) { m_BoneMatrices = matrices; }
     const std::vector<glm::mat4>& GetBoneMatrices() const { return m_BoneMatrices; }
 
-    // Mesh access for rendering
     const std::vector<SkinnedMesh>& GetMeshes() const { return m_Meshes; }
     const std::vector<AnimatedMaterial>& GetMaterials() const { return m_Materials; }
 
-    // Bounds
     const glm::vec3& GetBoundsMin() const { return m_BoundsMin; }
     const glm::vec3& GetBoundsMax() const { return m_BoundsMax; }
 
     const std::string& GetPath() const { return m_Path; }
 
+    struct NodeData {
+        std::string name;
+        glm::mat4 transform;
+        int parentIndex;
+        std::vector<int> children;
+    };
+    const std::vector<NodeData>& GetNodeHierarchy() const { return m_NodeHierarchy; }
+    int GetNodeIndex(const std::string& name) const {
+        auto it = m_NodeMap.find(name);
+        return it != m_NodeMap.end() ? it->second : -1;
+    }
+
 private:
-    // Implementation functions (defined in .cpp, use Assimp types)
     void ProcessNodeImpl(void* node, const void* scene);
     void ProcessMeshImpl(void* mesh, const void* scene);
     void ProcessBonesImpl(void* mesh, std::vector<SkinnedVertex>& vertices);
@@ -94,20 +102,11 @@ private:
     std::vector<SkinnedMesh> m_Meshes;
     std::vector<AnimatedMaterial> m_Materials;
 
-    // Final bone matrices for GPU
     std::vector<glm::mat4> m_BoneMatrices;
 
-    // Bounding box
     glm::vec3 m_BoundsMin = glm::vec3(std::numeric_limits<float>::max());
     glm::vec3 m_BoundsMax = glm::vec3(std::numeric_limits<float>::lowest());
 
-    // Node hierarchy for animation (maps node name to its local transform)
-    struct NodeData {
-        std::string name;
-        glm::mat4 transform;
-        int parentIndex;
-        std::vector<int> children;
-    };
     std::vector<NodeData> m_NodeHierarchy;
     std::unordered_map<std::string, int> m_NodeMap;
 };

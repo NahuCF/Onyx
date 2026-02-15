@@ -60,9 +60,6 @@ namespace Onyx {
 		glBufferSubData(GL_ARRAY_BUFFER, offset, sizeBytes, data);
 	}
 
-	// --------------------------------------------
-	// --------------------------------------------
-
 	IndexBuffer::IndexBuffer(uint32_t* indices, uint32_t sizeBytes)
 		: m_Count(sizeBytes / sizeof(uint32_t))
 	{
@@ -96,8 +93,12 @@ namespace Onyx {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	}
 
-	// --------------------------------------------
-	// --------------------------------------------
+	void IndexBuffer::SetData(const void* data, uint32_t sizeBytes)
+	{
+		m_Count = sizeBytes / sizeof(uint32_t);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_BufferID);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeBytes, data, GL_STATIC_DRAW);
+	}
 
 	VertexArray::VertexArray()
 	{
@@ -184,7 +185,6 @@ namespace Onyx {
 				case VertexAttributeType::Int2:
 				case VertexAttributeType::Int3:
 				case VertexAttributeType::Int4:
-					// Use glVertexAttribIPointer for integer attributes (bone IDs, etc.)
 					glVertexAttribIPointer(
 						index,
 						GetAttributeComponentCount(attr.type),

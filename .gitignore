@@ -54,6 +54,9 @@ cmake-build-*/
 *.ogg
 *.ttf
 *.otf
+*.chunk
+*.Identifier
+BUILD.md
 
 # OS files
 .DS_Store
@@ -65,3 +68,5 @@ Thumbs.db
 *.tmp
 *.temp
 imgui.ini
+
+*.terrain

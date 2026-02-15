@@ -8,22 +8,19 @@
 namespace MMO {
 
 void AssetBrowserPanel::OnImGuiRender() {
-    // Initialize on first render if needed
     if (m_RootDirectory.empty()) {
-        m_RootDirectory = "MMOGame/assets";
+        m_RootDirectory = "MMOGame/Editor3D/assets";
         m_CurrentDirectory = m_RootDirectory;
         RefreshDirectory();
     }
 
     ImGui::Begin("Asset Browser");
 
-    // Navigation bar
     if (ImGui::Button("<")) {
         NavigateUp();
     }
     ImGui::SameLine();
 
-    // Breadcrumb path display
     std::string relativePath = m_CurrentDirectory;
     if (m_CurrentDirectory.length() > m_RootDirectory.length()) {
         relativePath = m_CurrentDirectory.substr(m_RootDirectory.length());
@@ -37,14 +34,12 @@ void AssetBrowserPanel::OnImGuiRender() {
 
     ImGui::SameLine(ImGui::GetWindowWidth() - 200);
 
-    // Refresh button
     if (ImGui::Button("Refresh")) {
         RefreshDirectory();
     }
 
     ImGui::SameLine();
 
-    // Import Model button - opens ImGuiFileDialog
     if (ImGui::Button("Import Model...")) {
         IGFD::FileDialogConfig config;
         config.path = ".";
@@ -56,13 +51,11 @@ void AssetBrowserPanel::OnImGuiRender() {
         );
     }
 
-    // Handle the file dialog
     if (ImGuiFileDialog::Instance()->Display("ImportModelDlg")) {
         if (ImGuiFileDialog::Instance()->IsOk()) {
             std::string filePath = ImGuiFileDialog::Instance()->GetFilePathName();
             std::string fileName = ImGuiFileDialog::Instance()->GetCurrentFileName();
 
-            // Normalize path
             std::replace(filePath.begin(), filePath.end(), '\\', '/');
 
             if (m_World) {
@@ -76,15 +69,12 @@ void AssetBrowserPanel::OnImGuiRender() {
 
     ImGui::Separator();
 
-    // Search bar
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
     if (ImGui::InputTextWithHint("##Search", "Search assets...", m_SearchBuffer, sizeof(m_SearchBuffer))) {
-        // Filter happens in render loop
     }
 
     ImGui::Separator();
 
-    // Content area
     float panelWidth = ImGui::GetContentRegionAvail().x;
     float cellSize = m_ThumbnailSize + m_Padding;
     int columnCount = std::max(1, static_cast<int>(panelWidth / cellSize));
@@ -97,7 +87,6 @@ void AssetBrowserPanel::OnImGuiRender() {
     for (size_t i = 0; i < m_CurrentEntries.size(); i++) {
         const auto& entry = m_CurrentEntries[i];
 
-        // Apply search filter
         if (!searchStr.empty()) {
             std::string lowerName = entry.name;
             std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
@@ -108,7 +97,6 @@ void AssetBrowserPanel::OnImGuiRender() {
 
         ImGui::PushID(static_cast<int>(i));
 
-        // Icon/thumbnail button
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 
@@ -118,19 +106,20 @@ void AssetBrowserPanel::OnImGuiRender() {
         ImGui::PopStyleVar();
         ImGui::PopStyleColor();
 
-        // Double-click to open directory
-        if (entry.isDirectory && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
-            NavigateTo(entry.path);
+        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
+            if (entry.isDirectory) {
+                NavigateTo(entry.path);
+            } else if (IsTerrainMaterialFile(entry.extension) && m_OnMaterialOpen) {
+                m_OnMaterialOpen(entry.path);
+            }
         }
 
-        // Drag source for files (for future drag-drop into scene)
         if (!entry.isDirectory && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
             ImGui::SetDragDropPayload("ASSET_PATH", entry.path.c_str(), entry.path.size() + 1);
             ImGui::Text("%s", entry.name.c_str());
             ImGui::EndDragDropSource();
         }
 
-        // Tooltip
         if (ImGui::IsItemHovered()) {
             ImGui::BeginTooltip();
             ImGui::Text("%s", entry.name.c_str());
@@ -140,7 +129,6 @@ void AssetBrowserPanel::OnImGuiRender() {
             ImGui::EndTooltip();
         }
 
-        // Context menu
         if (ImGui::BeginPopupContextItem()) {
             if (entry.isDirectory) {
                 if (ImGui::MenuItem("Open")) {
@@ -154,11 +142,15 @@ void AssetBrowserPanel::OnImGuiRender() {
                         m_World->Select(obj);
                     }
                 }
+                if (IsTerrainMaterialFile(entry.extension) && m_OnMaterialOpen) {
+                    if (ImGui::MenuItem("Edit Material")) {
+                        m_OnMaterialOpen(entry.path);
+                    }
+                }
             }
             ImGui::EndPopup();
         }
 
-        // Label
         ImGui::TextWrapped("%s", entry.name.c_str());
 
         ImGui::NextColumn();
@@ -167,9 +159,16 @@ void AssetBrowserPanel::OnImGuiRender() {
 
     ImGui::Columns(1);
 
-    // Empty directory message
     if (m_CurrentEntries.empty()) {
         ImGui::TextDisabled("Empty directory");
+    }
+
+    if (ImGui::BeginPopupContextWindow("AssetBrowserContext", ImGuiPopupFlags_NoOpenOverItems | ImGuiPopupFlags_MouseButtonRight)) {
+        if (m_OnMaterialCreate && ImGui::MenuItem("Create Terrain Material")) {
+            m_OnMaterialCreate(m_CurrentDirectory);
+            RefreshDirectory();
+        }
+        ImGui::EndPopup();
     }
 
     ImGui::End();
@@ -198,17 +197,14 @@ void AssetBrowserPanel::RefreshDirectory() {
             try {
                 std::string fileName = entry.path().filename().string();
 
-                // Skip . and ..
                 if (fileName == "." || fileName == "..") {
                     continue;
                 }
 
-                // Skip hidden files
                 if (!fileName.empty() && fileName[0] == '.') {
                     continue;
                 }
 
-                // Skip Zone.Identifier and ADS files
                 if (fileName.find("Zone.Identifier") != std::string::npos ||
                     fileName.find(':') != std::string::npos) {
                     continue;
@@ -242,7 +238,6 @@ void AssetBrowserPanel::RefreshDirectory() {
         return;
     }
 
-    // Sort: directories first, then alphabetically
     std::sort(m_CurrentEntries.begin(), m_CurrentEntries.end(),
         [](const AssetEntry& a, const AssetEntry& b) {
             if (a.isDirectory != b.isDirectory) {
@@ -256,6 +251,15 @@ void AssetBrowserPanel::NavigateTo(const std::string& path) {
     m_CurrentDirectory = path;
     std::replace(m_CurrentDirectory.begin(), m_CurrentDirectory.end(), '\\', '/');
     RefreshDirectory();
+}
+
+void AssetBrowserPanel::NavigateToPath(const std::string& path) {
+    namespace fs = std::filesystem;
+    if (fs::exists(path) && fs::is_directory(path)) {
+        m_CurrentDirectory = path;
+        std::replace(m_CurrentDirectory.begin(), m_CurrentDirectory.end(), '\\', '/');
+        RefreshDirectory();
+    }
 }
 
 void AssetBrowserPanel::NavigateUp() {
@@ -291,6 +295,10 @@ std::string AssetBrowserPanel::GetAssetIcon(const AssetEntry& entry) const {
         return "[SHD]";
     }
 
+    if (IsTerrainMaterialFile(entry.extension)) {
+        return "[MAT]";
+    }
+
     return "[?]";
 }
 
@@ -310,6 +318,12 @@ bool AssetBrowserPanel::IsShaderFile(const std::string& extension) const {
     std::string ext = extension;
     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
     return ext == ".vert" || ext == ".frag" || ext == ".glsl" || ext == ".hlsl";
+}
+
+bool AssetBrowserPanel::IsTerrainMaterialFile(const std::string& extension) const {
+    std::string ext = extension;
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    return ext == ".terrainmat";
 }
 
 } // namespace MMO

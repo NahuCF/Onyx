@@ -3,13 +3,17 @@
 #include "EditorPanel.h"
 #include <Graphics/Shader.h>
 #include <Graphics/Framebuffer.h>
-#include <Graphics/ShadowMap.h>
+#include <Graphics/CascadedShadowMap.h>
 #include <Graphics/Buffers.h>
 #include <Graphics/Texture.h>
 #include <Graphics/Model.h>
 #include "World/WorldTypes.h"
 #include "World/StaticObject.h"
 #include "Gizmo/TransformGizmo.h"
+#include "Terrain/EditorTerrainSystem.h"
+#include "Terrain/TerrainMaterialLibrary.h"
+#include <Graphics/AnimatedModel.h>
+#include <Graphics/Animator.h>
 #include <memory>
 #include <unordered_map>
 #include <glm/glm.hpp>
@@ -24,7 +28,6 @@ public:
     void OnInit() override;
     void OnImGuiRender() override;
 
-    // Getters for camera state (other systems may need these)
     const glm::vec3& GetCameraPosition() const { return m_CameraPosition; }
     const glm::vec3& GetCameraFront() const { return m_CameraFront; }
     const glm::mat4& GetViewMatrix() const { return m_ViewMatrix; }
@@ -35,11 +38,14 @@ public:
     bool IsHovered() const { return m_ViewportHovered; }
     bool IsFocused() const { return m_ViewportFocused; }
 
-    // Statistics getters
     uint32_t GetTriangleCount() const { return m_TriangleCount; }
     uint32_t GetDrawCalls() const { return m_DrawCalls; }
 
-    // Lighting settings
+    float GetShadowPassTime() const { return m_ShadowPassTime; }
+    float GetTerrainPassTime() const { return m_TerrainPassTime; }
+    float GetWorldObjectsPassTime() const { return m_WorldObjectsPassTime; }
+    float GetTotalRenderTime() const { return m_TotalRenderTime; }
+
     glm::vec3& GetLightDir() { return m_LightDir; }
     glm::vec3& GetLightColor() { return m_LightColor; }
     float& GetAmbientStrength() { return m_AmbientStrength; }
@@ -49,24 +55,74 @@ public:
     uint32_t GetShadowMapSize() const { return m_ShadowMapSize; }
     void SetShadowMapSize(uint32_t size);
 
-    // Visual settings
+    float& GetSplitLambda() { return m_SplitLambda; }
+    bool& GetShowCascades() { return m_ShowCascades; }
+
     bool& GetShowGrid() { return m_ShowGrid; }
     bool& GetShowWireframe() { return m_ShowWireframe; }
     bool& GetEnableMSAA() { return m_EnableMSAA; }
 
-    // Focus camera on object
     void FocusOnObject(const WorldObject* object);
     void FocusOnSelection();
 
-    // Model cache access (for InspectorPanel)
     Onyx::Model* GetModel(const std::string& path);
+
+    bool IsAnimatedModel(const std::string& path);
+    Onyx::AnimatedModel* GetAnimatedModel(const std::string& path);
+    Onyx::Animator* GetAnimator(uint64_t objectGuid);
+    void InvalidateAnimator(uint64_t objectGuid);
+    void ReloadAnimations(uint64_t objectGuid, StaticObject* object);
+
+    Editor3D::EditorTerrainSystem& GetTerrainSystem() { return m_TerrainSystem; }
+    Editor3D::TerrainMaterialLibrary& GetTerrainMaterialLibrary() { return m_TerrainMaterialLibrary; }
+    bool IsTerrainEnabled() const { return m_TerrainEnabled; }
+    void SetTerrainEnabled(bool enabled) { m_TerrainEnabled = enabled; }
+
+    enum class TerrainToolMode { Raise, Lower, Flatten, Smooth, Paint, Hole, Ramp };
+
+    struct TerrainToolState {
+        bool toolActive = false;
+        TerrainToolMode mode = TerrainToolMode::Raise;
+
+        // Brush
+        float brushRadius = 5.0f;
+        float brushStrength = 1.0f;
+        bool brushValid = false;
+        glm::vec3 brushPos = glm::vec3(0.0f);
+
+        // Flatten
+        float flattenHeight = 0.0f;
+        float flattenHardness = 0.5f;  // 0 = all gradient, 1 = all flat
+
+        // Paint
+        int paintLayer = 0;
+        std::string selectedMaterialId;
+
+        // Ramp
+        bool rampPlacing = false;
+        glm::vec3 rampStart = glm::vec3(0.0f);
+        float rampStartHeight = 0.0f;
+
+        // Rendering
+        bool sobelNormals = true;
+        bool smoothNormals = true;
+        bool pixelNormals = true;   // Per-pixel normals from heightmap texture
+        bool diamondGrid = true;    // 4-triangle diamond tessellation (WoW-style)
+        int meshResolution = 65;    // Mesh vertices per side (data always 65x65)
+        bool pbr = false;           // PBR rendering toggle
+        int debugSplatmap = 0;      // 0=off, 1=weights, 2=weight sum, 3=texel grid
+    };
+
+    TerrainToolState m_TerrainTool;
 
 private:
     void RenderScene();
     void RenderShadowPass();
-    void UpdateLightSpaceMatrix();
     void RenderGrid();
     void RenderWorldObjects();
+    void RenderTerrain();
+    void HandleTerrainInput();
+    bool RaycastTerrain(const glm::vec3& rayOrigin, const glm::vec3& rayDir, glm::vec3& hitPoint);
     void RenderSelectionOutline();
     void RenderGizmoIcons();
     void RenderGizmo();
@@ -170,20 +226,30 @@ private:
     float m_GridSize = 100.0f;
     float m_GridSpacing = 1.0f;
 
+    // Lighting settings
+    bool m_EnableDirectionalLight = true;
+
     // Shadow settings
     bool m_EnableShadows = true;
-    float m_ShadowBias = 0.005f;
-    float m_ShadowDistance = 100.0f;     // How far shadows extend from camera
-    uint32_t m_ShadowMapSize = 2048;     // Shadow map resolution
-    glm::mat4 m_LightSpaceMatrix = glm::mat4(1.0f);
+    float m_ShadowBias = 0.0001f;
+    float m_ShadowDistance = 60.0f;
+    uint32_t m_ShadowMapSize = 2048;
+    float m_SplitLambda = 0.0f;
+    bool m_ShowCascades = false;
 
-    // Shadow map
-    std::unique_ptr<Onyx::ShadowMap> m_ShadowMap;
+    // Cascaded shadow map
+    std::unique_ptr<Onyx::CascadedShadowMap> m_CSM;
     std::unique_ptr<Onyx::Shader> m_ShadowDepthShader;
 
     // Statistics
     uint32_t m_TriangleCount = 0;
     uint32_t m_DrawCalls = 0;
+
+    // Render pass timing (ms)
+    float m_ShadowPassTime = 0.0f;
+    float m_TerrainPassTime = 0.0f;
+    float m_WorldObjectsPassTime = 0.0f;
+    float m_TotalRenderTime = 0.0f;
 
     // Transform gizmo
     std::unique_ptr<TransformGizmo> m_Gizmo;
@@ -214,6 +280,19 @@ private:
 
     // Create default textures
     void CreateDefaultTextures();
+
+    // Animated model cache
+    std::unordered_map<std::string, std::unique_ptr<Onyx::AnimatedModel>> m_AnimatedModelCache;
+    std::unordered_map<uint64_t, std::unique_ptr<Onyx::Animator>> m_AnimatorCache;
+
+    Onyx::AnimatedModel* GetOrLoadAnimatedModel(const std::string& path);
+
+    // Terrain
+    Editor3D::EditorTerrainSystem m_TerrainSystem;
+    Editor3D::TerrainMaterialLibrary m_TerrainMaterialLibrary;
+    bool m_TerrainEnabled = true;
+    bool m_TerrainPainting = false;
+    std::unique_ptr<Onyx::Shader> m_TerrainShader;
 };
 
 } // namespace MMO

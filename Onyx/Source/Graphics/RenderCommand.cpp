@@ -45,6 +45,35 @@ void RenderCommand::DisableDepthTest() {
     glDisable(GL_DEPTH_TEST);
 }
 
+void RenderCommand::SetDepthMask(bool write) {
+    glDepthMask(write ? GL_TRUE : GL_FALSE);
+}
+
+void RenderCommand::EnableCulling() {
+    glEnable(GL_CULL_FACE);
+}
+
+void RenderCommand::DisableCulling() {
+    glDisable(GL_CULL_FACE);
+}
+
+void RenderCommand::SetCullFace(bool front) {
+    glCullFace(front ? GL_FRONT : GL_BACK);
+}
+
+void RenderCommand::BindTextureArray(uint32_t slot, uint32_t textureId) {
+    glActiveTexture(GL_TEXTURE0 + slot);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, textureId);
+}
+
+void RenderCommand::ReadPixels(int x, int y, int width, int height, unsigned char* data) {
+    glReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+}
+
+void RenderCommand::Finish() {
+    glFinish();
+}
+
 void RenderCommand::SetWireframeMode(bool enabled) {
     if (enabled) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);

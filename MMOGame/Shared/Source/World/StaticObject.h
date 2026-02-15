@@ -2,6 +2,7 @@
 
 #include "WorldObject.h"
 #include <unordered_map>
+#include <vector>
 
 namespace MMO {
 
@@ -90,6 +91,25 @@ public:
 
     bool HasCollision() const { return m_Collider.type != ColliderType::NONE; }
 
+    // Animation support (for animated models)
+    void AddAnimationPath(const std::string& path) { m_AnimationPaths.push_back(path); }
+    void RemoveAnimationPath(size_t index) {
+        if (index < m_AnimationPaths.size()) {
+            m_AnimationPaths.erase(m_AnimationPaths.begin() + index);
+        }
+    }
+    const std::vector<std::string>& GetAnimationPaths() const { return m_AnimationPaths; }
+    void ClearAnimationPaths() { m_AnimationPaths.clear(); }
+
+    void SetCurrentAnimation(const std::string& name) { m_CurrentAnimation = name; }
+    const std::string& GetCurrentAnimation() const { return m_CurrentAnimation; }
+
+    void SetAnimationLoop(bool loop) { m_AnimationLoop = loop; }
+    bool GetAnimationLoop() const { return m_AnimationLoop; }
+
+    void SetAnimationSpeed(float speed) { m_AnimationSpeed = speed; }
+    float GetAnimationSpeed() const { return m_AnimationSpeed; }
+
     // Rendering flags
     void SetCastsShadow(bool casts) { m_CastsShadow = casts; }
     bool CastsShadow() const { return m_CastsShadow; }
@@ -149,6 +169,12 @@ public:
         copy->m_LightmapIndex = m_LightmapIndex;
         copy->m_LightmapScaleOffset = m_LightmapScaleOffset;
 
+        // Copy animation settings
+        copy->m_AnimationPaths = m_AnimationPaths;
+        copy->m_CurrentAnimation = m_CurrentAnimation;
+        copy->m_AnimationLoop = m_AnimationLoop;
+        copy->m_AnimationSpeed = m_AnimationSpeed;
+
         return copy;
     }
 
@@ -166,6 +192,12 @@ private:
     bool m_ReceivesLightmap = true;
     uint32_t m_LightmapIndex = 0;
     glm::vec4 m_LightmapScaleOffset = glm::vec4(1.0f, 1.0f, 0.0f, 0.0f); // scale.xy, offset.xy
+
+    // Animation (for animated models with bones)
+    std::vector<std::string> m_AnimationPaths;  // Additional animation files (e.g., walking.fbx, running.fbx)
+    std::string m_CurrentAnimation;              // Currently selected animation name
+    bool m_AnimationLoop = true;
+    float m_AnimationSpeed = 1.0f;
 };
 
 } // namespace MMO

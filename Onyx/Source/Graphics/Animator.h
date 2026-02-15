@@ -35,6 +35,8 @@ public:
     // Playback control
     void SetSpeed(float speed) { m_PlaybackSpeed = speed; }
     float GetSpeed() const { return m_PlaybackSpeed; }
+    void SetLoop(bool loop) { m_Loop = loop; }
+    bool GetLoop() const { return m_Loop; }
     void SetTime(float time);
 
     // Get final bone matrices for rendering
@@ -42,7 +44,6 @@ public:
 
 private:
     void CalculateBoneTransform(int nodeIndex, const glm::mat4& parentTransform);
-    glm::mat4 GetNodeTransform(const std::string& nodeName, float animTime);
 
     AnimatedModel* m_Model = nullptr;
     Animation* m_CurrentAnimation = nullptr;

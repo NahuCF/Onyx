@@ -6,6 +6,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <assimp/config.h>
 #endif
 
 #include <iostream>
@@ -13,14 +14,16 @@
 
 namespace Onyx {
 
+AnimatedModel::~AnimatedModel() = default;
+
 #ifdef ONYX_USE_ASSIMP
-static glm::mat4 ConvertMatrix(const aiMatrix4x4& m) {
-    return glm::mat4(
-        m.a1, m.b1, m.c1, m.d1,
-        m.a2, m.b2, m.c2, m.d2,
-        m.a3, m.b3, m.c3, m.d3,
-        m.a4, m.b4, m.c4, m.d4
-    );
+static glm::mat4 ConvertMatrix(const aiMatrix4x4& from) {
+    glm::mat4 to;
+    to[0][0] = from.a1; to[1][0] = from.a2; to[2][0] = from.a3; to[3][0] = from.a4;
+    to[0][1] = from.b1; to[1][1] = from.b2; to[2][1] = from.b3; to[3][1] = from.b4;
+    to[0][2] = from.c1; to[1][2] = from.c2; to[2][2] = from.c3; to[3][2] = from.c4;
+    to[0][3] = from.d1; to[1][3] = from.d2; to[2][3] = from.d3; to[3][3] = from.d4;
+    return to;
 }
 #endif
 
@@ -32,7 +35,6 @@ void SkinnedVertex::AddBoneData(int boneId, float weight) {
             return;
         }
     }
-    // If all slots full, replace the smallest weight
     int minIndex = 0;
     float minWeight = boneWeights[0];
     for (int i = 1; i < 4; i++) {
@@ -51,6 +53,8 @@ bool AnimatedModel::Load(const std::string& path) {
 #ifdef ONYX_USE_ASSIMP
     Assimp::Importer importer;
 
+    importer.SetPropertyBool(AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, false);
+
     unsigned int flags = aiProcess_Triangulate
                        | aiProcess_GenSmoothNormals
                        | aiProcess_FlipUVs
@@ -68,32 +72,154 @@ bool AnimatedModel::Load(const std::string& path) {
     m_Path = path;
     m_Directory = std::filesystem::path(path).parent_path().string();
 
-    // Store global inverse transform
     m_Skeleton.SetGlobalInverseTransform(glm::inverse(ConvertMatrix(scene->mRootNode->mTransformation)));
-
-    // Build node hierarchy first
     BuildNodeHierarchyImpl(scene->mRootNode, -1);
-
-    // Load materials
     LoadMaterialsImpl(scene);
-
-    // Process meshes
     ProcessNodeImpl(scene->mRootNode, scene);
-
-    // Load animations
     LoadAnimationsImpl(scene);
 
-    // Initialize bone matrices
-    m_BoneMatrices.resize(m_Skeleton.GetBoneCount(), glm::mat4(1.0f));
+    for (int i = 0; i < m_Skeleton.GetBoneCount(); i++) {
+        const Bone* bone = m_Skeleton.GetBone(i);
+        if (bone && bone->parentIndex < 0) {
+            auto nodeIt = m_NodeMap.find(bone->name);
+            if (nodeIt != m_NodeMap.end()) {
+                int nodeIndex = nodeIt->second;
+                int parentNodeIndex = m_NodeHierarchy[nodeIndex].parentIndex;
+                while (parentNodeIndex >= 0) {
+                    const std::string& parentName = m_NodeHierarchy[parentNodeIndex].name;
+                    int parentBoneIndex = m_Skeleton.GetBoneIndex(parentName);
+                    if (parentBoneIndex >= 0) {
+                        m_Skeleton.SetBoneParent(i, parentBoneIndex);
+                        break;
+                    }
+                    parentNodeIndex = m_NodeHierarchy[parentNodeIndex].parentIndex;
+                }
+            }
+        }
+    }
 
-    std::cout << "Loaded animated model: " << path << std::endl;
-    std::cout << "  Meshes: " << m_Meshes.size() << std::endl;
-    std::cout << "  Bones: " << m_Skeleton.GetBoneCount() << std::endl;
-    std::cout << "  Animations: " << m_Animations.size() << std::endl;
+    m_BoneMatrices.resize(m_Skeleton.GetBoneCount(), glm::mat4(1.0f));
 
     return true;
 #else
     std::cerr << "AnimatedModel::Load requires ONYX_USE_ASSIMP" << std::endl;
+    return false;
+#endif
+}
+
+bool AnimatedModel::LoadAnimation(const std::string& path) {
+#ifdef ONYX_USE_ASSIMP
+    if (m_Skeleton.GetBoneCount() == 0) {
+        std::cerr << "AnimatedModel::LoadAnimation: Must load a model with skeleton first" << std::endl;
+        return false;
+    }
+
+    Assimp::Importer importer;
+    importer.SetPropertyBool(AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, false);
+
+    unsigned int flags = aiProcess_Triangulate;
+
+    const aiScene* scene = importer.ReadFile(path, flags);
+
+    if (!scene || !scene->mRootNode) {
+        std::cerr << "Assimp error loading animation " << path << ": " << importer.GetErrorString() << std::endl;
+        return false;
+    }
+
+    if (scene->mNumAnimations == 0) {
+        std::cerr << "No animations found in " << path << std::endl;
+        return false;
+    }
+
+    std::string baseAnimName = std::filesystem::path(path).stem().string();
+
+    int animationsLoaded = 0;
+    for (unsigned int i = 0; i < scene->mNumAnimations; i++) {
+        aiAnimation* anim = scene->mAnimations[i];
+
+        std::string animName = baseAnimName;
+        if (scene->mNumAnimations > 1) {
+            animName += "_" + std::to_string(i);
+        }
+
+        if (m_AnimationMap.find(animName) != m_AnimationMap.end()) {
+            std::cerr << "Animation '" << animName << "' already exists, skipping" << std::endl;
+            continue;
+        }
+
+        float duration = static_cast<float>(anim->mDuration);
+        float ticksPerSecond = static_cast<float>(anim->mTicksPerSecond);
+        if (ticksPerSecond <= 0.0f) {
+            ticksPerSecond = 25.0f;
+        }
+
+        auto animation = std::make_unique<Animation>(animName, duration, ticksPerSecond);
+
+        int matchingBones = 0;
+        for (unsigned int j = 0; j < anim->mNumChannels; j++) {
+            aiNodeAnim* channel = anim->mChannels[j];
+            std::string boneName = channel->mNodeName.C_Str();
+
+            if (m_Skeleton.GetBoneIndex(boneName) < 0) {
+                continue;
+            }
+            matchingBones++;
+
+            BoneAnimation boneAnim;
+            boneAnim.boneName = boneName;
+
+            for (unsigned int k = 0; k < channel->mNumPositionKeys; k++) {
+                PositionKey key;
+                key.time = static_cast<float>(channel->mPositionKeys[k].mTime);
+                key.position = glm::vec3(
+                    channel->mPositionKeys[k].mValue.x,
+                    channel->mPositionKeys[k].mValue.y,
+                    channel->mPositionKeys[k].mValue.z
+                );
+                boneAnim.positionKeys.push_back(key);
+            }
+
+            for (unsigned int k = 0; k < channel->mNumRotationKeys; k++) {
+                RotationKey key;
+                key.time = static_cast<float>(channel->mRotationKeys[k].mTime);
+                key.rotation = glm::quat(
+                    channel->mRotationKeys[k].mValue.w,
+                    channel->mRotationKeys[k].mValue.x,
+                    channel->mRotationKeys[k].mValue.y,
+                    channel->mRotationKeys[k].mValue.z
+                );
+                boneAnim.rotationKeys.push_back(key);
+            }
+
+            for (unsigned int k = 0; k < channel->mNumScalingKeys; k++) {
+                ScaleKey key;
+                key.time = static_cast<float>(channel->mScalingKeys[k].mTime);
+                key.scale = glm::vec3(
+                    channel->mScalingKeys[k].mValue.x,
+                    channel->mScalingKeys[k].mValue.y,
+                    channel->mScalingKeys[k].mValue.z
+                );
+                boneAnim.scaleKeys.push_back(key);
+            }
+
+            animation->AddBoneAnimation(boneAnim);
+        }
+
+        if (matchingBones == 0) {
+            std::cerr << "Warning: Animation '" << animName << "' has no bones matching skeleton" << std::endl;
+            continue;
+        }
+
+        m_AnimationMap[animName] = static_cast<int>(m_Animations.size());
+        m_Animations.push_back(std::move(animation));
+        animationsLoaded++;
+
+        std::cout << "Loaded animation '" << animName << "' with " << matchingBones << " bones" << std::endl;
+    }
+
+    return animationsLoaded > 0;
+#else
+    std::cerr << "AnimatedModel::LoadAnimation requires ONYX_USE_ASSIMP" << std::endl;
     return false;
 #endif
 }
@@ -139,7 +265,6 @@ void AnimatedModel::ProcessMeshImpl(void* meshPtr, const void* scenePtr) {
     std::vector<SkinnedVertex> vertices;
     std::vector<uint32_t> indices;
 
-    // Process vertices
     for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
         SkinnedVertex vertex;
 
@@ -149,7 +274,6 @@ void AnimatedModel::ProcessMeshImpl(void* meshPtr, const void* scenePtr) {
             mesh->mVertices[i].z
         );
 
-        // Update bounds
         m_BoundsMin = glm::min(m_BoundsMin, vertex.position);
         m_BoundsMax = glm::max(m_BoundsMax, vertex.position);
 
@@ -184,7 +308,6 @@ void AnimatedModel::ProcessMeshImpl(void* meshPtr, const void* scenePtr) {
         vertices.push_back(vertex);
     }
 
-    // Process indices
     for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
         aiFace& face = mesh->mFaces[i];
         for (unsigned int j = 0; j < face.mNumIndices; j++) {
@@ -192,17 +315,14 @@ void AnimatedModel::ProcessMeshImpl(void* meshPtr, const void* scenePtr) {
         }
     }
 
-    // Process bones
     ProcessBonesImpl(mesh, vertices);
 
-    // Normalize bone weights
     for (auto& vertex : vertices) {
         float totalWeight = vertex.boneWeights.x + vertex.boneWeights.y +
                            vertex.boneWeights.z + vertex.boneWeights.w;
         if (totalWeight > 0.0f) {
             vertex.boneWeights /= totalWeight;
         }
-        // Replace -1 with 0 for unused bone slots
         for (int i = 0; i < 4; i++) {
             if (vertex.boneIds[i] < 0) {
                 vertex.boneIds[i] = 0;
@@ -210,7 +330,6 @@ void AnimatedModel::ProcessMeshImpl(void* meshPtr, const void* scenePtr) {
         }
     }
 
-    // Create GPU buffers
     SkinnedMesh skinnedMesh;
     skinnedMesh.name = mesh->mName.C_Str();
     skinnedMesh.materialIndex = mesh->mMaterialIndex;
@@ -228,15 +347,19 @@ void AnimatedModel::ProcessMeshImpl(void* meshPtr, const void* scenePtr) {
 
     skinnedMesh.vao = std::make_unique<VertexArray>();
 
-    // Layout: pos(3) + normal(3) + uv(2) + tangent(3) + bitangent(3) + boneIds(4i) + weights(4)
+    if (skinnedMesh.vao->GetBufferID() == 0) {
+        std::cerr << "Failed to create VAO for mesh: " << mesh->mName.C_Str() << std::endl;
+        return;
+    }
+
     VertexLayout layout;
-    layout.PushFloat(3);  // position
-    layout.PushFloat(3);  // normal
-    layout.PushFloat(2);  // texCoords
-    layout.PushFloat(3);  // tangent
-    layout.PushFloat(3);  // bitangent
-    layout.PushInt(4);    // boneIds
-    layout.PushFloat(4);  // boneWeights
+    layout.PushFloat(3);
+    layout.PushFloat(3);
+    layout.PushFloat(2);
+    layout.PushFloat(3);
+    layout.PushFloat(3);
+    layout.PushInt(4);
+    layout.PushFloat(4);
 
     skinnedMesh.vao->SetVertexBuffer(skinnedMesh.vbo.get());
     skinnedMesh.vao->SetIndexBuffer(skinnedMesh.ebo.get());
@@ -253,10 +376,7 @@ void AnimatedModel::ProcessBonesImpl(void* meshPtr, std::vector<SkinnedVertex>& 
 
         int boneIndex = m_Skeleton.GetBoneIndex(boneName);
         if (boneIndex < 0) {
-            // Add new bone
             glm::mat4 offsetMatrix = ConvertMatrix(bone->mOffsetMatrix);
-
-            // Find parent from node hierarchy
             int parentIndex = -1;
             auto nodeIt = m_NodeMap.find(boneName);
             if (nodeIt != m_NodeMap.end()) {
@@ -271,7 +391,6 @@ void AnimatedModel::ProcessBonesImpl(void* meshPtr, std::vector<SkinnedVertex>& 
             boneIndex = m_Skeleton.GetBoneIndex(boneName);
         }
 
-        // Assign bone weights to vertices
         for (unsigned int j = 0; j < bone->mNumWeights; j++) {
             unsigned int vertexId = bone->mWeights[j].mVertexId;
             float weight = bone->mWeights[j].mWeight;
@@ -300,14 +419,12 @@ void AnimatedModel::LoadAnimationsImpl(const void* scenePtr) {
 
         auto animation = std::make_unique<Animation>(animName, duration, ticksPerSecond);
 
-        // Process each channel (bone animation)
         for (unsigned int j = 0; j < anim->mNumChannels; j++) {
             aiNodeAnim* channel = anim->mChannels[j];
 
             BoneAnimation boneAnim;
             boneAnim.boneName = channel->mNodeName.C_Str();
 
-            // Position keys
             for (unsigned int k = 0; k < channel->mNumPositionKeys; k++) {
                 PositionKey key;
                 key.time = static_cast<float>(channel->mPositionKeys[k].mTime);
@@ -319,7 +436,6 @@ void AnimatedModel::LoadAnimationsImpl(const void* scenePtr) {
                 boneAnim.positionKeys.push_back(key);
             }
 
-            // Rotation keys
             for (unsigned int k = 0; k < channel->mNumRotationKeys; k++) {
                 RotationKey key;
                 key.time = static_cast<float>(channel->mRotationKeys[k].mTime);
@@ -332,7 +448,6 @@ void AnimatedModel::LoadAnimationsImpl(const void* scenePtr) {
                 boneAnim.rotationKeys.push_back(key);
             }
 
-            // Scale keys
             for (unsigned int k = 0; k < channel->mNumScalingKeys; k++) {
                 ScaleKey key;
                 key.time = static_cast<float>(channel->mScalingKeys[k].mTime);
@@ -377,7 +492,6 @@ void AnimatedModel::LoadMaterialsImpl(const void* scenePtr) {
             material.shininess = shininess;
         }
 
-        // Load textures
         aiString texPath;
         if (mat->GetTexture(aiTextureType_DIFFUSE, 0, &texPath) == AI_SUCCESS) {
             std::string fullPath = m_Directory + "/" + texPath.C_Str();
@@ -395,7 +509,6 @@ void AnimatedModel::LoadMaterialsImpl(const void* scenePtr) {
         m_Materials.push_back(std::move(material));
     }
 
-    // Ensure at least one default material
     if (m_Materials.empty()) {
         AnimatedMaterial defaultMat;
         defaultMat.name = "Default";

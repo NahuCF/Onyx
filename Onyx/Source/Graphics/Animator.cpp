@@ -29,25 +29,17 @@ void Animator::SetModel(AnimatedModel* model) {
 void Animator::BuildNodeCache() {
     if (!m_Model) return;
 
-    // We need access to the node hierarchy from the model
-    // For now, build from skeleton
     m_NodeCache.clear();
-    const auto& bones = m_Model->GetSkeleton().GetBones();
+    const auto& nodeHierarchy = m_Model->GetNodeHierarchy();
 
-    for (const auto& bone : bones) {
-        NodeTransformCache node;
-        node.name = bone.name;
-        node.localTransform = bone.localBindTransform;
-        node.parentIndex = bone.parentIndex;
-        m_NodeCache.push_back(node);
-    }
-
-    // Build children lists
-    for (int i = 0; i < static_cast<int>(m_NodeCache.size()); i++) {
-        int parent = m_NodeCache[i].parentIndex;
-        if (parent >= 0 && parent < static_cast<int>(m_NodeCache.size())) {
-            m_NodeCache[parent].children.push_back(i);
-        }
+    for (size_t i = 0; i < nodeHierarchy.size(); i++) {
+        const auto& node = nodeHierarchy[i];
+        NodeTransformCache cacheNode;
+        cacheNode.name = node.name;
+        cacheNode.localTransform = node.transform;
+        cacheNode.parentIndex = node.parentIndex;
+        cacheNode.children = node.children;
+        m_NodeCache.push_back(cacheNode);
     }
 
     m_NodeCacheValid = true;
@@ -144,11 +136,16 @@ float Animator::GetNormalizedTime() const {
 }
 
 void Animator::Update(float deltaTime) {
-    if (!m_Model || !m_CurrentAnimation || !m_Playing || m_Paused) {
+    if (!m_Model || !m_CurrentAnimation) {
+        return;
+    }
+    if (!m_Playing || m_Paused) {
+        return;
+    }
+    if (m_NodeCache.empty() || m_FinalBoneMatrices.empty()) {
         return;
     }
 
-    // Update time
     m_CurrentTime += deltaTime * m_PlaybackSpeed * m_CurrentAnimation->GetTicksPerSecond();
 
     float duration = m_CurrentAnimation->GetDuration();
@@ -161,7 +158,6 @@ void Animator::Update(float deltaTime) {
         }
     }
 
-    // Update blending
     if (m_IsBlending) {
         m_BlendFactor += deltaTime / m_BlendDuration;
         if (m_BlendFactor >= 1.0f) {
@@ -171,37 +167,14 @@ void Animator::Update(float deltaTime) {
         }
     }
 
-    // Calculate bone transforms
     glm::mat4 identity(1.0f);
-
-    // Find root nodes (nodes with no parent in skeleton)
     for (int i = 0; i < static_cast<int>(m_NodeCache.size()); i++) {
         if (m_NodeCache[i].parentIndex < 0) {
             CalculateBoneTransform(i, identity);
         }
     }
 
-    // Update model's bone matrices
     m_Model->SetBoneMatrices(m_FinalBoneMatrices);
-}
-
-glm::mat4 Animator::GetNodeTransform(const std::string& nodeName, float animTime) {
-    const BoneAnimation* boneAnim = m_CurrentAnimation->GetBoneAnimation(nodeName);
-
-    if (boneAnim) {
-        glm::vec3 position = boneAnim->InterpolatePosition(animTime);
-        glm::quat rotation = boneAnim->InterpolateRotation(animTime);
-        glm::vec3 scale = boneAnim->InterpolateScale(animTime);
-
-        glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), position);
-        glm::mat4 rotationMatrix = glm::mat4_cast(rotation);
-        glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), scale);
-
-        return translationMatrix * rotationMatrix * scaleMatrix;
-    }
-
-    // Return identity if no animation for this node
-    return glm::mat4(1.0f);
 }
 
 void Animator::CalculateBoneTransform(int nodeIndex, const glm::mat4& parentTransform) {
@@ -212,54 +185,44 @@ void Animator::CalculateBoneTransform(int nodeIndex, const glm::mat4& parentTran
     const auto& node = m_NodeCache[nodeIndex];
     glm::mat4 nodeTransform = node.localTransform;
 
-    // Get animated transform
     if (m_CurrentAnimation) {
-        glm::mat4 animTransform = GetNodeTransform(node.name, m_CurrentTime);
+        const BoneAnimation* boneAnim = m_CurrentAnimation->GetBoneAnimation(node.name);
 
-        // Handle blending
-        if (m_IsBlending && m_BlendFromAnimation) {
-            const BoneAnimation* fromBoneAnim = m_BlendFromAnimation->GetBoneAnimation(node.name);
-            if (fromBoneAnim) {
-                glm::vec3 fromPos = fromBoneAnim->InterpolatePosition(m_BlendFromTime);
-                glm::quat fromRot = fromBoneAnim->InterpolateRotation(m_BlendFromTime);
-                glm::vec3 fromScale = fromBoneAnim->InterpolateScale(m_BlendFromTime);
+        if (boneAnim) {
+            glm::vec3 position = boneAnim->InterpolatePosition(m_CurrentTime);
+            glm::quat rotation = boneAnim->InterpolateRotation(m_CurrentTime);
+            glm::vec3 scale = boneAnim->InterpolateScale(m_CurrentTime);
 
-                const BoneAnimation* toBoneAnim = m_CurrentAnimation->GetBoneAnimation(node.name);
-                if (toBoneAnim) {
-                    glm::vec3 toPos = toBoneAnim->InterpolatePosition(m_CurrentTime);
-                    glm::quat toRot = toBoneAnim->InterpolateRotation(m_CurrentTime);
-                    glm::vec3 toScale = toBoneAnim->InterpolateScale(m_CurrentTime);
+            if (m_IsBlending && m_BlendFromAnimation) {
+                const BoneAnimation* fromBoneAnim = m_BlendFromAnimation->GetBoneAnimation(node.name);
+                if (fromBoneAnim) {
+                    glm::vec3 fromPos = fromBoneAnim->InterpolatePosition(m_BlendFromTime);
+                    glm::quat fromRot = fromBoneAnim->InterpolateRotation(m_BlendFromTime);
+                    glm::vec3 fromScale = fromBoneAnim->InterpolateScale(m_BlendFromTime);
 
-                    glm::vec3 blendedPos = glm::mix(fromPos, toPos, m_BlendFactor);
-                    glm::quat blendedRot = glm::slerp(fromRot, toRot, m_BlendFactor);
-                    glm::vec3 blendedScale = glm::mix(fromScale, toScale, m_BlendFactor);
-
-                    animTransform = glm::translate(glm::mat4(1.0f), blendedPos) *
-                                   glm::mat4_cast(blendedRot) *
-                                   glm::scale(glm::mat4(1.0f), blendedScale);
+                    position = glm::mix(fromPos, position, m_BlendFactor);
+                    rotation = glm::slerp(fromRot, rotation, m_BlendFactor);
+                    scale = glm::mix(fromScale, scale, m_BlendFactor);
                 }
             }
-        }
 
-        nodeTransform = animTransform;
+            nodeTransform = glm::translate(glm::mat4(1.0f), position) *
+                           glm::mat4_cast(rotation) *
+                           glm::scale(glm::mat4(1.0f), scale);
+        }
     }
 
     glm::mat4 globalTransform = parentTransform * nodeTransform;
 
-    // If this node is a bone, update the final matrix
     const Skeleton& skeleton = m_Model->GetSkeleton();
     int boneIndex = skeleton.GetBoneIndex(node.name);
     if (boneIndex >= 0 && boneIndex < static_cast<int>(m_FinalBoneMatrices.size())) {
         const Bone* bone = skeleton.GetBone(boneIndex);
         if (bone) {
-            m_FinalBoneMatrices[boneIndex] =
-                skeleton.GetGlobalInverseTransform() *
-                globalTransform *
-                bone->offsetMatrix;
+            m_FinalBoneMatrices[boneIndex] = skeleton.GetGlobalInverseTransform() * globalTransform * bone->offsetMatrix;
         }
     }
 
-    // Recursively process children
     for (int childIndex : node.children) {
         CalculateBoneTransform(childIndex, globalTransform);
     }

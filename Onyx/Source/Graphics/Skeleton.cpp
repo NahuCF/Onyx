@@ -24,6 +24,12 @@ void Skeleton::SetBoneLocalTransform(int index, const glm::mat4& transform) {
     }
 }
 
+void Skeleton::SetBoneParent(int boneIndex, int parentIndex) {
+    if (boneIndex >= 0 && boneIndex < static_cast<int>(m_Bones.size())) {
+        m_Bones[boneIndex].parentIndex = parentIndex;
+    }
+}
+
 int Skeleton::GetBoneIndex(const std::string& name) const {
     auto it = m_BoneMap.find(name);
     if (it != m_BoneMap.end()) {

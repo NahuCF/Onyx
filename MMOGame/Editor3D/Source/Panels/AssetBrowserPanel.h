@@ -3,6 +3,7 @@
 #include "EditorPanel.h"
 #include <string>
 #include <vector>
+#include <functional>
 #include <filesystem>
 
 namespace MMO {
@@ -12,7 +13,6 @@ struct AssetEntry {
     std::string path;
     std::string extension;
     bool isDirectory;
-    // TODO: Add thumbnail texture ID
 };
 
 class AssetBrowserPanel : public EditorPanel {
@@ -22,9 +22,19 @@ public:
 
     void OnImGuiRender() override;
 
-    // Set the root directory for asset browsing
     void SetRootDirectory(const std::string& path);
     const std::string& GetRootDirectory() const { return m_RootDirectory; }
+
+    void SetMaterialOpenCallback(std::function<void(const std::string&)> callback) {
+        m_OnMaterialOpen = std::move(callback);
+    }
+
+    void SetMaterialCreateCallback(std::function<void(const std::string&)> callback) {
+        m_OnMaterialCreate = std::move(callback);
+    }
+
+    // Navigate to a specific directory path
+    void NavigateToPath(const std::string& path);
 
 private:
     void RefreshDirectory();
@@ -35,10 +45,14 @@ private:
     bool IsModelFile(const std::string& extension) const;
     bool IsTextureFile(const std::string& extension) const;
     bool IsShaderFile(const std::string& extension) const;
+    bool IsTerrainMaterialFile(const std::string& extension) const;
 
     std::string m_RootDirectory;
     std::string m_CurrentDirectory;
     std::vector<AssetEntry> m_CurrentEntries;
+
+    std::function<void(const std::string&)> m_OnMaterialOpen;
+    std::function<void(const std::string&)> m_OnMaterialCreate;
 
     // Settings
     float m_ThumbnailSize = 80.0f;

@@ -1,5 +1,6 @@
 #include "StatisticsPanel.h"
 #include "ViewportPanel.h"
+#include "../Terrain/EditorTerrainSystem.h"
 #include <Core/Application.h>
 #include <imgui.h>
 
@@ -9,7 +10,6 @@ void StatisticsPanel::OnImGuiRender() {
     ImGui::Begin("Statistics", &m_IsOpen);
 
     if (ImGui::BeginTabBar("StatsTabs")) {
-        // General tab - FPS and rendering stats
         if (ImGui::BeginTabItem("General")) {
             ImGui::Text("Performance");
             ImGui::Separator();
@@ -31,6 +31,56 @@ void StatisticsPanel::OnImGuiRender() {
                 ImGui::TextDisabled("No viewport available");
             }
 
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Render Passes")) {
+            if (m_Viewport) {
+                ImGui::Text("Pass Timing");
+                ImGui::Separator();
+
+                float shadow = m_Viewport->GetShadowPassTime();
+                float terrain = m_Viewport->GetTerrainPassTime();
+                float objects = m_Viewport->GetWorldObjectsPassTime();
+                float total = m_Viewport->GetTotalRenderTime();
+
+                ImGui::Text("Shadow Pass:  %6.2f ms", shadow);
+                ImGui::Text("Terrain:      %6.2f ms", terrain);
+                ImGui::Text("World Objects:%6.2f ms", objects);
+                ImGui::Separator();
+                ImGui::Text("Total Render: %6.2f ms", total);
+
+            } else {
+                ImGui::TextDisabled("No viewport available");
+            }
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Terrain")) {
+            if (m_Viewport) {
+                auto& stats = m_Viewport->GetTerrainSystem().GetStats();
+                auto& settings = m_Viewport->GetTerrainSystem().GetSettings();
+
+                ImGui::Text("Chunks");
+                ImGui::Separator();
+                ImGui::Text("Total:   %d", stats.totalChunks);
+                ImGui::Text("Loaded:  %d", stats.loadedChunks);
+                ImGui::Text("Visible: %d", stats.visibleChunks);
+                ImGui::Text("Dirty:   %d", stats.dirtyChunks);
+
+                ImGui::Spacing();
+                ImGui::Text("Streaming");
+                ImGui::Separator();
+                ImGui::SliderFloat("Load Distance", &settings.loadDistance, 64.0f, 4096.0f, "%.0f");
+                ImGui::SliderFloat("Unload Distance", &settings.unloadDistance, 128.0f, 8192.0f, "%.0f");
+                if (settings.unloadDistance < settings.loadDistance + 64.0f) {
+                    settings.unloadDistance = settings.loadDistance + 64.0f;
+                }
+                ImGui::SliderInt("Chunks/Frame", &settings.maxChunksPerFrame, 1, 16);
+                ImGui::Checkbox("Frustum Culling", &settings.enableFrustumCulling);
+            } else {
+                ImGui::TextDisabled("No viewport available");
+            }
             ImGui::EndTabItem();
         }
 

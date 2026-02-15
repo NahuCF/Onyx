@@ -11,7 +11,6 @@ layout(location = 6) in vec4 a_BoneWeights;
 out vec3 v_FragPos;
 out vec2 v_TexCoord;
 out mat3 v_TBN;
-out float v_ClipSpaceZ;
 
 uniform mat4 u_Model;
 uniform mat4 u_View;
@@ -51,9 +50,5 @@ void main() {
     v_TBN = mat3(T, B, N);
 
     // Calculate clip space position
-    vec4 viewPos = u_View * worldPos;
-    gl_Position = u_Projection * viewPos;
-
-    // Pass clip space Z for cascade selection
-    v_ClipSpaceZ = -viewPos.z;
+    gl_Position = u_Projection * u_View * worldPos;
 }
