@@ -1,7 +1,6 @@
 #pragma once
 
 #include "WorldObject.h"
-#include "StaticObject.h"  // For TextureType enum
 #include <vector>
 
 namespace MMO {
@@ -19,19 +18,9 @@ public:
     void SetModelPath(const std::string& path) { m_ModelPath = path; }
     const std::string& GetModelPath() const { return m_ModelPath; }
 
-    // Textures for preview model
-    void SetTexturePath(TextureType type, const std::string& path) {
-        m_TexturePaths[static_cast<size_t>(type)] = path;
-    }
-    const std::string& GetTexturePath(TextureType type) const {
-        return m_TexturePaths[static_cast<size_t>(type)];
-    }
-
-    void SetDiffuseTexture(const std::string& path) { SetTexturePath(TextureType::DIFFUSE, path); }
-    const std::string& GetDiffuseTexture() const { return GetTexturePath(TextureType::DIFFUSE); }
-
-    void SetNormalTexture(const std::string& path) { SetTexturePath(TextureType::NORMAL, path); }
-    const std::string& GetNormalTexture() const { return GetTexturePath(TextureType::NORMAL); }
+    // Material (reference to MaterialLibrary)
+    void SetMaterialId(const std::string& id) { m_MaterialId = id; }
+    const std::string& GetMaterialId() const { return m_MaterialId; }
 
     // Spawn behavior
     void SetRespawnTime(float seconds) { m_RespawnTime = seconds; }
@@ -66,9 +55,7 @@ public:
         copy->m_MaxCount = m_MaxCount;
         copy->m_PatrolPath = m_PatrolPath;
         copy->m_ModelPath = m_ModelPath;
-        for (size_t i = 0; i < static_cast<size_t>(TextureType::COUNT); i++) {
-            copy->m_TexturePaths[i] = m_TexturePaths[i];
-        }
+        copy->m_MaterialId = m_MaterialId;
         copy->m_PreviewEnabled = m_PreviewEnabled;
         return copy;
     }
@@ -82,7 +69,7 @@ private:
 
     // Preview model for editor
     std::string m_ModelPath;
-    std::string m_TexturePaths[static_cast<size_t>(TextureType::COUNT)];
+    std::string m_MaterialId;  // MaterialLibrary reference
 
     // Editor state
     bool m_PreviewEnabled = false;

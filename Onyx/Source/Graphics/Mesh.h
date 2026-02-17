@@ -38,13 +38,19 @@ namespace Onyx {
 
         void Draw(Shader &shader);
         void DrawGeometryOnly();  // Draw without rebinding textures
+
+        const glm::vec3& GetBoundsMin() const { return m_BoundsMin; }
+        const glm::vec3& GetBoundsMax() const { return m_BoundsMax; }
+        const glm::vec3& GetCenter() const { return m_Center; }
+
     private:
         void SetupMesh();
+        void ComputeBounds();
 
-		//VertexArray* m_VAO;
-		//VertexBuffer* m_VBO;
-		//IndexBuffer* m_EBO;
         unsigned int m_VAO, m_VBO, m_EBO;
+        glm::vec3 m_BoundsMin{0.0f};
+        glm::vec3 m_BoundsMax{0.0f};
+        glm::vec3 m_Center{0.0f};
     };
 
 }

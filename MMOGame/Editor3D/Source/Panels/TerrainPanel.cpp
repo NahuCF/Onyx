@@ -229,7 +229,7 @@ void TerrainPanel::OnImGuiRender() {
 
     ImGui::Separator();
 
-    auto& terrainSystem = m_Viewport->GetTerrainSystem();
+    auto& terrainSystem = m_Viewport->GetWorldSystem();
 
     if (ImGui::Button("Save Terrain")) {
         terrainSystem.SaveDirtyChunks();

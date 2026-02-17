@@ -3,6 +3,8 @@
 #include <Core/Layer.h>
 #include "Panels/PanelManager.h"
 #include "World/EditorWorld.h"
+#include "Map/EditorMapRegistry.h"
+#include "Map/MapBrowserDialog.h"
 #include <memory>
 
 namespace MMO {
@@ -28,10 +30,19 @@ private:
     void SetupDockspace();
     void RenderMenuBar();
     void HandleGlobalShortcuts();
+    void LoadMap(uint32_t mapId);
+    void UnloadMap();
 
     EditorWorld m_World;
     PanelManager m_PanelManager;
     ViewportPanel* m_ViewportPanel = nullptr;
+
+    // Map management
+    Editor3D::EditorMapRegistry m_MapRegistry;
+    Editor3D::MapBrowserDialog m_MapBrowser;
+    uint32_t m_CurrentMapId = 0;
+    bool m_MapLoaded = false;
+    bool m_ShowMapBrowser = true;
 };
 
 } // namespace MMO

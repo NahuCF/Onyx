@@ -22,7 +22,6 @@ namespace Onyx {
 
 		float GetSeconds() const { return m_CurrentTime - m_LastTime; }
 		float GetMilliseconds() const { return (m_CurrentTime - m_LastTime) * 1000; }
-		void ShowFPS(bool value = 0);
 		void SetVSync(bool value = 0) const;
 
         int GetFramerate() const { return m_LastFPS; }
@@ -66,7 +65,6 @@ namespace Onyx {
 		float m_LastTime = 0.0f, m_CurrentTime = 0.0f;
 		int m_FPS = 0;
         int m_LastFPS = 0;
-		bool m_ShowFPS = false;
 		bool m_Closed;
 
 		float curtime, lasttime;

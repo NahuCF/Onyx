@@ -1,6 +1,6 @@
 #pragma once
 
-#include "TerrainChunk.h"
+#include "WorldChunk.h"
 #include <Onyx.h>
 #include <glm/glm.hpp>
 #include <vector>
@@ -19,22 +19,27 @@ struct ChunkLoadRequest {
     float priority;
 };
 
-class EditorTerrainSystem {
+class EditorWorldSystem {
 public:
-    EditorTerrainSystem();
-    ~EditorTerrainSystem();
+    EditorWorldSystem();
+    ~EditorWorldSystem();
 
     using PerChunkCallback = std::function<void(TerrainChunk*, Shader*)>;
 
-    void Init(const std::string& projectPath);
+    void Init(const std::string& chunksDirectory);
     void Shutdown();
     void Update(const glm::vec3& cameraPos, const glm::mat4& viewProj, float deltaTime);
-    void Render(Shader* terrainShader, const glm::mat4& viewProj,
-                PerChunkCallback perChunkSetup = nullptr);
+    void RenderTerrain(Shader* terrainShader, const glm::mat4& viewProj,
+                       PerChunkCallback perChunkSetup = nullptr);
 
+    // Light gathering from all loaded chunks
+    std::vector<EditorLight> GatherVisibleLights(const glm::vec3& cameraPos, float maxDistance = 200.0f) const;
+
+    // Terrain queries
     float GetHeightAt(float worldX, float worldZ);
     bool GetHeightAt(float worldX, float worldZ, float& outHeight);
 
+    // Terrain editing
     void SetHeightAt(float worldX, float worldZ, float height);
     void RaiseTerrain(float worldX, float worldZ, float radius, float amount);
     void LowerTerrain(float worldX, float worldZ, float radius, float amount);
@@ -47,18 +52,20 @@ public:
                        const std::string& materialId, float strength);
     void SetHole(float worldX, float worldZ, bool isHole);
 
+    // Chunk management
     void EnsureChunkLoaded(int32_t chunkX, int32_t chunkZ);
-    TerrainChunk* CreateChunk(int32_t chunkX, int32_t chunkZ);
+    WorldChunk* CreateChunk(int32_t chunkX, int32_t chunkZ);
     void DeleteChunk(int32_t chunkX, int32_t chunkZ);
     void SaveDirtyChunks();
     void SaveChunk(int32_t chunkX, int32_t chunkZ);
 
+    // Edit undo/redo
     void BeginEdit(float worldX, float worldZ, float radius);
     void EndEdit();
     void CancelEdit();
 
+    // Settings
     void SetDefaultMaterialIds(const std::string ids[MAX_TERRAIN_LAYERS]);
-
     void SetNormalMode(bool sobel, bool smooth);
     void SetDiamondGrid(bool enabled);
     void SetMeshResolution(int resolution);
@@ -80,8 +87,10 @@ public:
     };
 
     const Stats& GetStats() const { return m_Stats; }
-    const std::unordered_map<int32_t, std::unique_ptr<TerrainChunk>>& GetChunks() const { return m_Chunks; }
-    std::unordered_map<int32_t, std::unique_ptr<TerrainChunk>>& GetChunksMutable() { return m_Chunks; }
+    const std::unordered_map<int32_t, std::unique_ptr<WorldChunk>>& GetChunks() const { return m_Chunks; }
+    std::unordered_map<int32_t, std::unique_ptr<WorldChunk>>& GetChunksMutable() { return m_Chunks; }
+
+    WorldChunk* GetChunk(int32_t cx, int32_t cz);
 
     static int32_t MakeChunkKeyPublic(int32_t x, int32_t z) {
         return static_cast<int32_t>((static_cast<uint32_t>(x) << 16) | (static_cast<uint32_t>(z) & 0xFFFF));
@@ -92,7 +101,7 @@ private:
     StreamingSettings m_Settings;
     Stats m_Stats;
 
-    std::unordered_map<int32_t, std::unique_ptr<TerrainChunk>> m_Chunks;
+    std::unordered_map<int32_t, std::unique_ptr<WorldChunk>> m_Chunks;
     std::unordered_set<int32_t> m_KnownChunkFiles;
     std::deque<ChunkLoadRequest> m_LoadQueue;
 
@@ -105,11 +114,7 @@ private:
     int m_MeshResolution = 65;
 
     std::string m_DefaultMaterialIds[MAX_TERRAIN_LAYERS];
-
     std::unordered_map<std::string, int> m_MaterialLayerMap;
-
-    void ApplyDefaultMaterials(TerrainChunk* chunk);
-    int ResolveGlobalLayer(const std::string& materialId);
 
     struct EditSnapshot {
         std::vector<std::pair<int32_t, TerrainChunkData>> chunkSnapshots;
@@ -120,6 +125,9 @@ private:
         return static_cast<int32_t>((static_cast<uint32_t>(x) << 16) | (static_cast<uint32_t>(z) & 0xFFFF));
     }
 
+    void ApplyDefaultMaterials(WorldChunk* chunk);
+    int ResolveGlobalLayer(const std::string& materialId);
+
     float CalculateChunkDistance(int32_t chunkX, int32_t chunkZ) const;
     bool IsChunkVisible(int32_t chunkX, int32_t chunkZ) const;
 
@@ -127,18 +135,17 @@ private:
     void UnloadDistantChunks();
 
     std::string GetChunkFilePath(int32_t chunkX, int32_t chunkZ) const;
-    void LoadChunkFromDisk(TerrainChunk* chunk);
-    void SaveChunkToDisk(TerrainChunk* chunk);
+    void LoadChunkFromDisk(WorldChunk* chunk);
+    void SaveChunkToDisk(WorldChunk* chunk);
 
-    TerrainChunk* GetOrCreateChunk(int32_t chunkX, int32_t chunkZ);
-
+    WorldChunk* GetOrCreateChunk(int32_t chunkX, int32_t chunkZ);
     bool EnsureChunksReady(int minCX, int maxCX, int minCZ, int maxCZ);
 
     void ApplyBrush(float worldX, float worldZ, float radius,
                     std::function<void(TerrainChunk*, int localX, int localZ, float weight)> operation);
 
     void StitchEdges(int minCX, int maxCX, int minCZ, int maxCZ);
-    void CopyBoundaryFromNeighbors(TerrainChunk* chunk);
+    void CopyBoundaryFromNeighbors(WorldChunk* chunk);
     float GetChunkHeight(int cx, int cz, int lx, int lz) const;
     void DirtyNeighborChunks(int32_t cx, int32_t cz);
     void PaintSplatmapLayer(float worldX, float worldZ, float radius, int layer, float strength);

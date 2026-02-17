@@ -6,11 +6,12 @@
 #include <Graphics/CascadedShadowMap.h>
 #include <Graphics/Buffers.h>
 #include <Graphics/Texture.h>
+#include <Graphics/MaterialLibrary.h>
 #include <Graphics/Model.h>
 #include "World/WorldTypes.h"
 #include "World/StaticObject.h"
 #include "Gizmo/TransformGizmo.h"
-#include "Terrain/EditorTerrainSystem.h"
+#include "World/EditorWorldSystem.h"
 #include "Terrain/TerrainMaterialLibrary.h"
 #include <Graphics/AnimatedModel.h>
 #include <Graphics/Animator.h>
@@ -23,7 +24,7 @@ namespace MMO {
 class ViewportPanel : public EditorPanel {
 public:
     ViewportPanel();
-    ~ViewportPanel() override = default;
+    ~ViewportPanel() override;
 
     void OnInit() override;
     void OnImGuiRender() override;
@@ -40,11 +41,14 @@ public:
 
     uint32_t GetTriangleCount() const { return m_TriangleCount; }
     uint32_t GetDrawCalls() const { return m_DrawCalls; }
+    uint32_t GetBatchedDrawCalls() const { return m_BatchedDrawCalls; }
+    uint32_t GetBatchedMeshCount() const { return m_BatchedMeshCount; }
 
     float GetShadowPassTime() const { return m_ShadowPassTime; }
     float GetTerrainPassTime() const { return m_TerrainPassTime; }
     float GetWorldObjectsPassTime() const { return m_WorldObjectsPassTime; }
     float GetTotalRenderTime() const { return m_TotalRenderTime; }
+    bool& GetProfilePassTiming() { return m_ProfilePassTiming; }
 
     glm::vec3& GetLightDir() { return m_LightDir; }
     glm::vec3& GetLightColor() { return m_LightColor; }
@@ -73,8 +77,9 @@ public:
     void InvalidateAnimator(uint64_t objectGuid);
     void ReloadAnimations(uint64_t objectGuid, StaticObject* object);
 
-    Editor3D::EditorTerrainSystem& GetTerrainSystem() { return m_TerrainSystem; }
+    Editor3D::EditorWorldSystem& GetWorldSystem() { return m_WorldSystem; }
     Editor3D::TerrainMaterialLibrary& GetTerrainMaterialLibrary() { return m_TerrainMaterialLibrary; }
+    Onyx::MaterialLibrary& GetMaterialLibrary() { return m_MaterialLibrary; }
     bool IsTerrainEnabled() const { return m_TerrainEnabled; }
     void SetTerrainEnabled(bool enabled) { m_TerrainEnabled = enabled; }
 
@@ -174,15 +179,12 @@ private:
     std::unique_ptr<Onyx::Shader> m_IconShader;       // For gizmo icons
     std::unique_ptr<Onyx::Shader> m_PickingShader;    // For GPU picking (solid geometry)
     std::unique_ptr<Onyx::Shader> m_PickingBillboardShader; // For GPU picking (billboards)
+    std::unique_ptr<Onyx::Shader> m_BillboardShader;       // For rendering billboard icons
 
     // Primitive geometry
     std::unique_ptr<Onyx::VertexArray> m_CubeVAO;
     std::unique_ptr<Onyx::VertexBuffer> m_CubeVBO;
     std::unique_ptr<Onyx::IndexBuffer> m_CubeEBO;
-
-    std::unique_ptr<Onyx::VertexArray> m_PlaneVAO;
-    std::unique_ptr<Onyx::VertexBuffer> m_PlaneVBO;
-    std::unique_ptr<Onyx::IndexBuffer> m_PlaneEBO;
 
     // Grid geometry (fullscreen quad for infinite grid shader)
     std::unique_ptr<Onyx::VertexArray> m_GridVAO;
@@ -231,7 +233,7 @@ private:
 
     // Shadow settings
     bool m_EnableShadows = true;
-    float m_ShadowBias = 0.0001f;
+    float m_ShadowBias = 0.0f;
     float m_ShadowDistance = 60.0f;
     uint32_t m_ShadowMapSize = 2048;
     float m_SplitLambda = 0.0f;
@@ -244,8 +246,11 @@ private:
     // Statistics
     uint32_t m_TriangleCount = 0;
     uint32_t m_DrawCalls = 0;
+    uint32_t m_BatchedDrawCalls = 0;
+    uint32_t m_BatchedMeshCount = 0;
 
     // Render pass timing (ms)
+    bool m_ProfilePassTiming = false;
     float m_ShadowPassTime = 0.0f;
     float m_TerrainPassTime = 0.0f;
     float m_WorldObjectsPassTime = 0.0f;
@@ -266,20 +271,14 @@ private:
     // Model cache - maps path to loaded model
     std::unordered_map<std::string, std::unique_ptr<Onyx::Model>> m_ModelCache;
 
-    // Texture cache - maps path to Texture object
-    std::unordered_map<std::string, std::unique_ptr<Onyx::Texture>> m_TextureCache;
-
-    // Default white texture for models without textures
-    std::unique_ptr<Onyx::Texture> m_DefaultWhiteTexture;
+    // Material library — owns texture cache and default textures
+    Onyx::MaterialLibrary m_MaterialLibrary;
 
     // Get or load a model from cache
     Onyx::Model* GetOrLoadModel(const std::string& path);
 
-    // Get or load a texture from cache
+    // Get or load a texture from cache (delegates to MaterialLibrary)
     Onyx::Texture* GetOrLoadTexture(const std::string& path);
-
-    // Create default textures
-    void CreateDefaultTextures();
 
     // Animated model cache
     std::unordered_map<std::string, std::unique_ptr<Onyx::AnimatedModel>> m_AnimatedModelCache;
@@ -288,11 +287,64 @@ private:
     Onyx::AnimatedModel* GetOrLoadAnimatedModel(const std::string& path);
 
     // Terrain
-    Editor3D::EditorTerrainSystem m_TerrainSystem;
+    Editor3D::EditorWorldSystem m_WorldSystem;
     Editor3D::TerrainMaterialLibrary m_TerrainMaterialLibrary;
     bool m_TerrainEnabled = true;
     bool m_TerrainPainting = false;
     std::unique_ptr<Onyx::Shader> m_TerrainShader;
+
+    // Lights - collected from chunks each frame
+    void CollectLights();
+    void UploadLightUniforms(Onyx::Shader* shader);
+    std::vector<Editor3D::EditorLight> m_CollectedPointLights;
+    std::vector<Editor3D::EditorLight> m_CollectedSpotLights;
+
+    // --- Batched rendering ---
+
+    // GPU-side per-draw data (matches SSBO layout in shaders)
+    struct DrawDataGPU {
+        glm::mat4 model;  // 64 bytes
+    };
+
+    // OpenGL draw command struct for glMultiDrawElementsIndirect
+    struct DrawCommand {
+        uint32_t count;
+        uint32_t instanceCount;
+        uint32_t firstIndex;
+        int32_t  baseVertex;
+        uint32_t baseInstance;
+    };
+
+    // Per-mesh entry for shadow frustum culling
+    struct MeshBoundsEntry {
+        glm::vec3 worldMin;
+        glm::vec3 worldMax;
+    };
+
+    // A batch of draws for one model+texture combination (shares a merged VAO)
+    struct ModelBatch {
+        Onyx::Model* model = nullptr;
+        std::string albedoPath;
+        std::string normalPath;
+        std::vector<DrawDataGPU> drawData;
+        std::vector<DrawCommand> commands;
+        std::vector<MeshBoundsEntry> meshEntries;  // for shadow culling
+        uint32_t totalTriangles = 0;
+    };
+
+    void BuildModelBatches();
+
+    // Batched rendering shaders
+    std::unique_ptr<Onyx::Shader> m_BatchedModelShader;
+    std::unique_ptr<Onyx::Shader> m_BatchedShadowShader;
+
+    // Persistent buffers for batched rendering
+    std::unique_ptr<Onyx::ShaderStorageBuffer> m_DrawDataSSBO;
+    std::unique_ptr<Onyx::DrawCommandBuffer> m_DrawCmdBO;
+
+    // Per-frame batch data
+    std::unordered_map<std::string, ModelBatch> m_ModelBatches;
+
 };
 
 } // namespace MMO

@@ -18,6 +18,7 @@
 #include "Graphics/Frustum.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/Material.h"
+#include "Graphics/MaterialLibrary.h"
 #include "Graphics/TextureArray.h"
 #include "Graphics/CascadedShadowMap.h"
 //#include "Graphics/Model.h"

@@ -22,26 +22,13 @@ void Editor3DLayer::OnAttach() {
     auto& window = *Onyx::Application::GetInstance().GetWindow();
     window.SetVSync(false);
 
-    m_World.NewMap("Untitled Map");
+    // Load map registry
+    m_MapRegistry.Load("maps");
+    m_MapBrowser.SetRegistry(&m_MapRegistry);
+    m_ShowMapBrowser = true;
+    m_MapLoaded = false;
 
-    auto* obj1 = m_World.CreateStaticObject("Test Cube 1");
-    obj1->SetPosition(glm::vec3(0.0f, 0.5f, 0.0f));
-
-    auto* obj2 = m_World.CreateStaticObject("Test Cube 2");
-    obj2->SetPosition(glm::vec3(5.0f, 0.5f, 0.0f));
-
-    auto* obj3 = m_World.CreateStaticObject("Test Cube 3");
-    obj3->SetPosition(glm::vec3(-5.0f, 0.5f, 0.0f));
-
-    auto* spawn = m_World.CreateSpawnPoint("Goblin Spawn");
-    spawn->SetPosition(glm::vec3(0.0f, 0.0f, 5.0f));
-    spawn->SetCreatureTemplateId(1);
-
-    auto* light = m_World.CreateLight(LightType::POINT, "Main Light");
-    light->SetPosition(glm::vec3(0.0f, 10.0f, 0.0f));
-    light->SetColor(glm::vec3(1.0f, 0.9f, 0.8f));
-    light->SetRadius(50.0f);
-
+    // Setup panels (created once, rendered only when map is loaded)
     m_ViewportPanel = m_PanelManager.AddPanel<ViewportPanel>("Viewport", true);
 
     m_PanelManager.AddPanel<HierarchyPanel>("Hierarchy", true);
@@ -92,6 +79,7 @@ void Editor3DLayer::OnAttach() {
 }
 
 void Editor3DLayer::OnUpdate() {
+    if (!m_MapLoaded) return;
     HandleGlobalShortcuts();
 }
 
@@ -159,19 +147,33 @@ void Editor3DLayer::SetupDockspace() {
 
     ImGui::End();
 
-    m_PanelManager.OnImGuiRender();
+    // Show map browser if no map is loaded
+    if (m_ShowMapBrowser) {
+        if (m_MapBrowser.Render()) {
+            uint32_t selectedId = m_MapBrowser.GetSelectedMapId();
+            if (selectedId > 0) {
+                LoadMap(selectedId);
+                m_ShowMapBrowser = false;
+            }
+        }
+    }
+
+    // Only render panels when a map is loaded
+    if (m_MapLoaded) {
+        m_PanelManager.OnImGuiRender();
+    }
 }
 
 void Editor3DLayer::RenderMenuBar() {
     if (ImGui::BeginMenu("File")) {
-        if (ImGui::MenuItem("New Scene", "Ctrl+N")) {
-            m_World.NewMap("Untitled Map");
+        if (ImGui::MenuItem("Open Map", "Ctrl+O")) {
+            m_MapBrowser.Reset();
+            m_ShowMapBrowser = true;
         }
-        if (ImGui::MenuItem("Open Scene", "Ctrl+O")) {
-            // TODO: File dialog
-        }
-        if (ImGui::MenuItem("Save Scene", "Ctrl+S")) {
-            // TODO: Save
+        if (ImGui::MenuItem("Save", "Ctrl+S", false, m_MapLoaded)) {
+            if (m_ViewportPanel) {
+                m_ViewportPanel->GetWorldSystem().SaveDirtyChunks();
+            }
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Exit")) {
@@ -281,6 +283,18 @@ void Editor3DLayer::RenderMenuBar() {
         }
         ImGui::EndMenu();
     }
+
+    // Show current map name in the menu bar
+    if (m_MapLoaded) {
+        const MapEntry* entry = m_MapRegistry.GetMapById(m_CurrentMapId);
+        if (entry) {
+            float availWidth = ImGui::GetContentRegionAvail().x;
+            std::string mapInfo = entry->displayName + " (" + MapInstanceTypeName(entry->instanceType) + ")";
+            float textWidth = ImGui::CalcTextSize(mapInfo.c_str()).x;
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + availWidth - textWidth);
+            ImGui::TextDisabled("%s", mapInfo.c_str());
+        }
+    }
 }
 
 void Editor3DLayer::HandleGlobalShortcuts() {
@@ -307,6 +321,45 @@ void Editor3DLayer::HandleGlobalShortcuts() {
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) {
         CommandHistory::Get().Redo();
     }
+
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
+        if (m_MapLoaded && m_ViewportPanel) {
+            m_ViewportPanel->GetWorldSystem().SaveDirtyChunks();
+        }
+    }
+}
+
+void Editor3DLayer::LoadMap(uint32_t mapId) {
+    const MapEntry* entry = m_MapRegistry.GetMapById(mapId);
+    if (!entry) return;
+
+    // Unload previous map if any
+    if (m_MapLoaded) {
+        UnloadMap();
+    }
+
+    m_CurrentMapId = mapId;
+    m_MapLoaded = true;
+
+    m_World.NewMap(entry->displayName);
+
+    // Initialize terrain system with map-scoped chunks directory
+    std::string chunksDir = m_MapRegistry.GetChunksDirectory(mapId);
+    m_ViewportPanel->GetWorldSystem().Init(chunksDir);
+}
+
+void Editor3DLayer::UnloadMap() {
+    if (!m_MapLoaded) return;
+
+    // Save dirty terrain before unloading
+    if (m_ViewportPanel) {
+        m_ViewportPanel->GetWorldSystem().SaveDirtyChunks();
+        m_ViewportPanel->GetWorldSystem().Shutdown();
+    }
+
+    m_World.NewMap("Untitled Map");
+    m_CurrentMapId = 0;
+    m_MapLoaded = false;
 }
 
 } // namespace MMO

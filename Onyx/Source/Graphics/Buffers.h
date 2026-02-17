@@ -76,4 +76,44 @@ namespace Onyx {
 		IndexBuffer* m_IndexBuffer = nullptr;
 	};
 
+	class ShaderStorageBuffer
+	{
+	public:
+		ShaderStorageBuffer();
+		~ShaderStorageBuffer();
+
+		void Bind() const;
+		void UnBind() const;
+		void BindBase(uint32_t slot) const;
+
+		// Grow-or-update: reallocates if sizeBytes > current capacity, else SubData.
+		// Also binds to the given binding point.
+		void Upload(const void* data, size_t sizeBytes, uint32_t bindingPoint);
+
+		uint32_t GetBufferID() const { return m_BufferID; }
+
+	private:
+		uint32_t m_BufferID = 0;
+		size_t m_AllocatedSize = 0;
+	};
+
+	class DrawCommandBuffer
+	{
+	public:
+		DrawCommandBuffer();
+		~DrawCommandBuffer();
+
+		void Bind() const;
+		void UnBind() const;
+
+		// Grow-or-update: reallocates if sizeBytes > current capacity, else SubData.
+		void Upload(const void* data, size_t sizeBytes);
+
+		uint32_t GetBufferID() const { return m_BufferID; }
+
+	private:
+		uint32_t m_BufferID = 0;
+		size_t m_AllocatedSize = 0;
+	};
+
 }

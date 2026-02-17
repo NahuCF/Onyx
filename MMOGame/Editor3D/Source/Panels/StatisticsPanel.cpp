@@ -1,6 +1,6 @@
 #include "StatisticsPanel.h"
 #include "ViewportPanel.h"
-#include "../Terrain/EditorTerrainSystem.h"
+#include "../World/EditorWorldSystem.h"
 #include <Core/Application.h>
 #include <imgui.h>
 
@@ -27,6 +27,8 @@ void StatisticsPanel::OnImGuiRender() {
             if (m_Viewport) {
                 ImGui::Text("Triangles: %u", m_Viewport->GetTriangleCount());
                 ImGui::Text("Draw Calls: %u", m_Viewport->GetDrawCalls());
+                ImGui::Text("  Batched: %u", m_Viewport->GetBatchedDrawCalls());
+                ImGui::Text("  Batched Meshes: %u", m_Viewport->GetBatchedMeshCount());
             } else {
                 ImGui::TextDisabled("No viewport available");
             }
@@ -36,19 +38,20 @@ void StatisticsPanel::OnImGuiRender() {
 
         if (ImGui::BeginTabItem("Render Passes")) {
             if (m_Viewport) {
-                ImGui::Text("Pass Timing");
+                ImGui::Checkbox("Profile Pass Timing (reduces FPS)", &m_Viewport->GetProfilePassTiming());
                 ImGui::Separator();
 
-                float shadow = m_Viewport->GetShadowPassTime();
-                float terrain = m_Viewport->GetTerrainPassTime();
-                float objects = m_Viewport->GetWorldObjectsPassTime();
-                float total = m_Viewport->GetTotalRenderTime();
+                ImGui::Text("Total Render: %6.2f ms", m_Viewport->GetTotalRenderTime());
 
-                ImGui::Text("Shadow Pass:  %6.2f ms", shadow);
-                ImGui::Text("Terrain:      %6.2f ms", terrain);
-                ImGui::Text("World Objects:%6.2f ms", objects);
-                ImGui::Separator();
-                ImGui::Text("Total Render: %6.2f ms", total);
+                if (m_Viewport->GetProfilePassTiming()) {
+                    ImGui::Spacing();
+                    ImGui::Text("Shadow Pass:  %6.2f ms", m_Viewport->GetShadowPassTime());
+                    ImGui::Text("Terrain:      %6.2f ms", m_Viewport->GetTerrainPassTime());
+                    ImGui::Text("World Objects:%6.2f ms", m_Viewport->GetWorldObjectsPassTime());
+                } else {
+                    ImGui::Spacing();
+                    ImGui::TextDisabled("Enable profiling to see per-pass timing");
+                }
 
             } else {
                 ImGui::TextDisabled("No viewport available");
@@ -58,8 +61,8 @@ void StatisticsPanel::OnImGuiRender() {
 
         if (ImGui::BeginTabItem("Terrain")) {
             if (m_Viewport) {
-                auto& stats = m_Viewport->GetTerrainSystem().GetStats();
-                auto& settings = m_Viewport->GetTerrainSystem().GetSettings();
+                auto& stats = m_Viewport->GetWorldSystem().GetStats();
+                auto& settings = m_Viewport->GetWorldSystem().GetSettings();
 
                 ImGui::Text("Chunks");
                 ImGui::Separator();

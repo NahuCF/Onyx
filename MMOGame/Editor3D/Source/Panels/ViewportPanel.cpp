@@ -10,12 +10,70 @@
 #include <algorithm>
 #include <limits>
 #include <iostream>
+#include <cmath>
 
 namespace MMO {
+
+// --- Shadow cascade culling helpers ---
+
+static void ExtractFrustumPlanes(const glm::mat4& vp, glm::vec4 planes[6]) {
+    // Left
+    planes[0] = glm::vec4(vp[0][3]+vp[0][0], vp[1][3]+vp[1][0], vp[2][3]+vp[2][0], vp[3][3]+vp[3][0]);
+    // Right
+    planes[1] = glm::vec4(vp[0][3]-vp[0][0], vp[1][3]-vp[1][0], vp[2][3]-vp[2][0], vp[3][3]-vp[3][0]);
+    // Bottom
+    planes[2] = glm::vec4(vp[0][3]+vp[0][1], vp[1][3]+vp[1][1], vp[2][3]+vp[2][1], vp[3][3]+vp[3][1]);
+    // Top
+    planes[3] = glm::vec4(vp[0][3]-vp[0][1], vp[1][3]-vp[1][1], vp[2][3]-vp[2][1], vp[3][3]-vp[3][1]);
+    // Near
+    planes[4] = glm::vec4(vp[0][3]+vp[0][2], vp[1][3]+vp[1][2], vp[2][3]+vp[2][2], vp[3][3]+vp[3][2]);
+    // Far
+    planes[5] = glm::vec4(vp[0][3]-vp[0][2], vp[1][3]-vp[1][2], vp[2][3]-vp[2][2], vp[3][3]-vp[3][2]);
+
+    for (int i = 0; i < 6; i++) {
+        float len = glm::length(glm::vec3(planes[i]));
+        if (len > 0.0f) planes[i] /= len;
+    }
+}
+
+static bool AABBInFrustum(const glm::vec3& aabbMin, const glm::vec3& aabbMax, const glm::vec4 planes[6]) {
+    for (int i = 0; i < 6; i++) {
+        // Find the positive vertex (farthest along the plane normal)
+        glm::vec3 p;
+        p.x = planes[i].x > 0 ? aabbMax.x : aabbMin.x;
+        p.y = planes[i].y > 0 ? aabbMax.y : aabbMin.y;
+        p.z = planes[i].z > 0 ? aabbMax.z : aabbMin.z;
+        if (glm::dot(glm::vec3(planes[i]), p) + planes[i].w < 0.0f)
+            return false;
+    }
+    return true;
+}
+
+static void TransformAABB(const glm::vec3& localMin, const glm::vec3& localMax,
+                           const glm::mat4& matrix, glm::vec3& worldMin, glm::vec3& worldMax) {
+    glm::vec3 center = (localMin + localMax) * 0.5f;
+    glm::vec3 extent = (localMax - localMin) * 0.5f;
+    glm::vec3 newCenter = glm::vec3(matrix * glm::vec4(center, 1.0f));
+
+    // Transform extent using absolute rotation/scale columns
+    glm::vec3 newExtent;
+    for (int i = 0; i < 3; i++) {
+        newExtent[i] =
+            std::abs(matrix[0][i]) * extent.x +
+            std::abs(matrix[1][i]) * extent.y +
+            std::abs(matrix[2][i]) * extent.z;
+    }
+    worldMin = newCenter - newExtent;
+    worldMax = newCenter + newExtent;
+}
+
+static glm::mat4 ComputeMeshMatrix(const glm::mat4& objectMatrix, const MeshMaterial* meshMat, const glm::vec3& meshCenter);
 
 ViewportPanel::ViewportPanel() {
     m_Name = "Viewport";
 }
+
+ViewportPanel::~ViewportPanel() = default;
 
 void ViewportPanel::OnInit() {
     m_Framebuffer = std::make_unique<Onyx::Framebuffer>();
@@ -79,33 +137,6 @@ void ViewportPanel::OnInit() {
     m_CubeVAO->SetIndexBuffer(m_CubeEBO.get());
     m_CubeVAO->SetLayout(cubeLayout);
 
-    float planeVertices[] = {
-        -0.5f, 0.0f, -0.5f,    0.0f, 1.0f, 0.0f,  0.0f, 0.0f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
-         0.5f, 0.0f, -0.5f,    0.0f, 1.0f, 0.0f,  1.0f, 0.0f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
-         0.5f, 0.0f,  0.5f,    0.0f, 1.0f, 0.0f,  1.0f, 1.0f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
-        -0.5f, 0.0f,  0.5f,    0.0f, 1.0f, 0.0f,  0.0f, 1.0f,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
-    };
-
-    uint32_t planeIndices[] = {
-        0, 2, 1,
-        0, 3, 2
-    };
-
-    m_PlaneVBO = std::make_unique<Onyx::VertexBuffer>(static_cast<const void*>(planeVertices), sizeof(planeVertices));
-    m_PlaneEBO = std::make_unique<Onyx::IndexBuffer>(static_cast<const void*>(planeIndices), sizeof(planeIndices));
-    m_PlaneVAO = std::make_unique<Onyx::VertexArray>();
-
-    Onyx::VertexLayout planeLayout;
-    planeLayout.PushFloat(3);
-    planeLayout.PushFloat(3);
-    planeLayout.PushFloat(2);
-    planeLayout.PushFloat(3);
-    planeLayout.PushFloat(3);
-
-    m_PlaneVAO->SetVertexBuffer(m_PlaneVBO.get());
-    m_PlaneVAO->SetIndexBuffer(m_PlaneEBO.get());
-    m_PlaneVAO->SetLayout(planeLayout);
-
     m_InfiniteGridShader = std::make_unique<Onyx::Shader>(
         "MMOGame/Editor3D/assets/shaders/infinite_grid.vert",
         "MMOGame/Editor3D/assets/shaders/infinite_grid.frag"
@@ -138,8 +169,6 @@ void ViewportPanel::OnInit() {
 
     m_Gizmo = std::make_unique<TransformGizmo>();
     m_Gizmo->Init();
-
-    CreateDefaultTextures();
 
     m_PickingFramebuffer = std::make_unique<Onyx::Framebuffer>();
     m_PickingFramebuffer->Create(800, 600, 1);
@@ -178,6 +207,11 @@ void ViewportPanel::OnInit() {
     m_BillboardVAO->SetIndexBuffer(m_BillboardEBO.get());
     m_BillboardVAO->SetLayout(billboardLayout);
 
+    m_BillboardShader = std::make_unique<Onyx::Shader>(
+        "MMOGame/Editor3D/assets/shaders/billboard.vert",
+        "MMOGame/Editor3D/assets/shaders/billboard.frag"
+    );
+
     m_LightIconTexture = Onyx::Texture::CreateSolidColor(255, 220, 50);
     m_SpawnIconTexture = Onyx::Texture::CreateSolidColor(50, 220, 100);
     m_ParticleIconTexture = Onyx::Texture::CreateSolidColor(220, 50, 220);
@@ -196,6 +230,20 @@ void ViewportPanel::OnInit() {
         "MMOGame/Editor3D/assets/shaders/terrain.vert",
         "MMOGame/Editor3D/assets/shaders/terrain.frag"
     );
+
+    // Batched rendering shaders and buffers
+    m_BatchedModelShader = std::make_unique<Onyx::Shader>(
+        "MMOGame/Editor3D/assets/shaders/model_batched.vert",
+        "MMOGame/Editor3D/assets/shaders/model.frag"
+    );
+    m_BatchedShadowShader = std::make_unique<Onyx::Shader>(
+        "MMOGame/Editor3D/assets/shaders/shadow_depth_batched.vert",
+        "MMOGame/Editor3D/assets/shaders/shadow_depth.frag"
+    );
+
+    m_DrawDataSSBO = std::make_unique<Onyx::ShaderStorageBuffer>();
+    m_DrawCmdBO = std::make_unique<Onyx::DrawCommandBuffer>();
+
     m_TerrainMaterialLibrary.Init("MMOGame/Editor3D/assets");
 
     const char* defaultMatIds[] = {"dirt", "grass", "rock", "sand"};
@@ -205,9 +253,10 @@ void ViewportPanel::OnInit() {
             defaults[i] = defaultMatIds[i];
         }
     }
-    m_TerrainSystem.SetDefaultMaterialIds(defaults);
+    m_WorldSystem.SetDefaultMaterialIds(defaults);
 
-    m_TerrainSystem.Init("");
+    // Terrain system Init() is called later by Editor3DLayer::LoadMap()
+    // when a map is selected from the map browser.
 }
 
 void ViewportPanel::OnImGuiRender() {
@@ -253,11 +302,11 @@ void ViewportPanel::OnImGuiRender() {
     HandleObjectPicking();
 
     if (m_TerrainEnabled) {
-        m_TerrainSystem.SetNormalMode(m_TerrainTool.sobelNormals, m_TerrainTool.smoothNormals);
-        m_TerrainSystem.SetDiamondGrid(m_TerrainTool.diamondGrid);
-        m_TerrainSystem.SetMeshResolution(m_TerrainTool.meshResolution);
+        m_WorldSystem.SetNormalMode(m_TerrainTool.sobelNormals, m_TerrainTool.smoothNormals);
+        m_WorldSystem.SetDiamondGrid(m_TerrainTool.diamondGrid);
+        m_WorldSystem.SetMeshResolution(m_TerrainTool.meshResolution);
         glm::mat4 VP = m_ProjectionMatrix * m_ViewMatrix;
-        m_TerrainSystem.Update(m_CameraPosition, VP, 0.016f);
+        m_WorldSystem.Update(m_CameraPosition, VP, 0.016f);
         if (m_TerrainTool.toolActive && m_ViewportHovered) {
             HandleTerrainInput();
         }
@@ -270,6 +319,16 @@ void ViewportPanel::OnImGuiRender() {
         ImVec2(m_ViewportWidth, m_ViewportHeight),
         ImVec2(0, 1), ImVec2(1, 0)
     );
+
+    // Build version overlay (bottom-right corner)
+    {
+        const char* buildVersion = "Build: " __DATE__ " " __TIME__;
+        ImVec2 textSize = ImGui::CalcTextSize(buildVersion);
+        float padding = 4.0f;
+        ImVec2 pos(vpPos.x + m_ViewportWidth - textSize.x - padding,
+                   vpPos.y + m_ViewportHeight - textSize.y - padding);
+        ImGui::GetWindowDrawList()->AddText(pos, IM_COL32(255, 255, 255, 128), buildVersion);
+    }
 
     ImGui::SetCursorPos(ImVec2(0, 30));
     ImGui::Checkbox("Show Grid", &m_ShowGrid);
@@ -331,100 +390,124 @@ void ViewportPanel::RenderShadowPass() {
                   glm::normalize(m_LightDir), 0.1f, m_ShadowDistance, m_SplitLambda);
     m_CSM->ClearAll();
 
-    Onyx::RenderCommand::EnableDepthTest();
-    Onyx::RenderCommand::EnableCulling();
-    Onyx::RenderCommand::SetCullFace(true);
+    // Pre-build traditional shadow draws (cubes only)
+    std::vector<glm::mat4> shadowCubeDraws;
 
-    m_ShadowDepthShader->Bind();
+    if (m_World) {
+        for (const auto& obj : m_World->GetStaticObjects()) {
+            if (!obj->IsVisible() || !obj->CastsShadow()) continue;
+            const std::string& modelPath = obj->GetModelPath();
+
+            if (modelPath.empty()) {
+                shadowCubeDraws.push_back(m_World->GetWorldMatrix(obj.get()));
+            }
+            // Model meshes are handled via batched rendering below
+        }
+    }
+
+    Onyx::RenderCommand::EnableDepthTest();
+    Onyx::RenderCommand::DisableCulling();
+    Onyx::RenderCommand::EnablePolygonOffset(4.0f, 4.0f);
+
+    // Temp vectors for per-cascade frustum-culled draws
+    std::vector<DrawDataGPU> culledDrawData;
+    std::vector<DrawCommand> culledCommands;
 
     for (uint32_t cascade = 0; cascade < Onyx::NUM_SHADOW_CASCADES; cascade++) {
         m_CSM->BindCascade(cascade);
-        m_ShadowDepthShader->SetMat4("u_LightSpaceMatrix", m_CSM->GetLightSpaceMatrix(cascade));
+        const glm::mat4& lightSpaceMat = m_CSM->GetLightSpaceMatrix(cascade);
 
-        if (m_World) {
-            for (const auto& obj : m_World->GetStaticObjects()) {
-                if (!obj->IsVisible() || !obj->CastsShadow()) continue;
+        glm::vec4 cascadePlanes[6];
+        ExtractFrustumPlanes(lightSpaceMat, cascadePlanes);
 
-                glm::mat4 modelMatrix = m_World->GetWorldMatrix(obj.get());
-                const std::string& modelPath = obj->GetModelPath();
+        // Traditional: cubes
+        m_ShadowDepthShader->Bind();
+        int shadowModelLoc = m_ShadowDepthShader->GetLocation("u_Model");
+        m_ShadowDepthShader->SetMat4("u_LightSpaceMatrix", lightSpaceMat);
 
-                if (modelPath == "#plane") {
-                    m_ShadowDepthShader->SetMat4("u_Model", modelMatrix);
-                    Onyx::RenderCommand::DrawIndexed(*m_PlaneVAO, 6);
-                    continue;
-                }
-
-                if (!modelPath.empty()) {
-                    Onyx::Model* model = GetOrLoadModel(modelPath);
-                    if (model) {
-                        for (size_t meshIdx = 0; meshIdx < model->GetMeshes().size(); meshIdx++) {
-                            auto& mesh = model->GetMeshes()[meshIdx];
-                            std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(meshIdx)) : mesh.m_Name;
-                            const MeshMaterial* meshMat = obj->GetMeshMaterial(meshName);
-                            if (meshMat && !meshMat->visible) continue;
-
-                            glm::mat4 meshModelMatrix = modelMatrix;
-                            if (meshMat) {
-                                glm::vec3 meshCenter(0.0f);
-                                if (!mesh.m_Vertices.empty()) {
-                                    glm::vec3 minBounds(std::numeric_limits<float>::max());
-                                    glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
-                                    for (const auto& v : mesh.m_Vertices) {
-                                        minBounds = glm::min(minBounds, v.position);
-                                        maxBounds = glm::max(maxBounds, v.position);
-                                    }
-                                    meshCenter = (minBounds + maxBounds) * 0.5f;
-                                }
-                                meshModelMatrix = glm::translate(meshModelMatrix, meshMat->positionOffset);
-                                meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.x), glm::vec3(1, 0, 0));
-                                meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.y), glm::vec3(0, 1, 0));
-                                meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.z), glm::vec3(0, 0, 1));
-                                meshModelMatrix = glm::translate(meshModelMatrix, meshCenter);
-                                meshModelMatrix = glm::scale(meshModelMatrix, glm::vec3(meshMat->scaleMultiplier));
-                                meshModelMatrix = glm::translate(meshModelMatrix, -meshCenter);
-                            }
-                            m_ShadowDepthShader->SetMat4("u_Model", meshModelMatrix);
-                            mesh.DrawGeometryOnly();
-                        }
-                    }
-                } else {
-                    m_ShadowDepthShader->SetMat4("u_Model", modelMatrix);
-                    Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
-                }
-            }
+        for (const auto& matrix : shadowCubeDraws) {
+            m_ShadowDepthShader->SetMat4(shadowModelLoc, matrix);
+            Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
         }
 
-            if (m_TerrainEnabled) {
-            m_ShadowDepthShader->SetMat4("u_Model", glm::mat4(1.0f));
-            for (auto& [key, chunk] : m_TerrainSystem.GetChunks()) {
-                if (chunk->GetState() != Editor3D::ChunkState::Active) continue;
-                chunk->Draw(m_ShadowDepthShader.get());
+        // Batched model meshes with per-cascade frustum culling
+        if (!m_ModelBatches.empty()) {
+            m_BatchedShadowShader->Bind();
+            m_BatchedShadowShader->SetMat4("u_LightSpaceMatrix", lightSpaceMat);
+
+            for (auto& [path, batch] : m_ModelBatches) {
+                if (batch.commands.empty()) continue;
+
+                // Frustum-cull each mesh in the batch
+                culledDrawData.clear();
+                culledCommands.clear();
+
+                for (size_t i = 0; i < batch.commands.size(); i++) {
+                    const auto& entry = batch.meshEntries[i];
+                    if (!AABBInFrustum(entry.worldMin, entry.worldMax, cascadePlanes))
+                        continue;
+                    culledDrawData.push_back(batch.drawData[i]);
+                    culledCommands.push_back(batch.commands[i]);
+                }
+
+                if (culledCommands.empty()) continue;
+
+                m_DrawDataSSBO->Upload(culledDrawData.data(),
+                    culledDrawData.size() * sizeof(DrawDataGPU), 0);
+
+                m_DrawCmdBO->Upload(culledCommands.data(),
+                    culledCommands.size() * sizeof(DrawCommand));
+
+                Onyx::RenderCommand::DrawBatched(*batch.model->GetMergedBuffers().vao,
+                    static_cast<uint32_t>(culledCommands.size()));
+            }
+
+            m_DrawCmdBO->UnBind();
+            m_DrawDataSSBO->UnBind();
+        }
+
+        // Terrain shadow
+        if (m_TerrainEnabled) {
+            m_ShadowDepthShader->Bind();
+            m_ShadowDepthShader->SetMat4("u_LightSpaceMatrix", lightSpaceMat);
+            m_ShadowDepthShader->SetMat4(m_ShadowDepthShader->GetLocation("u_Model"), glm::mat4(1.0f));
+            for (auto& [key, wchunk] : m_WorldSystem.GetChunks()) {
+                if (wchunk->GetState() != Editor3D::ChunkState::Active) continue;
+                wchunk->GetTerrain()->Draw(m_ShadowDepthShader.get());
             }
         }
     }
 
     m_CSM->UnBind();
-    Onyx::RenderCommand::SetCullFace(false);
-    Onyx::RenderCommand::DisableCulling();
+    Onyx::RenderCommand::DisablePolygonOffset();
 }
 
 void ViewportPanel::RenderScene() {
     m_TriangleCount = 0;
     m_DrawCalls = 0;
+    m_BatchedDrawCalls = 0;
+    m_BatchedMeshCount = 0;
+
+    CollectLights();
+
+    // Build batches once per frame (used by both shadow and main passes)
+    BuildModelBatches();
 
     double totalStart = glfwGetTime();
 
     double t0 = glfwGetTime();
     RenderShadowPass();
-    Onyx::RenderCommand::Finish();
-    m_ShadowPassTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
+    if (m_ProfilePassTiming) {
+        Onyx::RenderCommand::Finish();
+        m_ShadowPassTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
+    }
 
     m_Framebuffer->Bind();
     m_Framebuffer->Clear(0.15f, 0.15f, 0.18f, 1.0f);
 
     Onyx::RenderCommand::EnableDepthTest();
     Onyx::RenderCommand::SetDepthMask(true);
-    Onyx::RenderCommand::DisableCulling();
+    Onyx::RenderCommand::EnableCulling();
 
     if (m_ShowGrid) {
         RenderGrid();
@@ -436,14 +519,19 @@ void ViewportPanel::RenderScene() {
         RenderTerrain();
         if (m_ShowWireframe) Onyx::RenderCommand::SetWireframeMode(false);
     }
-    Onyx::RenderCommand::Finish();
-    m_TerrainPassTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
+    if (m_ProfilePassTiming) {
+        Onyx::RenderCommand::Finish();
+        m_TerrainPassTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
+    }
 
     t0 = glfwGetTime();
     RenderWorldObjects();
-    Onyx::RenderCommand::Finish();
-    m_WorldObjectsPassTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
+    if (m_ProfilePassTiming) {
+        Onyx::RenderCommand::Finish();
+        m_WorldObjectsPassTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
+    }
 
+    RenderGizmoIcons();
     RenderGizmo();
 
     Onyx::RenderCommand::ResetState();
@@ -451,7 +539,6 @@ void ViewportPanel::RenderScene() {
 
     m_Framebuffer->Resolve();
 
-    Onyx::RenderCommand::Finish();
     m_TotalRenderTime = static_cast<float>((glfwGetTime() - totalStart) * 1000.0);
 }
 
@@ -470,11 +557,131 @@ void ViewportPanel::RenderGrid() {
     Onyx::RenderCommand::DisableBlending();
 }
 
+// Helper: compute mesh model matrix with MeshMaterial offsets
+static glm::mat4 ComputeMeshMatrix(const glm::mat4& objectMatrix, const MeshMaterial* meshMat, const glm::vec3& meshCenter) {
+    if (!meshMat) return objectMatrix;
+    glm::mat4 m = objectMatrix;
+    m = glm::translate(m, meshMat->positionOffset);
+    m = glm::rotate(m, glm::radians(meshMat->rotationOffset.x), glm::vec3(1, 0, 0));
+    m = glm::rotate(m, glm::radians(meshMat->rotationOffset.y), glm::vec3(0, 1, 0));
+    m = glm::rotate(m, glm::radians(meshMat->rotationOffset.z), glm::vec3(0, 0, 1));
+    m = glm::translate(m, meshCenter);
+    m = glm::scale(m, glm::vec3(meshMat->scaleMultiplier));
+    m = glm::translate(m, -meshCenter);
+    return m;
+}
+
+void ViewportPanel::BuildModelBatches() {
+    m_ModelBatches.clear();
+    if (!m_World) return;
+
+    for (const auto& obj : m_World->GetStaticObjects()) {
+        if (!obj->IsVisible()) continue;
+
+        const std::string& modelPath = obj->GetModelPath();
+        // Skip planes, empty paths (cubes), and animated models
+        if (modelPath.empty() || modelPath[0] == '#') continue;
+        if (IsAnimatedModel(modelPath)) continue;
+
+        Onyx::Model* model = GetOrLoadModel(modelPath);
+        if (!model) continue;
+
+        // Ensure merged buffers are built
+        if (!model->HasMergedBuffers()) {
+            model->BuildMergedBuffers();
+        }
+        if (!model->HasMergedBuffers()) continue;
+
+        glm::mat4 objectMatrix = m_World->GetWorldMatrix(obj.get());
+        const auto& merged = model->GetMergedBuffers();
+
+        for (size_t meshIdx = 0; meshIdx < model->GetMeshes().size(); meshIdx++) {
+            auto& mesh = model->GetMeshes()[meshIdx];
+            const std::string& meshName = mesh.m_Name;
+            const MeshMaterial* meshMat = meshName.empty() ? nullptr : obj->GetMeshMaterial(meshName);
+
+            if (meshMat && !meshMat->visible) continue;
+
+            // Resolve material: per-mesh materialId > object materialId > defaults
+            std::string effectiveAlbedo;
+            std::string effectiveNormal;
+
+            const std::string& meshMatId = meshMat ? meshMat->materialId : obj->GetMaterialId();
+            const std::string& resolveId = !meshMatId.empty() ? meshMatId : obj->GetMaterialId();
+            if (!resolveId.empty()) {
+                if (auto* mat = m_MaterialLibrary.GetMaterial(resolveId)) {
+                    effectiveAlbedo = mat->albedoPath;
+                    effectiveNormal = mat->normalPath;
+                }
+            }
+
+            // Key: model path + effective textures
+            std::string batchKey = modelPath + "|" + effectiveAlbedo + "|" + effectiveNormal;
+            auto& batch = m_ModelBatches[batchKey];
+            batch.model = model;
+            batch.albedoPath = effectiveAlbedo;
+            batch.normalPath = effectiveNormal;
+
+            glm::mat4 meshModelMatrix = ComputeMeshMatrix(objectMatrix, meshMat, mesh.GetCenter());
+
+            // SSBO draw data
+            batch.drawData.push_back({meshModelMatrix});
+
+            // Draw command
+            const auto& info = merged.meshInfos[meshIdx];
+            DrawCommand cmd;
+            cmd.count = info.indexCount;
+            cmd.instanceCount = 1;
+            cmd.firstIndex = info.firstIndex;
+            cmd.baseVertex = info.baseVertex;
+            cmd.baseInstance = 0;
+            batch.commands.push_back(cmd);
+
+            // World AABB for shadow culling
+            glm::vec3 wMin, wMax;
+            TransformAABB(mesh.GetBoundsMin(), mesh.GetBoundsMax(), meshModelMatrix, wMin, wMax);
+            batch.meshEntries.push_back({wMin, wMax});
+
+            batch.totalTriangles += info.indexCount / 3;
+            m_BatchedMeshCount++;
+        }
+    }
+
+}
+
 void ViewportPanel::RenderWorldObjects() {
     if (!m_World) return;
 
     if (m_ShowWireframe) {
         Onyx::RenderCommand::SetWireframeMode(true);
+    }
+
+    // --- Traditional path: planes, cubes, selection highlight ---
+    // Set up model shader for traditional draws
+    m_ModelShader->Bind();
+    UploadLightUniforms(m_ModelShader.get());
+    int modelShaderModelLoc = m_ModelShader->GetLocation("u_Model");
+    m_ModelShader->SetMat4("u_View", m_ViewMatrix);
+    m_ModelShader->SetMat4("u_Projection", m_ProjectionMatrix);
+    m_ModelShader->SetVec3("u_LightDir", m_LightDir);
+    m_ModelShader->SetVec3("u_LightColor", m_EnableDirectionalLight ? m_LightColor : glm::vec3(0.0f));
+    m_ModelShader->SetVec3("u_ViewPos", m_CameraPosition);
+    m_ModelShader->SetFloat("u_AmbientStrength", m_AmbientStrength);
+    m_ModelShader->SetInt("u_AlbedoMap", 0);
+    m_ModelShader->SetInt("u_NormalMap", 1);
+    m_ModelShader->SetInt("u_ShadowMap", 2);
+    m_ModelShader->SetInt("u_EnableShadows", m_EnableShadows ? 1 : 0);
+    m_ModelShader->SetFloat("u_ShadowBias", m_ShadowBias);
+    m_ModelShader->SetInt("u_ShowCascades", m_ShowCascades ? 1 : 0);
+
+    if (m_EnableShadows && m_CSM) {
+        auto& matrices = m_CSM->GetLightSpaceMatrices();
+        auto& splits = m_CSM->GetCascadeSplits();
+        for (uint32_t i = 0; i < Onyx::NUM_SHADOW_CASCADES; i++) {
+            m_ModelShader->SetMat4("u_LightSpaceMatrices[" + std::to_string(i) + "]", matrices[i]);
+            m_ModelShader->SetFloat("u_CascadeSplits[" + std::to_string(i) + "]", splits[i]);
+        }
+        Onyx::RenderCommand::BindTextureArray(2, m_CSM->GetDepthTextureArray());
     }
 
     for (const auto& obj : m_World->GetStaticObjects()) {
@@ -483,243 +690,125 @@ void ViewportPanel::RenderWorldObjects() {
         glm::mat4 modelMatrix = m_World->GetWorldMatrix(obj.get());
         const std::string& modelPath = obj->GetModelPath();
 
-        if (modelPath == "#plane") {
-            m_ModelShader->Bind();
-            m_ModelShader->SetMat4("u_Model", modelMatrix);
-            m_ModelShader->SetMat4("u_View", m_ViewMatrix);
-            m_ModelShader->SetMat4("u_Projection", m_ProjectionMatrix);
-            m_ModelShader->SetVec3("u_LightDir", m_LightDir);
-            m_ModelShader->SetVec3("u_LightColor", m_EnableDirectionalLight ? m_LightColor : glm::vec3(0.0f));
-            m_ModelShader->SetVec3("u_ViewPos", m_CameraPosition);
-            m_ModelShader->SetFloat("u_AmbientStrength", m_AmbientStrength);
-            m_ModelShader->SetInt("u_AlbedoMap", 0);
-            m_ModelShader->SetInt("u_NormalMap", 1);
-            m_ModelShader->SetInt("u_ShadowMap", 2);
-            m_ModelShader->SetInt("u_EnableShadows", m_EnableShadows ? 1 : 0);
-            m_ModelShader->SetFloat("u_ShadowBias", m_ShadowBias);
-            m_ModelShader->SetInt("u_ShowCascades", m_ShowCascades ? 1 : 0);
-            m_ModelShader->SetInt("u_UseNormalMap", 0);
-
-            if (m_EnableShadows && m_CSM) {
-                auto& matrices = m_CSM->GetLightSpaceMatrices();
-                auto& splits = m_CSM->GetCascadeSplits();
-                for (uint32_t i = 0; i < Onyx::NUM_SHADOW_CASCADES; i++) {
-                    m_ModelShader->SetMat4("u_LightSpaceMatrices[" + std::to_string(i) + "]", matrices[i]);
-                    m_ModelShader->SetFloat("u_CascadeSplits[" + std::to_string(i) + "]", splits[i]);
-                }
-                Onyx::RenderCommand::BindTextureArray(2, m_CSM->GetDepthTextureArray());
-            }
-
-            Onyx::Texture* diffuseTexture = GetOrLoadTexture(obj->GetDiffuseTexture());
-            if (diffuseTexture) {
-                diffuseTexture->Bind(0);
-            } else {
-                m_DefaultWhiteTexture->Bind(0);
-            }
-
-            Onyx::RenderCommand::DrawIndexed(*m_PlaneVAO, 6);
-            m_TriangleCount += 2;
-            m_DrawCalls++;
+        // --- Cubes (objects with no model) ---
+        if (modelPath.empty()) {
+            m_ObjectShader->Bind();
+            m_ObjectShader->SetMat4("u_View", m_ViewMatrix);
+            m_ObjectShader->SetMat4("u_Projection", m_ProjectionMatrix);
+            m_ObjectShader->SetMat4("u_Model", modelMatrix);
 
             if (obj->IsSelected()) {
                 Onyx::RenderCommand::SetWireframeMode(true);
                 Onyx::RenderCommand::SetLineWidth(2.0f);
-                Onyx::RenderCommand::DrawIndexed(*m_PlaneVAO, 6);
+                Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
                 m_DrawCalls++;
-                Onyx::RenderCommand::SetWireframeMode(false);
+                Onyx::RenderCommand::SetWireframeMode(m_ShowWireframe);
             }
+
+            Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
+            m_TriangleCount += 12;
+            m_DrawCalls++;
+            m_ModelShader->Bind();
             continue;
         }
-
-        if (!modelPath.empty()) {
-            Onyx::Model* model = GetOrLoadModel(modelPath);
-            if (model) {
-                glm::vec3 lightColor(1.0f);
-
-                m_ModelShader->Bind();
-                m_ModelShader->SetMat4("u_Model", modelMatrix);
-                m_ModelShader->SetMat4("u_View", m_ViewMatrix);
-                m_ModelShader->SetMat4("u_Projection", m_ProjectionMatrix);
-                m_ModelShader->SetVec3("u_LightDir", m_LightDir);
-                m_ModelShader->SetVec3("u_LightColor", m_EnableDirectionalLight ? m_LightColor : glm::vec3(0.0f));
-                m_ModelShader->SetVec3("u_ViewPos", m_CameraPosition);
-                m_ModelShader->SetFloat("u_AmbientStrength", m_AmbientStrength);
-                m_ModelShader->SetInt("u_AlbedoMap", 0);
-                m_ModelShader->SetInt("u_NormalMap", 1);
-                m_ModelShader->SetInt("u_ShadowMap", 2);
-                m_ModelShader->SetInt("u_EnableShadows", m_EnableShadows ? 1 : 0);
-                m_ModelShader->SetFloat("u_ShadowBias", m_ShadowBias);
-                m_ModelShader->SetInt("u_ShowCascades", m_ShowCascades ? 1 : 0);
-
-                if (m_EnableShadows && m_CSM) {
-                    auto& matrices = m_CSM->GetLightSpaceMatrices();
-                    auto& splits = m_CSM->GetCascadeSplits();
-                    for (uint32_t i = 0; i < Onyx::NUM_SHADOW_CASCADES; i++) {
-                        m_ModelShader->SetMat4("u_LightSpaceMatrices[" + std::to_string(i) + "]", matrices[i]);
-                        m_ModelShader->SetFloat("u_CascadeSplits[" + std::to_string(i) + "]", splits[i]);
-                    }
-                    Onyx::RenderCommand::BindTextureArray(2, m_CSM->GetDepthTextureArray());
-                }
-
-                Onyx::Texture* defaultDiffuse = GetOrLoadTexture(obj->GetDiffuseTexture());
-                Onyx::Texture* defaultNormal = GetOrLoadTexture(obj->GetNormalTexture());
-
-                for (size_t meshIdx = 0; meshIdx < model->GetMeshes().size(); meshIdx++) {
-                    auto& mesh = model->GetMeshes()[meshIdx];
-
-                    std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(meshIdx)) : mesh.m_Name;
-                    const MeshMaterial* meshMat = obj->GetMeshMaterial(meshName);
-
-                    if (meshMat && !meshMat->visible) {
-                        continue;
-                    }
-
-                    glm::vec3 meshCenter(0.0f);
-                    if (!mesh.m_Vertices.empty()) {
-                        glm::vec3 minBounds(std::numeric_limits<float>::max());
-                        glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
-                        for (const auto& v : mesh.m_Vertices) {
-                            minBounds = glm::min(minBounds, v.position);
-                            maxBounds = glm::max(maxBounds, v.position);
-                        }
-                        meshCenter = (minBounds + maxBounds) * 0.5f;
-                    }
-
-                    glm::mat4 meshModelMatrix = modelMatrix;
-                    if (meshMat) {
-                        meshModelMatrix = glm::translate(meshModelMatrix, meshMat->positionOffset);
-                        meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.x), glm::vec3(1, 0, 0));
-                        meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.y), glm::vec3(0, 1, 0));
-                        meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(meshMat->rotationOffset.z), glm::vec3(0, 0, 1));
-                        meshModelMatrix = glm::translate(meshModelMatrix, meshCenter);
-                        meshModelMatrix = glm::scale(meshModelMatrix, glm::vec3(meshMat->scaleMultiplier));
-                        meshModelMatrix = glm::translate(meshModelMatrix, -meshCenter);
-                    }
-                    m_ModelShader->SetMat4("u_Model", meshModelMatrix);
-
-                    Onyx::Texture* diffuseTexture = nullptr;
-                    Onyx::Texture* normalTexture = nullptr;
-
-                    if (meshMat) {
-                        if (!meshMat->albedoPath.empty()) {
-                            diffuseTexture = GetOrLoadTexture(meshMat->albedoPath);
-                        }
-                        if (!meshMat->normalPath.empty()) {
-                            normalTexture = GetOrLoadTexture(meshMat->normalPath);
-                        }
-                    }
-
-                    if (!diffuseTexture) diffuseTexture = defaultDiffuse;
-                    if (!normalTexture) normalTexture = defaultNormal;
-
-                    if (diffuseTexture) {
-                        diffuseTexture->Bind(0);
-                    } else {
-                        m_DefaultWhiteTexture->Bind(0);
-                    }
-
-                    if (normalTexture) {
-                        normalTexture->Bind(1);
-                        m_ModelShader->SetInt("u_UseNormalMap", 1);
-                    } else {
-                        m_ModelShader->SetInt("u_UseNormalMap", 0);
-                    }
-
-                    mesh.DrawGeometryOnly();
-                    m_TriangleCount += static_cast<uint32_t>(mesh.m_Indices.size()) / 3;
-                    m_DrawCalls++;
-                }
-
-                if (obj->IsSelected()) {
-                    Onyx::RenderCommand::SetWireframeMode(true);
-                    Onyx::RenderCommand::SetLineWidth(2.0f);
-
-                    int selectedMeshIdx = m_World->GetSelectedMeshIndex();
-                    if (selectedMeshIdx >= 0 && selectedMeshIdx < static_cast<int>(model->GetMeshes().size())) {
-                            auto& mesh = model->GetMeshes()[selectedMeshIdx];
-                        std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(selectedMeshIdx)) : mesh.m_Name;
-                        const MeshMaterial* meshMat = obj->GetMeshMaterial(meshName);
-
-                        glm::vec3 meshCenter(0.0f);
-                        if (!mesh.m_Vertices.empty()) {
-                            glm::vec3 minBounds(std::numeric_limits<float>::max());
-                            glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
-                            for (const auto& v : mesh.m_Vertices) {
-                                minBounds = glm::min(minBounds, v.position);
-                                maxBounds = glm::max(maxBounds, v.position);
-                            }
-                            meshCenter = (minBounds + maxBounds) * 0.5f;
-                        }
-
-                        glm::mat4 highlightMatrix = modelMatrix;
-                        if (meshMat) {
-                            highlightMatrix = glm::translate(highlightMatrix, meshMat->positionOffset);
-                            highlightMatrix = glm::rotate(highlightMatrix, glm::radians(meshMat->rotationOffset.x), glm::vec3(1, 0, 0));
-                            highlightMatrix = glm::rotate(highlightMatrix, glm::radians(meshMat->rotationOffset.y), glm::vec3(0, 1, 0));
-                            highlightMatrix = glm::rotate(highlightMatrix, glm::radians(meshMat->rotationOffset.z), glm::vec3(0, 0, 1));
-                            highlightMatrix = glm::translate(highlightMatrix, meshCenter);
-                            highlightMatrix = glm::scale(highlightMatrix, glm::vec3(meshMat->scaleMultiplier));
-                            highlightMatrix = glm::translate(highlightMatrix, -meshCenter);
-                        }
-                        m_ModelShader->SetMat4("u_Model", highlightMatrix);
-                        mesh.DrawGeometryOnly();
-                        m_DrawCalls++;
-                    } else {
-                        for (size_t idx = 0; idx < model->GetMeshes().size(); idx++) {
-                            auto& mesh = model->GetMeshes()[idx];
-                            std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(idx)) : mesh.m_Name;
-                            const MeshMaterial* meshMat = obj->GetMeshMaterial(meshName);
-
-                                glm::vec3 meshCenter(0.0f);
-                            if (!mesh.m_Vertices.empty()) {
-                                glm::vec3 minBounds(std::numeric_limits<float>::max());
-                                glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
-                                for (const auto& v : mesh.m_Vertices) {
-                                    minBounds = glm::min(minBounds, v.position);
-                                    maxBounds = glm::max(maxBounds, v.position);
-                                }
-                                meshCenter = (minBounds + maxBounds) * 0.5f;
-                            }
-
-                            glm::mat4 highlightMatrix = modelMatrix;
-                            if (meshMat) {
-                                highlightMatrix = glm::translate(highlightMatrix, meshMat->positionOffset);
-                                highlightMatrix = glm::rotate(highlightMatrix, glm::radians(meshMat->rotationOffset.x), glm::vec3(1, 0, 0));
-                                highlightMatrix = glm::rotate(highlightMatrix, glm::radians(meshMat->rotationOffset.y), glm::vec3(0, 1, 0));
-                                highlightMatrix = glm::rotate(highlightMatrix, glm::radians(meshMat->rotationOffset.z), glm::vec3(0, 0, 1));
-                                    highlightMatrix = glm::translate(highlightMatrix, meshCenter);
-                                highlightMatrix = glm::scale(highlightMatrix, glm::vec3(meshMat->scaleMultiplier));
-                                highlightMatrix = glm::translate(highlightMatrix, -meshCenter);
-                            }
-                            m_ModelShader->SetMat4("u_Model", highlightMatrix);
-                            mesh.DrawGeometryOnly();
-                            m_DrawCalls++;
-                        }
-                    }
-                    Onyx::RenderCommand::SetWireframeMode(false);
-                }
-                continue;
-            }
-        }
-
-        m_ObjectShader->Bind();
-        m_ObjectShader->SetMat4("u_View", m_ViewMatrix);
-        m_ObjectShader->SetMat4("u_Projection", m_ProjectionMatrix);
-        m_ObjectShader->SetMat4("u_Model", modelMatrix);
-
-        if (obj->IsSelected()) {
-            Onyx::RenderCommand::SetWireframeMode(true);
-            Onyx::RenderCommand::SetLineWidth(2.0f);
-            Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
-            m_DrawCalls++;
-            Onyx::RenderCommand::SetWireframeMode(false);
-        }
-
-        Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
-        m_TriangleCount += 12;  // Cube has 12 triangles
-        m_DrawCalls++;
     }
 
+    // --- Batched model meshes ---
+    if (!m_ModelBatches.empty()) {
+        m_BatchedModelShader->Bind();
+        UploadLightUniforms(m_BatchedModelShader.get());
+        m_BatchedModelShader->SetMat4("u_View", m_ViewMatrix);
+        m_BatchedModelShader->SetMat4("u_Projection", m_ProjectionMatrix);
+        m_BatchedModelShader->SetVec3("u_LightDir", m_LightDir);
+        m_BatchedModelShader->SetVec3("u_LightColor", m_EnableDirectionalLight ? m_LightColor : glm::vec3(0.0f));
+        m_BatchedModelShader->SetVec3("u_ViewPos", m_CameraPosition);
+        m_BatchedModelShader->SetFloat("u_AmbientStrength", m_AmbientStrength);
+        m_BatchedModelShader->SetInt("u_AlbedoMap", 0);
+        m_BatchedModelShader->SetInt("u_NormalMap", 1);
+        m_BatchedModelShader->SetInt("u_ShadowMap", 2);
+        m_BatchedModelShader->SetInt("u_EnableShadows", m_EnableShadows ? 1 : 0);
+        m_BatchedModelShader->SetFloat("u_ShadowBias", m_ShadowBias);
+        m_BatchedModelShader->SetInt("u_ShowCascades", m_ShowCascades ? 1 : 0);
+        m_BatchedModelShader->SetInt("u_UseNormalMap", 0);
+
+        if (m_EnableShadows && m_CSM) {
+            auto& matrices = m_CSM->GetLightSpaceMatrices();
+            auto& splits = m_CSM->GetCascadeSplits();
+            for (uint32_t i = 0; i < Onyx::NUM_SHADOW_CASCADES; i++) {
+                m_BatchedModelShader->SetMat4("u_LightSpaceMatrices[" + std::to_string(i) + "]", matrices[i]);
+                m_BatchedModelShader->SetFloat("u_CascadeSplits[" + std::to_string(i) + "]", splits[i]);
+            }
+            Onyx::RenderCommand::BindTextureArray(2, m_CSM->GetDepthTextureArray());
+        }
+
+        for (auto& [key, batch] : m_ModelBatches) {
+            if (batch.commands.empty()) continue;
+
+            // Bind per-batch textures
+            Onyx::Texture* albedo = batch.albedoPath.empty() ? nullptr : GetOrLoadTexture(batch.albedoPath);
+            Onyx::Texture* normal = batch.normalPath.empty() ? nullptr : GetOrLoadTexture(batch.normalPath);
+            if (albedo) albedo->Bind(0);
+            else m_MaterialLibrary.GetDefaultAlbedo()->Bind(0);
+            if (normal) {
+                normal->Bind(1);
+                m_BatchedModelShader->SetInt("u_UseNormalMap", 1);
+            } else {
+                m_BatchedModelShader->SetInt("u_UseNormalMap", 0);
+            }
+
+            m_DrawDataSSBO->Upload(batch.drawData.data(),
+                batch.drawData.size() * sizeof(DrawDataGPU), 0);
+
+            m_DrawCmdBO->Upload(batch.commands.data(),
+                batch.commands.size() * sizeof(DrawCommand));
+
+            Onyx::RenderCommand::DrawBatched(*batch.model->GetMergedBuffers().vao,
+                static_cast<uint32_t>(batch.commands.size()));
+
+            m_TriangleCount += batch.totalTriangles;
+            m_BatchedDrawCalls++;
+            m_DrawCalls++;
+        }
+
+        m_DrawCmdBO->UnBind();
+        m_DrawDataSSBO->UnBind();
+    }
+
+    // --- Selection highlight for model objects ---
+    {
+        m_ModelShader->Bind();
+        for (const auto& obj : m_World->GetStaticObjects()) {
+            if (!obj->IsSelected() || !obj->IsVisible()) continue;
+            const std::string& modelPath = obj->GetModelPath();
+            if (modelPath.empty() || modelPath[0] == '#') continue;
+
+            Onyx::Model* model = GetOrLoadModel(modelPath);
+            if (!model) continue;
+
+            glm::mat4 objectMatrix = m_World->GetWorldMatrix(obj.get());
+            Onyx::RenderCommand::SetWireframeMode(true);
+            Onyx::RenderCommand::SetLineWidth(2.0f);
+
+            int selectedMeshIdx = m_World->GetSelectedMeshIndex();
+            if (selectedMeshIdx >= 0 && selectedMeshIdx < static_cast<int>(model->GetMeshes().size())) {
+                auto& mesh = model->GetMeshes()[selectedMeshIdx];
+                const MeshMaterial* meshMat = mesh.m_Name.empty() ? nullptr : obj->GetMeshMaterial(mesh.m_Name);
+                m_ModelShader->SetMat4(modelShaderModelLoc, ComputeMeshMatrix(objectMatrix, meshMat, mesh.GetCenter()));
+                mesh.DrawGeometryOnly();
+                m_DrawCalls++;
+            } else {
+                for (auto& mesh : model->GetMeshes()) {
+                    const MeshMaterial* meshMat = mesh.m_Name.empty() ? nullptr : obj->GetMeshMaterial(mesh.m_Name);
+                    m_ModelShader->SetMat4(modelShaderModelLoc, ComputeMeshMatrix(objectMatrix, meshMat, mesh.GetCenter()));
+                    mesh.DrawGeometryOnly();
+                    m_DrawCalls++;
+                }
+            }
+            Onyx::RenderCommand::SetWireframeMode(m_ShowWireframe);
+        }
+    }
+
+    // Shared uniforms already set above — m_ModelShader still bound
     for (const auto& spawn : m_World->GetSpawnPoints()) {
         if (!spawn->IsVisible()) continue;
 
@@ -728,34 +817,29 @@ void ViewportPanel::RenderWorldObjects() {
         if (!modelPath.empty()) {
             Onyx::Model* model = GetOrLoadModel(modelPath);
             if (model) {
-                glm::vec3 lightColor = m_EnableDirectionalLight ? glm::vec3(1.0f) : glm::vec3(0.0f);
-
                 m_ModelShader->Bind();
-                m_ModelShader->SetMat4("u_Model", modelMatrix);
-                m_ModelShader->SetMat4("u_View", m_ViewMatrix);
-                m_ModelShader->SetMat4("u_Projection", m_ProjectionMatrix);
-                m_ModelShader->SetVec3("u_LightDir", m_LightDir);
-                m_ModelShader->SetVec3("u_LightColor", lightColor);
-                m_ModelShader->SetVec3("u_ViewPos", m_CameraPosition);
-                m_ModelShader->SetFloat("u_AmbientStrength", m_AmbientStrength);
+                m_ModelShader->SetMat4(modelShaderModelLoc, modelMatrix);
                 m_ModelShader->SetInt("u_UseNormalMap", 0);
 
-                Onyx::Texture* diffuseTexture = GetOrLoadTexture(spawn->GetDiffuseTexture());
-                Onyx::Texture* normalTexture = GetOrLoadTexture(spawn->GetNormalTexture());
+                // Resolve material from MaterialLibrary
+                Onyx::Texture* diffuseTexture = nullptr;
+                Onyx::Texture* normalTexture = nullptr;
+                if (!spawn->GetMaterialId().empty()) {
+                    if (auto* mat = m_MaterialLibrary.GetMaterial(spawn->GetMaterialId())) {
+                        diffuseTexture = GetOrLoadTexture(mat->albedoPath);
+                        normalTexture = GetOrLoadTexture(mat->normalPath);
+                    }
+                }
 
                 if (diffuseTexture) {
                     diffuseTexture->Bind(0);
                 } else {
-                    m_DefaultWhiteTexture->Bind(0);
+                    m_MaterialLibrary.GetDefaultAlbedo()->Bind(0);
                 }
-                m_ModelShader->SetInt("u_AlbedoMap", 0);
 
                 if (normalTexture) {
                     normalTexture->Bind(1);
-                    m_ModelShader->SetInt("u_NormalMap", 1);
                     m_ModelShader->SetInt("u_UseNormalMap", 1);
-                } else {
-                    m_ModelShader->SetInt("u_UseNormalMap", 0);
                 }
 
                 for (auto& mesh : model->GetMeshes()) {
@@ -885,7 +969,43 @@ void ViewportPanel::RenderSelectionOutline() {
 }
 
 void ViewportPanel::RenderGizmoIcons() {
-    // TODO: Render billboard icons for lights, spawns, etc.
+    if (!m_BillboardShader || !m_World) return;
+
+    const auto& lights = m_World->GetLights();
+    if (lights.empty()) return;
+
+    Onyx::RenderCommand::EnableBlending();
+    Onyx::RenderCommand::DisableDepthTest();
+
+    m_BillboardShader->Bind();
+    m_BillboardShader->SetMat4("u_View", m_ViewMatrix);
+    m_BillboardShader->SetMat4("u_Projection", m_ProjectionMatrix);
+
+    for (const auto& light : lights) {
+        if (!light || !light->IsVisible()) continue;
+
+        glm::vec3 pos = light->GetPosition();
+        float camDist = glm::distance(pos, m_CameraPosition);
+        if (camDist > 300.0f) continue;
+
+        float iconSize = std::clamp(camDist * 0.03f, 0.5f, 3.0f);
+
+        m_BillboardShader->SetVec3("u_Position", pos);
+        m_BillboardShader->SetFloat("u_Size", iconSize);
+
+        glm::vec3 iconColor = glm::clamp(light->GetColor() * 1.5f, 0.0f, 1.0f);
+        float maxComp = std::max({iconColor.r, iconColor.g, iconColor.b});
+        if (maxComp < 0.3f) iconColor = glm::vec3(0.3f);
+
+        float alpha = light->IsSelected() ? 1.0f : 0.75f;
+        m_BillboardShader->SetVec4("u_Color", iconColor.r, iconColor.g, iconColor.b, alpha);
+
+        Onyx::RenderCommand::DrawIndexed(*m_BillboardVAO, 6);
+        m_DrawCalls++;
+    }
+
+    Onyx::RenderCommand::EnableDepthTest();
+    Onyx::RenderCommand::DisableBlending();
 }
 
 void ViewportPanel::RenderGizmo() {
@@ -912,16 +1032,7 @@ void ViewportPanel::RenderGizmo() {
                 std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(selectedMeshIdx)) : mesh.m_Name;
                 const MeshMaterial* meshMat = staticObj->GetMeshMaterial(meshName);
 
-                glm::vec3 meshCenter(0.0f);
-                if (!mesh.m_Vertices.empty()) {
-                    glm::vec3 minBounds(std::numeric_limits<float>::max());
-                    glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
-                    for (const auto& v : mesh.m_Vertices) {
-                        minBounds = glm::min(minBounds, v.position);
-                        maxBounds = glm::max(maxBounds, v.position);
-                    }
-                    meshCenter = (minBounds + maxBounds) * 0.5f;
-                }
+                const glm::vec3& meshCenter = mesh.GetCenter();
 
                 glm::vec3 meshOffset = meshMat ? meshMat->positionOffset : glm::vec3(0.0f);
                 glm::vec3 localPos = meshCenter + meshOffset;
@@ -982,15 +1093,7 @@ void ViewportPanel::HandleGizmoInteraction() {
         Onyx::Model* model = GetOrLoadModel(modelPath);
         if (model && selectedMeshIdx < static_cast<int>(model->GetMeshes().size())) {
             auto& mesh = model->GetMeshes()[selectedMeshIdx];
-            if (!mesh.m_Vertices.empty()) {
-                glm::vec3 minBounds(std::numeric_limits<float>::max());
-                glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
-                for (const auto& v : mesh.m_Vertices) {
-                    minBounds = glm::min(minBounds, v.position);
-                    maxBounds = glm::max(maxBounds, v.position);
-                }
-                meshCenter = (minBounds + maxBounds) * 0.5f;
-            }
+            meshCenter = mesh.GetCenter();
         }
 
         glm::vec3 meshOffset = meshMaterial ? meshMaterial->positionOffset : glm::vec3(0.0f);
@@ -1017,9 +1120,6 @@ void ViewportPanel::HandleGizmoInteraction() {
             m_GizmoStartObjectPos = selection->GetPosition();
             m_GizmoStartObjectRot = selection->GetRotation();
             m_GizmoStartObjectScale = selection->GetScale();
-            std::cout << "[Gizmo] Drag START - captured pos=("
-                      << m_GizmoStartObjectPos.x << "," << m_GizmoStartObjectPos.y << "," << m_GizmoStartObjectPos.z
-                      << ") scale=" << m_GizmoStartObjectScale << std::endl;
         }
     }
 
@@ -1112,21 +1212,14 @@ void ViewportPanel::HandleGizmoInteraction() {
     bool mouseReleased = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
     bool gizmoDragging = m_Gizmo->IsDragging();
     if (mouseReleased && gizmoDragging) {
-        std::cout << "[Gizmo] Drag END triggered (mouseReleased=" << mouseReleased << " gizmoDragging=" << gizmoDragging << ")" << std::endl;
         if (!isMeshSelected) {
             glm::vec3 newPos = selection->GetPosition();
             glm::quat newRot = selection->GetRotation();
             float newScale = selection->GetScale();
 
-            std::cout << "[Gizmo] Drag END - startPos=("
-                      << m_GizmoStartObjectPos.x << "," << m_GizmoStartObjectPos.y << "," << m_GizmoStartObjectPos.z
-                      << ") currentPos=(" << newPos.x << "," << newPos.y << "," << newPos.z
-                      << ") startScale=" << m_GizmoStartObjectScale << " currentScale=" << newScale << std::endl;
-
             bool posChanged = newPos != m_GizmoStartObjectPos;
             bool rotChanged = newRot != m_GizmoStartObjectRot;
             bool scaleChanged = newScale != m_GizmoStartObjectScale;
-            std::cout << "[Gizmo] Changes: pos=" << posChanged << " rot=" << rotChanged << " scale=" << scaleChanged << std::endl;
             if (posChanged || rotChanged || scaleChanged) {
                 auto cmd = std::make_unique<TransformCommand>(
                     selection,
@@ -1175,28 +1268,22 @@ void ViewportPanel::HandleGizmoInteraction() {
         bool shiftHeld = io.KeyShift;
         if (ctrlHeld && ImGui::IsKeyPressed(ImGuiKey_C)) {
             if (shiftHeld && m_World->HasMeshSelected()) {
-                std::cout << "[Copy] Copying mesh transform" << std::endl;
                 m_World->CopyMesh();
             } else if (m_World->HasMeshSelected()) {
-                std::cout << "[Copy] Copying single mesh as object" << std::endl;
                 m_World->CopySingleMesh();
             } else {
-                std::cout << "[Copy] Copying object" << std::endl;
                 m_World->Copy();
             }
         }
         if (ctrlHeld && ImGui::IsKeyPressed(ImGuiKey_V)) {
             if (shiftHeld && m_World->HasMeshClipboard() && m_World->HasMeshSelected()) {
-                std::cout << "[Paste] Pasting mesh transform" << std::endl;
                 m_World->PasteMesh();
             } else {
-                std::cout << "[Paste] Pasting object" << std::endl;
                 m_World->Paste();
             }
         }
         if (ctrlHeld && ImGui::IsKeyPressed(ImGuiKey_D)) {
             if (m_World->HasMeshSelected()) {
-                std::cout << "[Duplicate] Duplicating single mesh as object" << std::endl;
                 m_World->CopySingleMesh();
                 m_World->Paste();
             } else {
@@ -1210,10 +1297,8 @@ void ViewportPanel::HandleGizmoInteraction() {
 
         if (ctrlHeld && ImGui::IsKeyPressed(ImGuiKey_G)) {
             if (shiftHeld) {
-                std::cout << "[Ungroup] Ungrouping selected groups" << std::endl;
                 m_World->UngroupSelected();
             } else {
-                std::cout << "[Group] Grouping selected objects" << std::endl;
                 m_World->GroupSelected();
             }
         }
@@ -1296,11 +1381,6 @@ void ViewportPanel::HandleObjectPicking() {
             float mouseX = io.MousePos.x - m_ViewportPos.x;
         float mouseY = io.MousePos.y - m_ViewportPos.y;
 
-        std::cout << "[Pick] Mouse: (" << io.MousePos.x << "," << io.MousePos.y << ") "
-                  << "ViewportPos: (" << m_ViewportPos.x << "," << m_ViewportPos.y << ") "
-                  << "Relative: (" << mouseX << "," << mouseY << ") "
-                  << "ViewportSize: (" << m_ViewportWidth << "x" << m_ViewportHeight << ")" << std::endl;
-
         RenderPickingPass();
         PickResult pick = ReadPickingBuffer(mouseX, mouseY);
 
@@ -1316,9 +1396,6 @@ void ViewportPanel::HandleObjectPicking() {
                     if (model && pick.meshIndex >= 0 && pick.meshIndex < static_cast<int>(model->GetMeshes().size())) {
                         auto& mesh = model->GetMeshes()[pick.meshIndex];
                         selectedMeshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(pick.meshIndex)) : mesh.m_Name;
-                        std::cout << "[Pick] Model has " << model->GetMeshes().size()
-                                  << " meshes. Index " << pick.meshIndex
-                                  << " = \"" << selectedMeshName << "\"" << std::endl;
                     }
                 }
             }
@@ -1435,12 +1512,6 @@ void ViewportPanel::RenderObjectForPicking(StaticObject* obj) {
         if (model) {
             glm::mat4 baseMatrix = m_World->GetWorldMatrix(obj);
 
-                    static int s_DebugCount = 0;
-            if (s_DebugCount < 3) {
-                std::cout << "[PickRender] Rendering " << model->GetMeshes().size() << " meshes for object " << objID << std::endl;
-                s_DebugCount++;
-            }
-
             for (size_t meshIdx = 0; meshIdx < model->GetMeshes().size(); meshIdx++) {
                 auto& mesh = model->GetMeshes()[meshIdx];
                 std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(meshIdx)) : mesh.m_Name;
@@ -1450,16 +1521,7 @@ void ViewportPanel::RenderObjectForPicking(StaticObject* obj) {
                     continue;
                 }
 
-                glm::vec3 meshCenter(0.0f);
-                if (!mesh.m_Vertices.empty()) {
-                    glm::vec3 minBounds(std::numeric_limits<float>::max());
-                    glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
-                    for (const auto& v : mesh.m_Vertices) {
-                        minBounds = glm::min(minBounds, v.position);
-                        maxBounds = glm::max(maxBounds, v.position);
-                    }
-                    meshCenter = (minBounds + maxBounds) * 0.5f;
-                }
+                const glm::vec3& meshCenter = mesh.GetCenter();
 
                 glm::mat4 meshMatrix = baseMatrix;
                 if (meshMat) {
@@ -1536,12 +1598,6 @@ ViewportPanel::PickResult ViewportPanel::ReadPickingBuffer(float mouseX, float m
 
     result.type = static_cast<WorldObjectType>(pixel[3] & 0x0F);
 
-    std::cout << "[Pick] Pixel at (" << x << "," << y << "): RGBA=("
-              << (int)pixel[0] << "," << (int)pixel[1] << ","
-              << (int)pixel[2] << "," << (int)pixel[3] << ") -> "
-              << "ObjID=" << result.objectGuid << " MeshIdx=" << result.meshIndex
-              << " Type=" << static_cast<int>(result.type) << std::endl;
-
     return result;
 }
 
@@ -1614,27 +1670,8 @@ Onyx::Model* ViewportPanel::GetOrLoadModel(const std::string& path) {
     }
 }
 
-void ViewportPanel::CreateDefaultTextures() {
-    m_DefaultWhiteTexture = Onyx::Texture::CreateSolidColor(255, 255, 255);
-}
-
 Onyx::Texture* ViewportPanel::GetOrLoadTexture(const std::string& path) {
-    if (path.empty()) return nullptr;
-
-    auto it = m_TextureCache.find(path);
-    if (it != m_TextureCache.end()) {
-        return it->second.get();
-    }
-
-    try {
-        auto texture = std::make_unique<Onyx::Texture>(path.c_str());
-        Onyx::Texture* texturePtr = texture.get();
-        m_TextureCache[path] = std::move(texture);
-        return texturePtr;
-    } catch (...) {
-        m_TextureCache[path] = nullptr;
-        return nullptr;
-    }
+    return m_MaterialLibrary.ResolveTexture(path);
 }
 
 
@@ -1686,6 +1723,7 @@ Onyx::AnimatedModel* ViewportPanel::GetOrLoadAnimatedModel(const std::string& pa
 
     auto model = std::make_unique<Onyx::AnimatedModel>();
     if (!model->Load(path)) {
+        m_AnimatedModelCache[path] = nullptr;  // Cache the failure
         return nullptr;
     }
     Onyx::AnimatedModel* ptr = model.get();
@@ -1746,8 +1784,10 @@ void ViewportPanel::RenderTerrain() {
     m_TerrainShader->SetInt("u_EnablePBR", m_TerrainTool.pbr ? 1 : 0);
     m_TerrainShader->SetInt("u_DebugSplatmap", m_TerrainTool.debugSplatmap);
 
+    UploadLightUniforms(m_TerrainShader.get());
+
     glm::mat4 VP = m_ProjectionMatrix * m_ViewMatrix;
-    m_TerrainSystem.Render(m_TerrainShader.get(), VP,
+    m_WorldSystem.RenderTerrain(m_TerrainShader.get(), VP,
         [this](Editor3D::TerrainChunk* chunk, Onyx::Shader* shader) {
             auto& lib = m_TerrainMaterialLibrary;
             const auto& data = chunk->GetData();
@@ -1778,7 +1818,7 @@ bool ViewportPanel::RaycastTerrain(const glm::vec3& rayOrigin, const glm::vec3& 
     for (float t = stepSize; t < maxDistance; t += stepSize) {
         glm::vec3 pos = rayOrigin + rayDir * t;
         float terrainHeight;
-        bool hasChunk = m_TerrainSystem.GetHeightAt(pos.x, pos.z, terrainHeight);
+        bool hasChunk = m_WorldSystem.GetHeightAt(pos.x, pos.z, terrainHeight);
 
         if (!hasChunk) terrainHeight = 0.0f;
 
@@ -1789,7 +1829,7 @@ bool ViewportPanel::RaycastTerrain(const glm::vec3& rayOrigin, const glm::vec3& 
                 float mid = (lo + hi) * 0.5f;
                 glm::vec3 midPos = rayOrigin + rayDir * mid;
                 float midHeight;
-                if (!m_TerrainSystem.GetHeightAt(midPos.x, midPos.z, midHeight))
+                if (!m_WorldSystem.GetHeightAt(midPos.x, midPos.z, midHeight))
                     midHeight = 0.0f;
                 if (midPos.y <= midHeight) {
                     hi = mid;
@@ -1800,7 +1840,7 @@ bool ViewportPanel::RaycastTerrain(const glm::vec3& rayOrigin, const glm::vec3& 
             float finalT = (lo + hi) * 0.5f;
             hitPoint = rayOrigin + rayDir * finalT;
             float finalHeight;
-            if (!m_TerrainSystem.GetHeightAt(hitPoint.x, hitPoint.z, finalHeight))
+            if (!m_WorldSystem.GetHeightAt(hitPoint.x, hitPoint.z, finalHeight))
                 finalHeight = 0.0f;
             hitPoint.y = finalHeight;
             return true;
@@ -1837,15 +1877,15 @@ void ViewportPanel::HandleTerrainInput() {
                 m_TerrainTool.rampPlacing = false;
                 float endHeight = m_TerrainTool.brushPos.y;
                 float rampWidth = m_TerrainTool.brushRadius;
-                m_TerrainSystem.BeginEdit(
+                m_WorldSystem.BeginEdit(
                     (m_TerrainTool.rampStart.x + m_TerrainTool.brushPos.x) * 0.5f,
                     (m_TerrainTool.rampStart.z + m_TerrainTool.brushPos.z) * 0.5f,
                     glm::length(glm::vec2(m_TerrainTool.brushPos.x - m_TerrainTool.rampStart.x,
                                           m_TerrainTool.brushPos.z - m_TerrainTool.rampStart.z)) + rampWidth);
-                m_TerrainSystem.RampTerrain(
+                m_WorldSystem.RampTerrain(
                     m_TerrainTool.rampStart.x, m_TerrainTool.rampStart.z, m_TerrainTool.rampStartHeight,
                     m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z, endHeight, rampWidth);
-                m_TerrainSystem.EndEdit();
+                m_WorldSystem.EndEdit();
             }
         }
         return;
@@ -1856,7 +1896,7 @@ void ViewportPanel::HandleTerrainInput() {
     if (leftDown && m_TerrainTool.brushValid && !m_RightMouseDown && !m_MiddleMouseDown) {
         if (!m_TerrainPainting) {
             m_TerrainPainting = true;
-            m_TerrainSystem.BeginEdit(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z, m_TerrainTool.brushRadius);
+            m_WorldSystem.BeginEdit(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z, m_TerrainTool.brushRadius);
         }
 
         float dt = io.DeltaTime;
@@ -1864,33 +1904,33 @@ void ViewportPanel::HandleTerrainInput() {
 
         switch (m_TerrainTool.mode) {
             case TerrainToolMode::Raise:
-                m_TerrainSystem.RaiseTerrain(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
+                m_WorldSystem.RaiseTerrain(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
                     m_TerrainTool.brushRadius, amount);
                 break;
             case TerrainToolMode::Lower:
-                m_TerrainSystem.LowerTerrain(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
+                m_WorldSystem.LowerTerrain(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
                     m_TerrainTool.brushRadius, amount);
                 break;
             case TerrainToolMode::Flatten:
-                m_TerrainSystem.FlattenTerrain(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
+                m_WorldSystem.FlattenTerrain(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
                     m_TerrainTool.brushRadius, m_TerrainTool.flattenHeight, m_TerrainTool.flattenHardness);
                 break;
             case TerrainToolMode::Smooth:
-                m_TerrainSystem.SmoothTerrain(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
+                m_WorldSystem.SmoothTerrain(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
                     m_TerrainTool.brushRadius, amount);
                 break;
             case TerrainToolMode::Paint:
                 if (!m_TerrainTool.selectedMaterialId.empty()) {
-                    m_TerrainSystem.PaintMaterial(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
+                    m_WorldSystem.PaintMaterial(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
                         m_TerrainTool.brushRadius, m_TerrainTool.selectedMaterialId, amount);
                 } else {
-                    m_TerrainSystem.PaintTexture(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
+                    m_WorldSystem.PaintTexture(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z,
                         m_TerrainTool.brushRadius, m_TerrainTool.paintLayer, amount);
                 }
                 break;
             case TerrainToolMode::Hole:
                 if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                    m_TerrainSystem.SetHole(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z, true);
+                    m_WorldSystem.SetHole(m_TerrainTool.brushPos.x, m_TerrainTool.brushPos.z, true);
                 }
                 break;
             case TerrainToolMode::Ramp:
@@ -1900,7 +1940,90 @@ void ViewportPanel::HandleTerrainInput() {
 
     if (!leftDown && m_TerrainPainting) {
         m_TerrainPainting = false;
-        m_TerrainSystem.EndEdit();
+        m_WorldSystem.EndEdit();
+    }
+}
+
+void ViewportPanel::CollectLights() {
+    m_CollectedPointLights.clear();
+    m_CollectedSpotLights.clear();
+
+    if (!m_World) return;
+
+    for (const auto& light : m_World->GetLights()) {
+        if (!light || !light->IsVisible()) continue;
+        if (light->IsBakedOnly()) continue;
+
+        glm::vec3 pos = light->GetPosition();
+        float dist = glm::distance(pos, m_CameraPosition);
+        float range = light->GetRadius();
+        if (dist > range + 200.0f) continue;
+
+        Editor3D::EditorLight cl;
+        cl.position = pos;
+        cl.color = light->GetColor();
+        cl.intensity = light->GetIntensity();
+        cl.range = range;
+        cl.innerAngle = light->GetInnerAngle();
+        cl.outerAngle = light->GetOuterAngle();
+        cl.castShadows = light->CastsShadows();
+
+        switch (light->GetLightType()) {
+            case LightType::POINT:
+                cl.type = Editor3D::LightType::Point;
+                m_CollectedPointLights.push_back(cl);
+                break;
+            case LightType::SPOT: {
+                cl.type = Editor3D::LightType::Spot;
+                // Derive direction from rotation quaternion (forward = rotation * -Z)
+                glm::quat rot = light->GetRotation();
+                cl.direction = glm::normalize(rot * glm::vec3(0.0f, 0.0f, -1.0f));
+                m_CollectedSpotLights.push_back(cl);
+                break;
+            }
+            default:
+                break; // Directional lights handled globally
+        }
+    }
+
+    // Sort by distance, keep nearest N
+    auto byDist = [&](const Editor3D::EditorLight& a, const Editor3D::EditorLight& b) {
+        return glm::distance(a.position, m_CameraPosition)
+             < glm::distance(b.position, m_CameraPosition);
+    };
+    std::sort(m_CollectedPointLights.begin(), m_CollectedPointLights.end(), byDist);
+    std::sort(m_CollectedSpotLights.begin(), m_CollectedSpotLights.end(), byDist);
+
+    if ((int)m_CollectedPointLights.size() > Editor3D::MAX_POINT_LIGHTS)
+        m_CollectedPointLights.resize(Editor3D::MAX_POINT_LIGHTS);
+    if ((int)m_CollectedSpotLights.size() > Editor3D::MAX_SPOT_LIGHTS)
+        m_CollectedSpotLights.resize(Editor3D::MAX_SPOT_LIGHTS);
+}
+
+void ViewportPanel::UploadLightUniforms(Onyx::Shader* shader) {
+    int pointCount = static_cast<int>(m_CollectedPointLights.size());
+    shader->SetInt("u_PointLightCount", pointCount);
+    for (int i = 0; i < pointCount; i++) {
+        const auto& light = m_CollectedPointLights[i];
+        std::string idx = std::to_string(i);
+        shader->SetVec3("u_PointLightPos[" + idx + "]", light.position);
+        shader->SetVec3("u_PointLightColor[" + idx + "]", light.color * light.intensity);
+        shader->SetFloat("u_PointLightRange[" + idx + "]", light.range);
+    }
+
+    int spotCount = static_cast<int>(m_CollectedSpotLights.size());
+    shader->SetInt("u_SpotLightCount", spotCount);
+    for (int i = 0; i < spotCount; i++) {
+        const auto& light = m_CollectedSpotLights[i];
+        std::string idx = std::to_string(i);
+        shader->SetVec3("u_SpotLightPos[" + idx + "]", light.position);
+        shader->SetVec3("u_SpotLightDir[" + idx + "]", light.direction);
+        shader->SetVec3("u_SpotLightColor[" + idx + "]", light.color * light.intensity);
+        shader->SetFloat("u_SpotLightRange[" + idx + "]", light.range);
+        shader->SetFloat("u_SpotLightInnerCos[" + idx + "]",
+                          std::cos(glm::radians(light.innerAngle)));
+        shader->SetFloat("u_SpotLightOuterCos[" + idx + "]",
+                          std::cos(glm::radians(light.outerAngle)));
     }
 }
 

@@ -6,6 +6,8 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include "Buffers.h"
+#include "VertexLayout.h"
 
 #define STB_IMAGE_STATIC
 #include <stb_image.h>
@@ -27,8 +29,6 @@ namespace Onyx {
 
     void Onyx::Model::LoadModel(std::string path)
     {
-        std::cout << "[Model] Loading: " << path << std::endl;
-
         Assimp::Importer import;
         const aiScene* scene = import.ReadFile(path,
             aiProcess_Triangulate |
@@ -45,32 +45,85 @@ namespace Onyx {
             return;
         }
 
-        // Print what Assimp found even if scene is incomplete
-        std::cout << "[Model] Scene loaded with flags: " << scene->mFlags << std::endl;
-        std::cout << "[Model]   Meshes: " << scene->mNumMeshes << std::endl;
-        std::cout << "[Model]   Materials: " << scene->mNumMaterials << std::endl;
-        std::cout << "[Model]   Textures: " << scene->mNumTextures << std::endl;
-        std::cout << "[Model]   Animations: " << scene->mNumAnimations << std::endl;
-        std::cout << "[Model]   Lights: " << scene->mNumLights << std::endl;
-        std::cout << "[Model]   Cameras: " << scene->mNumCameras << std::endl;
-        std::cout << "[Model]   Has root node: " << (scene->mRootNode ? "yes" : "no") << std::endl;
-
         if (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         {
             std::cout << "ERROR::ASSIMP:: Scene is incomplete or has no root node" << std::endl;
             return;
         }
 
-        std::cout << "[Model] Scene has " << scene->mNumMeshes << " meshes total" << std::endl;
-
         m_Directory = path.substr(0, path.find_last_of('/'));
 
         ProcessNode(scene->mRootNode, scene, glm::mat4(1.0f));
-
-        std::cout << "[Model] Loaded " << m_Meshes.size() << " meshes from " << path << std::endl;
     }
 
-    void Onyx::Model::Draw(Onyx::Shader &shader) 
+    Model::~Model() = default;
+
+    void Model::BuildMergedBuffers()
+    {
+        if (m_Meshes.empty() || m_Merged.vao != nullptr) return;
+
+        // Count totals
+        uint32_t totalVerts = 0;
+        uint32_t totalIndices = 0;
+        for (const auto& mesh : m_Meshes) {
+            totalVerts += static_cast<uint32_t>(mesh.m_Vertices.size());
+            totalIndices += static_cast<uint32_t>(mesh.m_Indices.size());
+        }
+
+        // Concatenate vertex and index data, record per-mesh offsets
+        std::vector<MeshVertex> allVertices;
+        std::vector<uint32_t> allIndices;
+        allVertices.reserve(totalVerts);
+        allIndices.reserve(totalIndices);
+
+        m_Merged.meshInfos.resize(m_Meshes.size());
+
+        uint32_t vertexOffset = 0;
+        uint32_t indexOffset = 0;
+        for (size_t i = 0; i < m_Meshes.size(); i++) {
+            const auto& mesh = m_Meshes[i];
+
+            m_Merged.meshInfos[i].indexCount = static_cast<uint32_t>(mesh.m_Indices.size());
+            m_Merged.meshInfos[i].firstIndex = indexOffset;
+            m_Merged.meshInfos[i].baseVertex = static_cast<int32_t>(vertexOffset);
+
+            allVertices.insert(allVertices.end(), mesh.m_Vertices.begin(), mesh.m_Vertices.end());
+            allIndices.insert(allIndices.end(), mesh.m_Indices.begin(), mesh.m_Indices.end());
+
+            vertexOffset += static_cast<uint32_t>(mesh.m_Vertices.size());
+            indexOffset += static_cast<uint32_t>(mesh.m_Indices.size());
+        }
+
+        m_Merged.totalVertices = totalVerts;
+        m_Merged.totalIndices = totalIndices;
+
+        // Create VBO, EBO, VAO using engine abstractions
+        m_Merged.vbo = std::make_unique<VertexBuffer>(
+            static_cast<const void*>(allVertices.data()),
+            static_cast<uint32_t>(allVertices.size() * sizeof(MeshVertex))
+        );
+
+        m_Merged.ebo = std::make_unique<IndexBuffer>(
+            static_cast<const void*>(allIndices.data()),
+            static_cast<uint32_t>(allIndices.size() * sizeof(uint32_t))
+        );
+
+        m_Merged.vao = std::make_unique<VertexArray>();
+
+        // Same 5-attribute vertex layout as Mesh::SetupMesh()
+        VertexLayout layout;
+        layout.PushFloat(3);  // Position
+        layout.PushFloat(3);  // Normal
+        layout.PushFloat(2);  // TexCoord
+        layout.PushFloat(3);  // Tangent
+        layout.PushFloat(3);  // Bitangent
+
+        m_Merged.vao->SetVertexBuffer(m_Merged.vbo.get());
+        m_Merged.vao->SetIndexBuffer(m_Merged.ebo.get());
+        m_Merged.vao->SetLayout(layout);
+    }
+
+    void Onyx::Model::Draw(Onyx::Shader &shader)
     {
         for(unsigned int i = 0; i < m_Meshes.size(); i++)
             m_Meshes[i].Draw(shader);
@@ -82,10 +135,6 @@ namespace Onyx {
         glm::mat4 nodeTransform = AiMatrixToGlm(node->mTransformation);
         glm::mat4 globalTransform = parentTransform * nodeTransform;
 
-        std::cout << "[Model] Processing node: '" << node->mName.C_Str()
-                  << "' with " << node->mNumMeshes << " meshes, "
-                  << node->mNumChildren << " children" << std::endl;
-
         for(unsigned int i = 0; i < node->mNumMeshes; i++)
         {
             aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
@@ -95,9 +144,6 @@ namespace Onyx {
             if (meshName.empty() || meshName.find("Mesh") == 0) {
                 meshName = nodeName;  // Use node name instead
             }
-            std::cout << "[Model]   Mesh[" << m_Meshes.size() << "]: node='" << nodeName
-                      << "' mesh='" << mesh->mName.C_Str() << "' -> using name: '" << meshName
-                      << "' (" << mesh->mNumVertices << " verts)" << std::endl;
             m_Meshes.push_back(ProcessMesh(mesh, scene, globalTransform, meshName));
         }
 
@@ -250,13 +296,11 @@ namespace Onyx {
         unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
         if (data)
         {
-            GLenum format;
+            GLenum format = GL_RGBA;
             if (nrComponents == 1)
                 format = GL_RED;
             else if (nrComponents == 3)
                 format = GL_RGB;
-            else if (nrComponents == 4)
-                format = GL_RGBA;
 
             glBindTexture(GL_TEXTURE_2D, textureID);
             glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);

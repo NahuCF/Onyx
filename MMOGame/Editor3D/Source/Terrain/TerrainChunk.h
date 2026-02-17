@@ -62,10 +62,11 @@ public:
     }
 
     glm::vec3 GetBoundsMin() const {
-        return glm::vec3(m_ChunkX * CHUNK_SIZE, m_Data.minHeight, m_ChunkZ * CHUNK_SIZE);
+        return glm::vec3(m_ChunkX * CHUNK_SIZE, m_Data.minHeight - 1.0f, m_ChunkZ * CHUNK_SIZE);
     }
     glm::vec3 GetBoundsMax() const {
-        return glm::vec3((m_ChunkX + 1) * CHUNK_SIZE, m_Data.maxHeight, (m_ChunkZ + 1) * CHUNK_SIZE);
+        float maxY = m_Data.maxHeight > m_Data.minHeight + 1.0f ? m_Data.maxHeight : m_Data.minHeight + 1.0f;
+        return glm::vec3((m_ChunkX + 1) * CHUNK_SIZE, maxY, (m_ChunkZ + 1) * CHUNK_SIZE);
     }
 
     ChunkState GetState() const { return m_State; }
@@ -90,6 +91,7 @@ public:
     int FindLeastUsedLayer() const;
 
     void MarkSplatmapDirty() { m_SplatmapDirty = true; m_Modified = true; }
+    void MarkMeshDirty() { m_Dirty = true; }
 
     void Draw(Shader* shader);
 

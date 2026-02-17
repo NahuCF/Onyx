@@ -2,7 +2,6 @@
 #include "World/EditorWorld.h"
 #include "World/WorldTypes.h"
 #include "World/StaticObject.h"
-#include <iostream>
 
 namespace MMO {
 
@@ -17,9 +16,6 @@ TransformCommand::TransformCommand(WorldObject* object,
     , m_OldPosition(oldPos), m_OldRotation(oldRot), m_OldScale(oldScale)
     , m_NewPosition(newPos), m_NewRotation(newRot), m_NewScale(newScale)
 {
-    std::cout << "[Command] Created TransformCommand for " << (object ? object->GetName() : "null")
-              << " oldPos=(" << oldPos.x << "," << oldPos.y << "," << oldPos.z << ")"
-              << " newPos=(" << newPos.x << "," << newPos.y << "," << newPos.z << ")" << std::endl;
 }
 
 void TransformCommand::Execute() {
@@ -32,14 +28,9 @@ void TransformCommand::Execute() {
 
 void TransformCommand::Undo() {
     if (m_Object) {
-        std::cout << "[Undo] Restoring " << m_Object->GetName()
-                  << " from (" << m_Object->GetPosition().x << "," << m_Object->GetPosition().y << "," << m_Object->GetPosition().z << ")"
-                  << " to (" << m_OldPosition.x << "," << m_OldPosition.y << "," << m_OldPosition.z << ")" << std::endl;
         m_Object->SetPosition(m_OldPosition);
         m_Object->SetRotation(m_OldRotation);
         m_Object->SetScale(m_OldScale);
-    } else {
-        std::cout << "[Undo] ERROR: m_Object is null!" << std::endl;
     }
 }
 
@@ -59,9 +50,6 @@ MeshTransformCommand::MeshTransformCommand(StaticObject* object, const std::stri
     , m_OldOffset(oldOffset), m_OldRotation(oldRotation), m_OldScale(oldScale)
     , m_NewOffset(newOffset), m_NewRotation(newRotation), m_NewScale(newScale)
 {
-    std::cout << "[Command] Created MeshTransformCommand for mesh '" << meshName << "'"
-              << " oldOffset=(" << oldOffset.x << "," << oldOffset.y << "," << oldOffset.z << ")"
-              << " newOffset=(" << newOffset.x << "," << newOffset.y << "," << newOffset.z << ")" << std::endl;
 }
 
 void MeshTransformCommand::Execute() {
@@ -76,14 +64,9 @@ void MeshTransformCommand::Execute() {
 void MeshTransformCommand::Undo() {
     if (m_Object) {
         MeshMaterial& mat = m_Object->GetOrCreateMeshMaterial(m_MeshName);
-        std::cout << "[Undo] Restoring mesh '" << m_MeshName << "'"
-                  << " from offset (" << mat.positionOffset.x << "," << mat.positionOffset.y << "," << mat.positionOffset.z << ")"
-                  << " to (" << m_OldOffset.x << "," << m_OldOffset.y << "," << m_OldOffset.z << ")" << std::endl;
         mat.positionOffset = m_OldOffset;
         mat.rotationOffset = m_OldRotation;
         mat.scaleMultiplier = m_OldScale;
-    } else {
-        std::cout << "[Undo] ERROR: m_Object is null for mesh transform!" << std::endl;
     }
 }
 

@@ -1,7 +1,6 @@
 #include "TransformGizmo.h"
 #include <Graphics/VertexLayout.h>
 #include <Graphics/RenderCommand.h>
-#include <GL/glew.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <cmath>
 
@@ -175,7 +174,7 @@ void TransformGizmo::Render(const glm::mat4& view, const glm::mat4& projection,
     // Scale gizmo based on camera distance so it stays same screen size
     float scale = cameraDistance * 0.15f;
 
-    glDisable(GL_DEPTH_TEST);  // Draw gizmo on top
+    Onyx::RenderCommand::DisableDepthTest();
 
     switch (m_Mode) {
         case GizmoMode::TRANSLATE:
@@ -191,7 +190,7 @@ void TransformGizmo::Render(const glm::mat4& view, const glm::mat4& projection,
             break;
     }
 
-    glEnable(GL_DEPTH_TEST);
+    Onyx::RenderCommand::EnableDepthTest();
 }
 
 void TransformGizmo::RenderTranslateGizmo(const glm::mat4& view, const glm::mat4& projection,
@@ -200,7 +199,7 @@ void TransformGizmo::RenderTranslateGizmo(const glm::mat4& view, const glm::mat4
     m_GizmoShader->SetMat4("u_View", const_cast<glm::mat4&>(view));
     m_GizmoShader->SetMat4("u_Projection", const_cast<glm::mat4&>(projection));
 
-    glLineWidth(2.0f);
+    Onyx::RenderCommand::SetLineWidth(2.0f);
 
     // X axis (red)
     {
@@ -211,8 +210,7 @@ void TransformGizmo::RenderTranslateGizmo(const glm::mat4& view, const glm::mat4
         glm::vec3 color = (m_ActiveAxis == GizmoAxis::X) ? m_HighlightColor : m_XColor;
         m_GizmoShader->SetVec3("u_Color", color.x, color.y, color.z);
 
-        glBindVertexArray(m_ArrowVAO->GetBufferID());
-        glDrawArrays(GL_LINES, 0, m_ArrowVertexCount);
+        Onyx::RenderCommand::DrawLines(*m_ArrowVAO, m_ArrowVertexCount);
     }
 
     // Y axis (green) - rotate arrow to point up
@@ -225,8 +223,7 @@ void TransformGizmo::RenderTranslateGizmo(const glm::mat4& view, const glm::mat4
         glm::vec3 color = (m_ActiveAxis == GizmoAxis::Y) ? m_HighlightColor : m_YColor;
         m_GizmoShader->SetVec3("u_Color", color.x, color.y, color.z);
 
-        glBindVertexArray(m_ArrowVAO->GetBufferID());
-        glDrawArrays(GL_LINES, 0, m_ArrowVertexCount);
+        Onyx::RenderCommand::DrawLines(*m_ArrowVAO, m_ArrowVertexCount);
     }
 
     // Z axis (blue) - rotate arrow to point forward
@@ -239,8 +236,7 @@ void TransformGizmo::RenderTranslateGizmo(const glm::mat4& view, const glm::mat4
         glm::vec3 color = (m_ActiveAxis == GizmoAxis::Z) ? m_HighlightColor : m_ZColor;
         m_GizmoShader->SetVec3("u_Color", color.x, color.y, color.z);
 
-        glBindVertexArray(m_ArrowVAO->GetBufferID());
-        glDrawArrays(GL_LINES, 0, m_ArrowVertexCount);
+        Onyx::RenderCommand::DrawLines(*m_ArrowVAO, m_ArrowVertexCount);
     }
 
     // XY plane (small quad)
@@ -252,8 +248,7 @@ void TransformGizmo::RenderTranslateGizmo(const glm::mat4& view, const glm::mat4
         glm::vec3 color = (m_ActiveAxis == GizmoAxis::XY) ? m_HighlightColor : glm::vec3(0.9f, 0.9f, 0.2f);
         m_GizmoShader->SetVec3("u_Color", color.x, color.y, color.z);
 
-        glBindVertexArray(m_PlaneVAO->GetBufferID());
-        glDrawArrays(GL_LINE_LOOP, 0, 4);
+        Onyx::RenderCommand::DrawLineLoop(*m_PlaneVAO, 4);
     }
 
     // XZ plane
@@ -266,8 +261,7 @@ void TransformGizmo::RenderTranslateGizmo(const glm::mat4& view, const glm::mat4
         glm::vec3 color = (m_ActiveAxis == GizmoAxis::XZ) ? m_HighlightColor : glm::vec3(0.9f, 0.5f, 0.2f);
         m_GizmoShader->SetVec3("u_Color", color.x, color.y, color.z);
 
-        glBindVertexArray(m_PlaneVAO->GetBufferID());
-        glDrawArrays(GL_LINE_LOOP, 0, 4);
+        Onyx::RenderCommand::DrawLineLoop(*m_PlaneVAO, 4);
     }
 
     // YZ plane
@@ -280,12 +274,10 @@ void TransformGizmo::RenderTranslateGizmo(const glm::mat4& view, const glm::mat4
         glm::vec3 color = (m_ActiveAxis == GizmoAxis::YZ) ? m_HighlightColor : glm::vec3(0.2f, 0.9f, 0.9f);
         m_GizmoShader->SetVec3("u_Color", color.x, color.y, color.z);
 
-        glBindVertexArray(m_PlaneVAO->GetBufferID());
-        glDrawArrays(GL_LINE_LOOP, 0, 4);
+        Onyx::RenderCommand::DrawLineLoop(*m_PlaneVAO, 4);
     }
 
-    glBindVertexArray(0);
-    glLineWidth(1.0f);
+    Onyx::RenderCommand::SetLineWidth(1.0f);
 }
 
 void TransformGizmo::RenderRotateGizmo(const glm::mat4& view, const glm::mat4& projection,
@@ -294,7 +286,7 @@ void TransformGizmo::RenderRotateGizmo(const glm::mat4& view, const glm::mat4& p
     m_GizmoShader->SetMat4("u_View", const_cast<glm::mat4&>(view));
     m_GizmoShader->SetMat4("u_Projection", const_cast<glm::mat4&>(projection));
 
-    glLineWidth(2.0f);
+    Onyx::RenderCommand::SetLineWidth(2.0f);
 
     // X axis rotation (rotate around X, so circle is in YZ plane)
     {
@@ -306,8 +298,7 @@ void TransformGizmo::RenderRotateGizmo(const glm::mat4& view, const glm::mat4& p
         glm::vec3 color = (m_ActiveAxis == GizmoAxis::X) ? m_HighlightColor : m_XColor;
         m_GizmoShader->SetVec3("u_Color", color.x, color.y, color.z);
 
-        glBindVertexArray(m_CircleVAO->GetBufferID());
-        glDrawArrays(GL_LINE_STRIP, 0, m_CircleVertexCount);
+        Onyx::RenderCommand::DrawLineStrip(*m_CircleVAO, m_CircleVertexCount);
     }
 
     // Y axis rotation (rotate around Y, so circle is in XZ plane)
@@ -320,8 +311,7 @@ void TransformGizmo::RenderRotateGizmo(const glm::mat4& view, const glm::mat4& p
         glm::vec3 color = (m_ActiveAxis == GizmoAxis::Y) ? m_HighlightColor : m_YColor;
         m_GizmoShader->SetVec3("u_Color", color.x, color.y, color.z);
 
-        glBindVertexArray(m_CircleVAO->GetBufferID());
-        glDrawArrays(GL_LINE_STRIP, 0, m_CircleVertexCount);
+        Onyx::RenderCommand::DrawLineStrip(*m_CircleVAO, m_CircleVertexCount);
     }
 
     // Z axis rotation (rotate around Z, so circle is in XY plane)
@@ -333,12 +323,10 @@ void TransformGizmo::RenderRotateGizmo(const glm::mat4& view, const glm::mat4& p
         glm::vec3 color = (m_ActiveAxis == GizmoAxis::Z) ? m_HighlightColor : m_ZColor;
         m_GizmoShader->SetVec3("u_Color", color.x, color.y, color.z);
 
-        glBindVertexArray(m_CircleVAO->GetBufferID());
-        glDrawArrays(GL_LINE_STRIP, 0, m_CircleVertexCount);
+        Onyx::RenderCommand::DrawLineStrip(*m_CircleVAO, m_CircleVertexCount);
     }
 
-    glBindVertexArray(0);
-    glLineWidth(1.0f);
+    Onyx::RenderCommand::SetLineWidth(1.0f);
 }
 
 void TransformGizmo::RenderScaleGizmo(const glm::mat4& view, const glm::mat4& projection,
@@ -348,7 +336,7 @@ void TransformGizmo::RenderScaleGizmo(const glm::mat4& view, const glm::mat4& pr
     m_GizmoShader->SetMat4("u_View", const_cast<glm::mat4&>(view));
     m_GizmoShader->SetMat4("u_Projection", const_cast<glm::mat4&>(projection));
 
-    glLineWidth(2.0f);
+    Onyx::RenderCommand::SetLineWidth(2.0f);
 
     float axisLength = 1.0f;
 
@@ -361,23 +349,20 @@ void TransformGizmo::RenderScaleGizmo(const glm::mat4& view, const glm::mat4& pr
         glm::vec3 color = (m_ActiveAxis == GizmoAxis::X) ? m_HighlightColor : m_XColor;
         m_GizmoShader->SetVec3("u_Color", color.x, color.y, color.z);
 
-        // Draw line
-        glBindVertexArray(m_ArrowVAO->GetBufferID());
-        glDrawArrays(GL_LINES, 0, 2);  // Just the shaft
+        // Draw line (just the shaft — first 2 vertices)
+        Onyx::RenderCommand::DrawLines(*m_ArrowVAO, 2);
 
         // Draw cube at end
         glm::mat4 cubeModel = glm::translate(glm::mat4(1.0f), position + glm::vec3(axisLength * scale, 0.0f, 0.0f));
         cubeModel = glm::scale(cubeModel, glm::vec3(scale));
         m_GizmoShader->SetMat4("u_Model", cubeModel);
 
-        glBindVertexArray(m_CubeVAO->GetBufferID());
-        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
+        Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
     }
 
     // Similar for Y and Z...
 
-    glBindVertexArray(0);
-    glLineWidth(1.0f);
+    Onyx::RenderCommand::SetLineWidth(1.0f);
 }
 
 GizmoAxis TransformGizmo::TestHit(const glm::vec3& rayOrigin, const glm::vec3& rayDir,

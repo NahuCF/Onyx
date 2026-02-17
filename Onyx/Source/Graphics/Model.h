@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -9,23 +10,45 @@
 #include <glm/glm.hpp>
 
 #include "Mesh.h"
+#include "Buffers.h"
+#include "VertexLayout.h"
 
 namespace Onyx {
+
+    struct MergedMeshInfo {
+        uint32_t indexCount;
+        uint32_t firstIndex;
+        int32_t  baseVertex;
+    };
+
+    struct MergedBuffers {
+        std::unique_ptr<VertexArray> vao;
+        std::unique_ptr<VertexBuffer> vbo;
+        std::unique_ptr<IndexBuffer> ebo;
+        uint32_t totalVertices = 0;
+        uint32_t totalIndices = 0;
+        std::vector<MergedMeshInfo> meshInfos;
+    };
 
     class Model
     {
     public:
-        // loadTextures: if false, skips loading embedded textures (geometry only)
         Model(const char *path, bool loadTextures = true)
             : m_LoadTextures(loadTextures)
         {
             LoadModel(path);
         }
+        ~Model();
+
         void Draw(Onyx::Shader &shader);
 
-        // Access meshes for custom rendering
         std::vector<Mesh>& GetMeshes() { return m_Meshes; }
         const std::vector<Mesh>& GetMeshes() const { return m_Meshes; }
+
+        void BuildMergedBuffers();
+        const MergedBuffers& GetMergedBuffers() const { return m_Merged; }
+        bool HasMergedBuffers() const { return m_Merged.vao != nullptr; }
+
     private:
         void LoadModel(std::string path);
         void ProcessNode(aiNode *node, const aiScene *scene, const glm::mat4& parentTransform);
@@ -37,6 +60,7 @@ namespace Onyx {
         std::string m_Directory;
         bool m_LoadTextures = true;
 
+        MergedBuffers m_Merged;
     };
 
 }

@@ -7,20 +7,13 @@
 #include <Graphics/Animator.h>
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <Graphics/MaterialLibrary.h>
 #include <filesystem>
 #include <algorithm>
 #include <iostream>
 
 namespace MMO {
 
-static const char* TextureTypeNames[] = {
-    "Diffuse",
-    "Normal",
-    "Specular",
-    "Metallic",
-    "Emissive",
-    "AO"
-};
 
 void InspectorPanel::OnImGuiRender() {
     ImGui::Begin("Inspector");
@@ -160,11 +153,26 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
                 ImGui::Separator();
             }
 
-            if (ImGui::TreeNodeEx("Meshes", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::TreeNode("Meshes")) {
                 auto& meshes = model->GetMeshes();
+                ImGui::Text("%zu meshes", meshes.size());
+
+                // Filter/search for large mesh lists
+                static char meshFilter[128] = "";
+                if (meshes.size() > 20) {
+                    ImGui::InputTextWithHint("##meshfilter", "Search meshes...", meshFilter, sizeof(meshFilter));
+                }
+
+                ImGui::BeginChild("MeshList", ImVec2(0, std::min(400.0f, meshes.size() * 22.0f)), true);
                 for (size_t i = 0; i < meshes.size(); i++) {
                     auto& mesh = meshes[i];
-                    std::string meshName = mesh.m_Name.empty() ? ("Mesh " + std::to_string(i)) : mesh.m_Name;
+                    const std::string& meshName = mesh.m_Name;
+                    const char* displayName = meshName.empty() ? "Unnamed" : meshName.c_str();
+
+                    // Filter check
+                    if (meshFilter[0] != '\0' && meshName.find(meshFilter) == std::string::npos) {
+                        continue;
+                    }
 
                     ImGui::PushID(static_cast<int>(i));
 
@@ -174,14 +182,15 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
                         nodeFlags |= ImGuiTreeNodeFlags_Selected;
                     }
 
-                    bool nodeOpen = ImGui::TreeNodeEx(meshName.c_str(), nodeFlags);
+                    bool nodeOpen = ImGui::TreeNodeEx(displayName, nodeFlags);
 
                     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
                         m_World->SelectMesh(static_cast<int>(i));
                     }
 
                     if (nodeOpen) {
-                        MeshMaterial& material = object->GetOrCreateMeshMaterial(meshName);
+                        std::string matKey = meshName.empty() ? ("Mesh " + std::to_string(i)) : meshName;
+                        MeshMaterial& material = object->GetOrCreateMeshMaterial(matKey);
 
                         if (ImGui::TreeNode("Transform Offset")) {
                             ImGui::DragFloat3("Position", glm::value_ptr(material.positionOffset), 0.1f);
@@ -195,15 +204,12 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
                             ImGui::TreePop();
                         }
 
-                        if (ImGui::TreeNode("Textures")) {
-                            RenderPathInput("Albedo", material.albedoPath,
-                                [&material](const std::string& path) { material.albedoPath = path; },
-                                ".png,.jpg,.jpeg,.tga,.bmp");
-
-                            RenderPathInput("Normal", material.normalPath,
-                                [&material](const std::string& path) { material.normalPath = path; },
-                                ".png,.jpg,.jpeg,.tga,.bmp");
-                            ImGui::TreePop();
+                        RenderMaterialSelector("Material##mesh", material.materialId);
+                        if (!material.materialId.empty() && m_Viewport) {
+                            if (auto* mat = m_Viewport->GetMaterialLibrary().GetMaterial(material.materialId)) {
+                                ImGui::TextDisabled("  Albedo: %s", mat->albedoPath.empty() ? "(none)" : mat->albedoPath.c_str());
+                                ImGui::TextDisabled("  Normal: %s", mat->normalPath.empty() ? "(none)" : mat->normalPath.c_str());
+                            }
                         }
 
                         ImGui::TreePop();
@@ -211,6 +217,7 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
 
                     ImGui::PopID();
                 }
+                ImGui::EndChild();
                 ImGui::TreePop();
             }
         }
@@ -353,19 +360,18 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
         }
     }
 
-    if (ImGui::TreeNode("Default Textures")) {
-        ImGui::TextDisabled("Used for meshes without specific materials");
-        for (int i = 0; i < static_cast<int>(TextureType::COUNT); i++) {
-            TextureType type = static_cast<TextureType>(i);
-            ImGui::PushID(i);
-
-            RenderPathInput(TextureTypeNames[i], object->GetTexturePath(type),
-                [object, type](const std::string& path) { object->SetTexturePath(type, path); },
-                ".png,.jpg,.jpeg,.tga,.bmp");
-
-            ImGui::PopID();
+    // Object-level material
+    {
+        std::string matId = object->GetMaterialId();
+        if (RenderMaterialSelector("Material", matId)) {
+            object->SetMaterialId(matId);
         }
-        ImGui::TreePop();
+        if (!matId.empty() && m_Viewport) {
+            if (auto* mat = m_Viewport->GetMaterialLibrary().GetMaterial(matId)) {
+                ImGui::TextDisabled("  Albedo: %s", mat->albedoPath.empty() ? "(none)" : mat->albedoPath.c_str());
+                ImGui::TextDisabled("  Normal: %s", mat->normalPath.empty() ? "(none)" : mat->normalPath.c_str());
+            }
+        }
     }
 
     ImGui::Spacing();
@@ -399,16 +405,17 @@ void InspectorPanel::RenderSpawnPointProperties(SpawnPoint* object) {
             [object](const std::string& path) { object->SetModelPath(path); },
             ".obj,.fbx,.gltf,.glb");
 
-        if (ImGui::TreeNode("Textures")) {
-            RenderPathInput("Diffuse", object->GetDiffuseTexture(),
-                [object](const std::string& path) { object->SetDiffuseTexture(path); },
-                ".png,.jpg,.jpeg,.tga,.bmp");
-
-            RenderPathInput("Normal", object->GetNormalTexture(),
-                [object](const std::string& path) { object->SetNormalTexture(path); },
-                ".png,.jpg,.jpeg,.tga,.bmp");
-
-            ImGui::TreePop();
+        {
+            std::string matId = object->GetMaterialId();
+            if (RenderMaterialSelector("Material", matId)) {
+                object->SetMaterialId(matId);
+            }
+            if (!matId.empty() && m_Viewport) {
+                if (auto* mat = m_Viewport->GetMaterialLibrary().GetMaterial(matId)) {
+                    ImGui::TextDisabled("  Albedo: %s", mat->albedoPath.empty() ? "(none)" : mat->albedoPath.c_str());
+                    ImGui::TextDisabled("  Normal: %s", mat->normalPath.empty() ? "(none)" : mat->normalPath.c_str());
+                }
+            }
         }
 
         ImGui::TreePop();
@@ -618,6 +625,44 @@ void InspectorPanel::RenderInstancePortalProperties(InstancePortal* object) {
     }
 }
 
+bool InspectorPanel::RenderMaterialSelector(const char* label, std::string& materialId) {
+    if (!m_Viewport) return false;
+
+    auto& lib = m_Viewport->GetMaterialLibrary();
+    auto ids = lib.GetAllMaterialIds();
+    std::sort(ids.begin(), ids.end());
+
+    bool changed = false;
+    const char* preview = materialId.empty() ? "(None)" : materialId.c_str();
+
+    ImGui::PushID(label);
+    if (ImGui::BeginCombo(label, preview)) {
+        // (None) option to clear
+        if (ImGui::Selectable("(None)", materialId.empty())) {
+            materialId.clear();
+            changed = true;
+        }
+
+        for (const auto& id : ids) {
+            bool isSelected = (id == materialId);
+            const Onyx::Material* mat = lib.GetMaterial(id);
+            std::string displayStr = mat ? (mat->name.empty() ? id : mat->name + " (" + id + ")") : id;
+
+            if (ImGui::Selectable(displayStr.c_str(), isSelected)) {
+                materialId = id;
+                changed = true;
+            }
+            if (isSelected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::PopID();
+
+    return changed;
+}
+
 bool InspectorPanel::RenderPathInput(const char* label, const std::string& currentPath,
                                       const std::function<void(const std::string&)>& onPathChanged,
                                       const char* filter) {
@@ -702,24 +747,6 @@ bool InspectorPanel::RenderPathInput(const char* label, const std::string& curre
     ImGui::PopID();
 
     return changed;
-}
-
-void InspectorPanel::RenderModelSection(const std::string& modelPath,
-                                        const std::function<void(const std::string&)>& onModelChanged,
-                                        const std::function<std::string(int)>& getTexture,
-                                        const std::function<void(int, const std::string&)>& setTexture) {
-    RenderPathInput("Model", modelPath, onModelChanged, ".obj,.fbx,.gltf,.glb");
-
-    if (ImGui::TreeNode("Textures")) {
-        for (int i = 0; i < static_cast<int>(TextureType::COUNT); i++) {
-            ImGui::PushID(i);
-            RenderPathInput(TextureTypeNames[i], getTexture(i),
-                [setTexture, i](const std::string& path) { setTexture(i, path); },
-                ".png,.jpg,.jpeg,.tga,.bmp");
-            ImGui::PopID();
-        }
-        ImGui::TreePop();
-    }
 }
 
 void InspectorPanel::RenderFileBrowserPopup() {

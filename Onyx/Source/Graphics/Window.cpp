@@ -57,6 +57,11 @@ namespace Onyx {
 		// Request MSAA samples for antialiasing
 		glfwWindowHint(GLFW_SAMPLES, 4);
 
+		// Request OpenGL 4.3 core profile (needed for SSBOs and batched rendering)
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
 		m_Window = glfwCreateWindow(m_Width, m_Height, m_Title, NULL, NULL);
 
         m_Monitor = glfwGetPrimaryMonitor();
@@ -92,6 +97,7 @@ namespace Onyx {
         glfwSetWindowSizeCallback(m_Window, window_resize_callback);
 
 
+		glewExperimental = GL_TRUE;
 		if(glewInit() != GLEW_OK)
 		{
 			std::cout << "Error to initializate GLEW :c" << std::endl;
@@ -162,8 +168,6 @@ namespace Onyx {
 		if (curtime - lasttime > 1)
 		{
             m_LastFPS = m_FPS;
-            if(m_ShowFPS) 
-			    std::cout << "FPS: " << m_FPS << std::endl;
 			m_FPS = 0;
 
 			curtime = (float)glfwGetTime();
@@ -180,11 +184,6 @@ namespace Onyx {
 		float y = posInPx.y / windowSize.y;
 
 		return Onyx::Vector2D(x, y);
-	}
-
-	void Window::ShowFPS(bool value)
-	{
-		m_ShowFPS = value;
 	}
 
 	void Window::SetVSync(bool value) const

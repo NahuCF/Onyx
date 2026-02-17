@@ -213,8 +213,6 @@ bool AnimatedModel::LoadAnimation(const std::string& path) {
         m_AnimationMap[animName] = static_cast<int>(m_Animations.size());
         m_Animations.push_back(std::move(animation));
         animationsLoaded++;
-
-        std::cout << "Loaded animation '" << animName << "' with " << matchingBones << " bones" << std::endl;
     }
 
     return animationsLoaded > 0;

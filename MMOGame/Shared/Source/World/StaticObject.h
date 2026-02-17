@@ -23,21 +23,9 @@ struct ColliderData {
     uint32_t meshId = 0;                      // For MESH collider
 };
 
-// Texture types for materials
-enum class TextureType : uint8_t {
-    DIFFUSE = 0,    // Albedo/base color
-    NORMAL,         // Normal map
-    SPECULAR,       // Specular/Roughness
-    METALLIC,       // Metallic map
-    EMISSIVE,       // Emissive/glow
-    AO,             // Ambient occlusion
-    COUNT
-};
-
 // Per-mesh material assignment
 struct MeshMaterial {
-    std::string albedoPath;
-    std::string normalPath;
+    std::string materialId;   // Reference to MaterialLibrary
     // Per-mesh transform offset (relative to object)
     glm::vec3 positionOffset = glm::vec3(0.0f);
     glm::vec3 rotationOffset = glm::vec3(0.0f);  // Euler angles in degrees
@@ -58,31 +46,9 @@ public:
     void SetModelId(uint32_t id) { m_ModelId = id; }
     uint32_t GetModelId() const { return m_ModelId; }
 
-    // Textures
-    void SetTexturePath(TextureType type, const std::string& path) {
-        m_TexturePaths[static_cast<size_t>(type)] = path;
-    }
-    const std::string& GetTexturePath(TextureType type) const {
-        return m_TexturePaths[static_cast<size_t>(type)];
-    }
-
-    void SetDiffuseTexture(const std::string& path) { SetTexturePath(TextureType::DIFFUSE, path); }
-    const std::string& GetDiffuseTexture() const { return GetTexturePath(TextureType::DIFFUSE); }
-
-    void SetNormalTexture(const std::string& path) { SetTexturePath(TextureType::NORMAL, path); }
-    const std::string& GetNormalTexture() const { return GetTexturePath(TextureType::NORMAL); }
-
-    void SetSpecularTexture(const std::string& path) { SetTexturePath(TextureType::SPECULAR, path); }
-    const std::string& GetSpecularTexture() const { return GetTexturePath(TextureType::SPECULAR); }
-
-    void SetMetallicTexture(const std::string& path) { SetTexturePath(TextureType::METALLIC, path); }
-    const std::string& GetMetallicTexture() const { return GetTexturePath(TextureType::METALLIC); }
-
-    void SetEmissiveTexture(const std::string& path) { SetTexturePath(TextureType::EMISSIVE, path); }
-    const std::string& GetEmissiveTexture() const { return GetTexturePath(TextureType::EMISSIVE); }
-
-    void SetAOTexture(const std::string& path) { SetTexturePath(TextureType::AO, path); }
-    const std::string& GetAOTexture() const { return GetTexturePath(TextureType::AO); }
+    // Material (reference to MaterialLibrary)
+    void SetMaterialId(const std::string& id) { m_MaterialId = id; }
+    const std::string& GetMaterialId() const { return m_MaterialId; }
 
     // Collision
     void SetCollider(const ColliderData& collider) { m_Collider = collider; }
@@ -150,12 +116,10 @@ public:
         copy->SetRotation(GetRotation());
         copy->SetScale(GetScale());
 
-        // Copy model and textures
+        // Copy model and material
         copy->m_ModelPath = m_ModelPath;
         copy->m_ModelId = m_ModelId;
-        for (size_t i = 0; i < static_cast<size_t>(TextureType::COUNT); i++) {
-            copy->m_TexturePaths[i] = m_TexturePaths[i];
-        }
+        copy->m_MaterialId = m_MaterialId;
 
         // Copy collider
         copy->m_Collider = m_Collider;
@@ -181,7 +145,7 @@ public:
 private:
     std::string m_ModelPath;
     uint32_t m_ModelId = 0;
-    std::string m_TexturePaths[static_cast<size_t>(TextureType::COUNT)];
+    std::string m_MaterialId;  // MaterialLibrary reference
     ColliderData m_Collider;
 
     // Per-mesh materials (mesh name -> material)

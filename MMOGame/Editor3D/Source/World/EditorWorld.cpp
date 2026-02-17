@@ -1,6 +1,5 @@
 #include "EditorWorld.h"
 #include <algorithm>
-#include <iostream>
 
 namespace MMO {
 
@@ -408,11 +407,7 @@ void EditorWorld::Paste() {
 }
 
 void EditorWorld::CopyMesh() {
-    std::cout << "[CopyMesh] HasMeshSelected=" << HasMeshSelected()
-              << " MeshName='" << m_SelectedMeshName << "'" << std::endl;
-
     if (!HasMeshSelected() || m_SelectedMeshName.empty()) {
-        std::cout << "[CopyMesh] FAILED - no mesh selected or name empty" << std::endl;
         return;
     }
 
@@ -422,29 +417,21 @@ void EditorWorld::CopyMesh() {
         const MeshMaterial* mat = staticObj->GetMeshMaterial(m_SelectedMeshName);
         if (mat) {
             m_MeshClipboard = *mat;
-            std::cout << "[CopyMesh] Copied existing material for '" << m_SelectedMeshName << "'" << std::endl;
         } else {
             // No custom material yet - copy default values
             m_MeshClipboard = MeshMaterial();
-            std::cout << "[CopyMesh] Copied default material for '" << m_SelectedMeshName << "'" << std::endl;
         }
         m_HasMeshClipboard = true;
-    } else {
-        std::cout << "[CopyMesh] FAILED - selection is not a StaticObject" << std::endl;
     }
 }
 
 void EditorWorld::CopySingleMesh() {
-    std::cout << "[CopySingleMesh] MeshName='" << m_SelectedMeshName << "'" << std::endl;
-
     if (!HasMeshSelected() || m_SelectedMeshName.empty()) {
-        std::cout << "[CopySingleMesh] FAILED - no mesh selected" << std::endl;
         return;
     }
 
     WorldObject* selection = GetPrimarySelection();
     if (!selection || selection->GetObjectType() != WorldObjectType::STATIC_OBJECT) {
-        std::cout << "[CopySingleMesh] FAILED - selection is not a StaticObject" << std::endl;
         return;
     }
 
@@ -467,8 +454,6 @@ void EditorWorld::CopySingleMesh() {
     // Store in clipboard
     m_Clipboard.clear();
     m_Clipboard.push_back(std::move(clone));
-
-    std::cout << "[CopySingleMesh] Copied object with only mesh '" << m_SelectedMeshName << "' visible" << std::endl;
 }
 
 void EditorWorld::PasteMesh() {

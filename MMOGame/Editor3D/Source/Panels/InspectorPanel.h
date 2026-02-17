@@ -32,17 +32,15 @@ private:
     void RenderTriggerVolumeProperties(TriggerVolume* object);
     void RenderInstancePortalProperties(InstancePortal* object);
 
+    // Helper for material selector dropdown
+    // Returns true if the materialId changed
+    bool RenderMaterialSelector(const char* label, std::string& materialId);
+
     // Helper for path input with browse button
     // Returns true if the path changed
     bool RenderPathInput(const char* label, const std::string& currentPath,
                          const std::function<void(const std::string&)>& onPathChanged,
                          const char* filter = nullptr);
-
-    // Render model section with textures
-    void RenderModelSection(const std::string& modelPath,
-                           const std::function<void(const std::string&)>& onModelChanged,
-                           const std::function<std::string(int)>& getTexture,
-                           const std::function<void(int, const std::string&)>& setTexture);
 
     ViewportPanel* m_Viewport = nullptr;
 

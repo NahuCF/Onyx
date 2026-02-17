@@ -219,4 +219,76 @@ namespace Onyx {
 		UnBind();
 	}
 
+	// --- ShaderStorageBuffer ---
+
+	ShaderStorageBuffer::ShaderStorageBuffer()
+	{
+		glGenBuffers(1, &m_BufferID);
+	}
+
+	ShaderStorageBuffer::~ShaderStorageBuffer()
+	{
+		glDeleteBuffers(1, &m_BufferID);
+	}
+
+	void ShaderStorageBuffer::Bind() const
+	{
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_BufferID);
+	}
+
+	void ShaderStorageBuffer::UnBind() const
+	{
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+	}
+
+	void ShaderStorageBuffer::BindBase(uint32_t slot) const
+	{
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, slot, m_BufferID);
+	}
+
+	void ShaderStorageBuffer::Upload(const void* data, size_t sizeBytes, uint32_t bindingPoint)
+	{
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_BufferID);
+		if (sizeBytes > m_AllocatedSize) {
+			glBufferData(GL_SHADER_STORAGE_BUFFER, sizeBytes, data, GL_DYNAMIC_DRAW);
+			m_AllocatedSize = sizeBytes;
+		} else {
+			glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeBytes, data);
+		}
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, m_BufferID);
+	}
+
+	// --- DrawCommandBuffer ---
+
+	DrawCommandBuffer::DrawCommandBuffer()
+	{
+		glGenBuffers(1, &m_BufferID);
+	}
+
+	DrawCommandBuffer::~DrawCommandBuffer()
+	{
+		glDeleteBuffers(1, &m_BufferID);
+	}
+
+	void DrawCommandBuffer::Bind() const
+	{
+		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_BufferID);
+	}
+
+	void DrawCommandBuffer::UnBind() const
+	{
+		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+	}
+
+	void DrawCommandBuffer::Upload(const void* data, size_t sizeBytes)
+	{
+		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_BufferID);
+		if (sizeBytes > m_AllocatedSize) {
+			glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeBytes, data, GL_DYNAMIC_DRAW);
+			m_AllocatedSize = sizeBytes;
+		} else {
+			glBufferSubData(GL_DRAW_INDIRECT_BUFFER, 0, sizeBytes, data);
+		}
+	}
+
 }

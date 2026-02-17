@@ -84,8 +84,8 @@ bool TextureArray::LoadLayerFromFile(const std::string& path, int layer) {
         for (int x = 0; x < m_Width; x++) {
             int srcX = x * w / m_Width;
             int srcY = y * h / m_Height;
-            srcX = std::min(srcX, w - 1);
-            srcY = std::min(srcY, h - 1);
+            srcX = (std::min)(srcX, w - 1);
+            srcY = (std::min)(srcY, h - 1);
             for (int c = 0; c < m_Channels; c++) {
                 resized[(y * m_Width + x) * m_Channels + c] =
                     data[(srcY * w + srcX) * m_Channels + c];

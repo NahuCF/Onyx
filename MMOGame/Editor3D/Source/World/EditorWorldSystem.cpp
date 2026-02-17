@@ -1,4 +1,4 @@
-#include "EditorTerrainSystem.h"
+#include "EditorWorldSystem.h"
 #include <World/WorldObjectData.h>
 #include <algorithm>
 #include <cmath>
@@ -10,38 +10,38 @@ using Shared::WorldToChunkZ;
 
 namespace Editor3D {
 
-EditorTerrainSystem::EditorTerrainSystem() {
+EditorWorldSystem::EditorWorldSystem() {
 }
 
-EditorTerrainSystem::~EditorTerrainSystem() {
+EditorWorldSystem::~EditorWorldSystem() {
     Shutdown();
 }
 
-void EditorTerrainSystem::Init(const std::string& chunksDirectory) {
+void EditorWorldSystem::Init(const std::string& chunksDirectory) {
     m_ProjectPath = chunksDirectory.empty() ? "." : chunksDirectory;
 
     std::filesystem::create_directories(m_ProjectPath);
 
     if (std::filesystem::exists(m_ProjectPath)) {
         for (const auto& entry : std::filesystem::directory_iterator(m_ProjectPath)) {
-            if (entry.path().extension() == ".terrain") {
-                std::string stem = entry.path().stem().string();
-                if (stem.rfind("chunk_", 0) != 0) continue;
+            if (entry.path().extension() != ".chunk") continue;
 
-                std::string coords = stem.substr(6);
-                size_t sep = coords.find('_');
-                if (sep == std::string::npos) continue;
+            std::string stem = entry.path().stem().string();
+            if (stem.rfind("chunk_", 0) != 0) continue;
 
-                int32_t cx = std::stoi(coords.substr(0, sep));
-                int32_t cz = std::stoi(coords.substr(sep + 1));
+            std::string coords = stem.substr(6);
+            size_t sep = coords.find('_');
+            if (sep == std::string::npos) continue;
 
-                m_KnownChunkFiles.insert(MakeChunkKey(cx, cz));
-            }
+            int32_t cx = std::stoi(coords.substr(0, sep));
+            int32_t cz = std::stoi(coords.substr(sep + 1));
+
+            m_KnownChunkFiles.insert(MakeChunkKey(cx, cz));
         }
     }
 }
 
-void EditorTerrainSystem::Shutdown() {
+void EditorWorldSystem::Shutdown() {
     SaveDirtyChunks();
     m_Chunks.clear();
     m_LoadQueue.clear();
@@ -49,7 +49,7 @@ void EditorTerrainSystem::Shutdown() {
     m_MaterialLayerMap.clear();
 }
 
-void EditorTerrainSystem::Update(const glm::vec3& cameraPos, const glm::mat4& viewProj, float deltaTime) {
+void EditorWorldSystem::Update(const glm::vec3& cameraPos, const glm::mat4& viewProj, float deltaTime) {
     m_CameraPosition = cameraPos;
     m_Frustum.Update(viewProj);
 
@@ -88,8 +88,9 @@ void EditorTerrainSystem::Update(const glm::vec3& cameraPos, const glm::mat4& vi
     UnloadDistantChunks();
 
     for (auto& [key, chunk] : m_Chunks) {
-        if (chunk->GetState() == ChunkState::Loaded) {
-            chunk->CreateGPUResources();
+        TerrainChunk* terrain = chunk->GetTerrain();
+        if (terrain->GetState() == ChunkState::Loaded) {
+            terrain->CreateGPUResources();
         }
     }
 
@@ -99,7 +100,7 @@ void EditorTerrainSystem::Update(const glm::vec3& cameraPos, const glm::mat4& vi
     m_Stats.dirtyChunks = 0;
 
     for (auto& [key, chunk] : m_Chunks) {
-        if (chunk->GetState() == ChunkState::Active) {
+        if (chunk->GetTerrain()->GetState() == ChunkState::Active) {
             m_Stats.loadedChunks++;
             if (IsChunkVisible(chunk->GetChunkX(), chunk->GetChunkZ())) {
                 m_Stats.visibleChunks++;
@@ -111,25 +112,55 @@ void EditorTerrainSystem::Update(const glm::vec3& cameraPos, const glm::mat4& vi
     }
 }
 
-void EditorTerrainSystem::Render(Shader* terrainShader, const glm::mat4& viewProj,
-                                  PerChunkCallback perChunkSetup) {
+void EditorWorldSystem::RenderTerrain(Shader* terrainShader, const glm::mat4& viewProj,
+                                       PerChunkCallback perChunkSetup) {
     if (!terrainShader) return;
 
     static const glm::mat4 identity(1.0f);
     terrainShader->SetMat4("u_Model", identity);
 
     for (auto& [key, chunk] : m_Chunks) {
-        if (chunk->GetState() != ChunkState::Active) continue;
+        TerrainChunk* terrain = chunk->GetTerrain();
+        if (terrain->GetState() != ChunkState::Active) continue;
         if (!m_Settings.enableFrustumCulling || IsChunkVisible(chunk->GetChunkX(), chunk->GetChunkZ())) {
             if (perChunkSetup) {
-                perChunkSetup(chunk.get(), terrainShader);
+                perChunkSetup(terrain, terrainShader);
             }
-            chunk->Draw(terrainShader);
+            terrain->Draw(terrainShader);
         }
     }
 }
 
-void EditorTerrainSystem::SetDefaultMaterialIds(const std::string ids[MAX_TERRAIN_LAYERS]) {
+std::vector<EditorLight> EditorWorldSystem::GatherVisibleLights(const glm::vec3& cameraPos, float maxDistance) const {
+    std::vector<EditorLight> result;
+
+    for (const auto& [key, chunk] : m_Chunks) {
+        if (!chunk->IsReady()) continue;
+
+        for (const auto& light : chunk->GetLights()) {
+            float dist = glm::distance(light.position, cameraPos);
+            if (dist <= light.range + maxDistance) {
+                result.push_back(light);
+            }
+        }
+    }
+
+    // Sort by distance to camera
+    std::sort(result.begin(), result.end(),
+        [&cameraPos](const EditorLight& a, const EditorLight& b) {
+            return glm::distance(a.position, cameraPos) < glm::distance(b.position, cameraPos);
+        });
+
+    return result;
+}
+
+WorldChunk* EditorWorldSystem::GetChunk(int32_t cx, int32_t cz) {
+    int32_t key = MakeChunkKey(cx, cz);
+    auto it = m_Chunks.find(key);
+    return (it != m_Chunks.end()) ? it->second.get() : nullptr;
+}
+
+void EditorWorldSystem::SetDefaultMaterialIds(const std::string ids[MAX_TERRAIN_LAYERS]) {
     for (int i = 0; i < MAX_TERRAIN_LAYERS; i++) {
         m_DefaultMaterialIds[i] = ids[i];
         if (!ids[i].empty()) {
@@ -141,8 +172,9 @@ void EditorTerrainSystem::SetDefaultMaterialIds(const std::string ids[MAX_TERRAI
     }
 }
 
-void EditorTerrainSystem::ApplyDefaultMaterials(TerrainChunk* chunk) {
-    const auto& data = chunk->GetData();
+void EditorWorldSystem::ApplyDefaultMaterials(WorldChunk* chunk) {
+    TerrainChunk* terrain = chunk->GetTerrain();
+    const auto& data = terrain->GetData();
     bool allEmpty = true;
     for (int i = 0; i < MAX_TERRAIN_LAYERS; i++) {
         if (!data.materialIds[i].empty()) { allEmpty = false; break; }
@@ -157,12 +189,12 @@ void EditorTerrainSystem::ApplyDefaultMaterials(TerrainChunk* chunk) {
     }
     for (int i = 0; i < MAX_TERRAIN_LAYERS; i++) {
         if (!materials[i].empty()) {
-            chunk->SetLayerMaterial(i, materials[i]);
+            terrain->SetLayerMaterial(i, materials[i]);
         }
     }
 }
 
-int EditorTerrainSystem::ResolveGlobalLayer(const std::string& materialId) {
+int EditorWorldSystem::ResolveGlobalLayer(const std::string& materialId) {
     auto it = m_MaterialLayerMap.find(materialId);
     if (it != m_MaterialLayerMap.end()) {
         return it->second;
@@ -183,7 +215,7 @@ int EditorTerrainSystem::ResolveGlobalLayer(const std::string& materialId) {
 
     float globalSums[MAX_TERRAIN_LAYERS] = {};
     for (auto& [key, chunk] : m_Chunks) {
-        const auto& data = chunk->GetData();
+        const auto& data = chunk->GetTerrain()->GetData();
         if (data.splatmap.empty()) continue;
         for (int i = 0; i < SPLATMAP_TEXELS; i++) {
             for (int c = 0; c < MAX_TERRAIN_LAYERS; c++) {
@@ -212,50 +244,44 @@ int EditorTerrainSystem::ResolveGlobalLayer(const std::string& materialId) {
     return minLayer;
 }
 
-void EditorTerrainSystem::SetNormalMode(bool sobel, bool smooth) {
+void EditorWorldSystem::SetNormalMode(bool sobel, bool smooth) {
     if (m_SobelNormals == sobel && m_SmoothNormals == smooth) return;
-
     m_SobelNormals = sobel;
     m_SmoothNormals = smooth;
-
     for (auto& [key, chunk] : m_Chunks) {
-        chunk->SetNormalMode(sobel, smooth);
+        chunk->GetTerrain()->SetNormalMode(sobel, smooth);
     }
 }
 
-void EditorTerrainSystem::SetDiamondGrid(bool enabled) {
+void EditorWorldSystem::SetDiamondGrid(bool enabled) {
     if (m_DiamondGrid == enabled) return;
-
     m_DiamondGrid = enabled;
-
     for (auto& [key, chunk] : m_Chunks) {
-        chunk->SetDiamondGrid(enabled);
+        chunk->GetTerrain()->SetDiamondGrid(enabled);
     }
 }
 
-void EditorTerrainSystem::SetMeshResolution(int resolution) {
+void EditorWorldSystem::SetMeshResolution(int resolution) {
     if (m_MeshResolution == resolution) return;
-
     m_MeshResolution = resolution;
-
     for (auto& [key, chunk] : m_Chunks) {
-        chunk->SetMeshResolution(resolution);
+        chunk->GetTerrain()->SetMeshResolution(resolution);
     }
 }
 
-float EditorTerrainSystem::GetHeightAt(float worldX, float worldZ) {
+float EditorWorldSystem::GetHeightAt(float worldX, float worldZ) {
     float height = 0.0f;
     GetHeightAt(worldX, worldZ, height);
     return height;
 }
 
-bool EditorTerrainSystem::GetHeightAt(float worldX, float worldZ, float& outHeight) {
+bool EditorWorldSystem::GetHeightAt(float worldX, float worldZ, float& outHeight) {
     int32_t chunkX = WorldToChunkX(worldX);
     int32_t chunkZ = WorldToChunkZ(worldZ);
 
     int32_t key = MakeChunkKey(chunkX, chunkZ);
     auto it = m_Chunks.find(key);
-    if (it == m_Chunks.end() || it->second->GetState() != ChunkState::Active) {
+    if (it == m_Chunks.end() || it->second->GetTerrain()->GetState() != ChunkState::Active) {
         outHeight = 0.0f;
         return false;
     }
@@ -263,43 +289,41 @@ bool EditorTerrainSystem::GetHeightAt(float worldX, float worldZ, float& outHeig
     float localX = worldX - chunkX * CHUNK_SIZE;
     float localZ = worldZ - chunkZ * CHUNK_SIZE;
 
-    outHeight = it->second->GetHeightAt(localX, localZ);
+    outHeight = it->second->GetTerrain()->GetHeightAt(localX, localZ);
     return true;
 }
 
-void EditorTerrainSystem::SetHeightAt(float worldX, float worldZ, float height) {
+void EditorWorldSystem::SetHeightAt(float worldX, float worldZ, float height) {
     int32_t chunkX = WorldToChunkX(worldX);
     int32_t chunkZ = WorldToChunkZ(worldZ);
 
     int32_t key = MakeChunkKey(chunkX, chunkZ);
     auto it = m_Chunks.find(key);
-    if (it == m_Chunks.end() || it->second->GetState() != ChunkState::Active) return;
-    TerrainChunk* chunk = it->second.get();
+    if (it == m_Chunks.end() || it->second->GetTerrain()->GetState() != ChunkState::Active) return;
+    TerrainChunk* terrain = it->second->GetTerrain();
 
     float localX = worldX - chunkX * CHUNK_SIZE;
     float localZ = worldZ - chunkZ * CHUNK_SIZE;
 
     int ix = static_cast<int>(localX / CHUNK_SIZE * (CHUNK_RESOLUTION - 1));
     int iz = static_cast<int>(localZ / CHUNK_SIZE * (CHUNK_RESOLUTION - 1));
-
     ix = std::clamp(ix, 0, CHUNK_RESOLUTION - 1);
     iz = std::clamp(iz, 0, CHUNK_RESOLUTION - 1);
 
-    auto& data = chunk->GetDataMutable();
+    auto& data = terrain->GetDataMutable();
     if (data.heightmap.empty()) {
         data.heightmap.resize(CHUNK_HEIGHTMAP_SIZE, 0.0f);
     }
-
     data.heightmap[iz * CHUNK_RESOLUTION + ix] = height;
     data.CalculateBounds();
 }
 
-void EditorTerrainSystem::RaiseTerrain(float worldX, float worldZ, float radius, float amount) {
+void EditorWorldSystem::RaiseTerrain(float worldX, float worldZ, float radius, float amount) {
     TerrainBrush brush;
     brush.radius = radius;
     brush.strength = amount;
 
-    ApplyBrush(worldX, worldZ, radius, [&brush, worldX, worldZ](TerrainChunk* chunk, int localX, int localZ, float weight) {
+    ApplyBrush(worldX, worldZ, radius, [&brush](TerrainChunk* chunk, int localX, int localZ, float weight) {
         auto& data = chunk->GetDataMutable();
         if (data.heightmap.empty()) {
             data.heightmap.resize(CHUNK_HEIGHTMAP_SIZE, 0.0f);
@@ -309,11 +333,11 @@ void EditorTerrainSystem::RaiseTerrain(float worldX, float worldZ, float radius,
     });
 }
 
-void EditorTerrainSystem::LowerTerrain(float worldX, float worldZ, float radius, float amount) {
+void EditorWorldSystem::LowerTerrain(float worldX, float worldZ, float radius, float amount) {
     RaiseTerrain(worldX, worldZ, radius, -amount);
 }
 
-float EditorTerrainSystem::GetChunkHeight(int cx, int cz, int lx, int lz) const {
+float EditorWorldSystem::GetChunkHeight(int cx, int cz, int lx, int lz) const {
     const int last = CHUNK_RESOLUTION - 1;
     if (lx < 0) { cx--; lx = last + lx; }
     else if (lx > last) { cx++; lx = lx - last; }
@@ -323,12 +347,12 @@ float EditorTerrainSystem::GetChunkHeight(int cx, int cz, int lx, int lz) const 
     int32_t key = MakeChunkKey(cx, cz);
     auto it = m_Chunks.find(key);
     if (it == m_Chunks.end()) return 0.0f;
-    const auto& data = it->second->GetData();
+    const auto& data = it->second->GetTerrain()->GetData();
     if (data.heightmap.empty()) return 0.0f;
     return data.heightmap[lz * CHUNK_RESOLUTION + lx];
 }
 
-void EditorTerrainSystem::SmoothTerrain(float worldX, float worldZ, float radius, float strength) {
+void EditorWorldSystem::SmoothTerrain(float worldX, float worldZ, float radius, float strength) {
     TerrainBrush brush;
     brush.radius = radius;
     brush.strength = strength;
@@ -351,9 +375,8 @@ void EditorTerrainSystem::SmoothTerrain(float worldX, float worldZ, float radius
 
     for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
-            TerrainChunk* chunk = m_Chunks[MakeChunkKey(cx, cz)].get();
-
-            auto& data = chunk->GetData();
+            TerrainChunk* terrain = m_Chunks[MakeChunkKey(cx, cz)]->GetTerrain();
+            auto& data = terrain->GetData();
             if (data.heightmap.empty()) continue;
 
             float chunkWorldX = cx * CHUNK_SIZE;
@@ -367,7 +390,6 @@ void EditorTerrainSystem::SmoothTerrain(float worldX, float worldZ, float radius
                     float dx = vertWorldX - worldX;
                     float dz = vertWorldZ - worldZ;
                     float dist = std::sqrt(dx * dx + dz * dz);
-
                     if (dist > radius) continue;
 
                     float sum = GetChunkHeight(cx, cz, lx - 1, lz)
@@ -377,7 +399,7 @@ void EditorTerrainSystem::SmoothTerrain(float worldX, float worldZ, float radius
                     float avg = sum * 0.25f;
 
                     SmoothVertex sv;
-                    sv.chunk = chunk;
+                    sv.chunk = terrain;
                     sv.lx = lx;
                     sv.lz = lz;
                     sv.average = avg;
@@ -401,14 +423,14 @@ void EditorTerrainSystem::SmoothTerrain(float worldX, float worldZ, float radius
             int32_t key = MakeChunkKey(cx, cz);
             auto it = m_Chunks.find(key);
             if (it != m_Chunks.end()) {
-                it->second->GetDataMutable().CalculateBounds();
+                it->second->GetTerrain()->GetDataMutable().CalculateBounds();
             }
             DirtyNeighborChunks(cx, cz);
         }
     }
 }
 
-void EditorTerrainSystem::FlattenTerrain(float worldX, float worldZ, float radius, float targetHeight, float hardness) {
+void EditorWorldSystem::FlattenTerrain(float worldX, float worldZ, float radius, float targetHeight, float hardness) {
     float innerRadius = radius * std::clamp(hardness, 0.0f, 0.99f);
     float transitionWidth = radius - innerRadius;
 
@@ -433,8 +455,8 @@ void EditorTerrainSystem::FlattenTerrain(float worldX, float worldZ, float radiu
     });
 }
 
-void EditorTerrainSystem::RampTerrain(float startX, float startZ, float startHeight,
-                                      float endX, float endZ, float endHeight, float width) {
+void EditorWorldSystem::RampTerrain(float startX, float startZ, float startHeight,
+                                     float endX, float endZ, float endHeight, float width) {
     float dirX = endX - startX;
     float dirZ = endZ - startZ;
     float length = std::sqrt(dirX * dirX + dirZ * dirZ);
@@ -459,7 +481,7 @@ void EditorTerrainSystem::RampTerrain(float startX, float startZ, float startHei
 
     for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
-            TerrainChunk* chunk = m_Chunks[MakeChunkKey(cx, cz)].get();
+            TerrainChunk* terrain = m_Chunks[MakeChunkKey(cx, cz)]->GetTerrain();
 
             float chunkWorldX = cx * CHUNK_SIZE;
             float chunkWorldZ = cz * CHUNK_SIZE;
@@ -485,7 +507,7 @@ void EditorTerrainSystem::RampTerrain(float startX, float startZ, float startHei
                         edgeFade = 1.0f - (d - (width - fadeZone)) / fadeZone;
                     }
 
-                    auto& data = chunk->GetDataMutable();
+                    auto& data = terrain->GetDataMutable();
                     if (data.heightmap.empty()) {
                         data.heightmap.resize(CHUNK_HEIGHTMAP_SIZE, 0.0f);
                     }
@@ -494,7 +516,7 @@ void EditorTerrainSystem::RampTerrain(float startX, float startZ, float startHei
                 }
             }
 
-            chunk->GetDataMutable().CalculateBounds();
+            terrain->GetDataMutable().CalculateBounds();
         }
     }
 
@@ -507,13 +529,13 @@ void EditorTerrainSystem::RampTerrain(float startX, float startZ, float startHei
     }
 }
 
-void EditorTerrainSystem::PaintTexture(float worldX, float worldZ, float radius, int layer, float strength) {
+void EditorWorldSystem::PaintTexture(float worldX, float worldZ, float radius, int layer, float strength) {
     if (layer < 0 || layer >= MAX_TERRAIN_LAYERS) return;
     PaintSplatmapLayer(worldX, worldZ, radius, layer, strength);
 }
 
-void EditorTerrainSystem::PaintMaterial(float worldX, float worldZ, float radius,
-                                        const std::string& materialId, float strength) {
+void EditorWorldSystem::PaintMaterial(float worldX, float worldZ, float radius,
+                                       const std::string& materialId, float strength) {
     if (materialId.empty()) return;
 
     int globalLayer = ResolveGlobalLayer(materialId);
@@ -527,9 +549,9 @@ void EditorTerrainSystem::PaintMaterial(float worldX, float worldZ, float radius
 
     for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
-            TerrainChunk* chunk = m_Chunks[MakeChunkKey(cx, cz)].get();
-            if (chunk->FindMaterialLayer(materialId) != globalLayer) {
-                chunk->SetLayerMaterial(globalLayer, materialId);
+            TerrainChunk* terrain = m_Chunks[MakeChunkKey(cx, cz)]->GetTerrain();
+            if (terrain->FindMaterialLayer(materialId) != globalLayer) {
+                terrain->SetLayerMaterial(globalLayer, materialId);
             }
         }
     }
@@ -537,7 +559,7 @@ void EditorTerrainSystem::PaintMaterial(float worldX, float worldZ, float radius
     PaintSplatmapLayer(worldX, worldZ, radius, globalLayer, strength);
 }
 
-void EditorTerrainSystem::PaintSplatmapLayer(float worldX, float worldZ, float radius, int layer, float strength) {
+void EditorWorldSystem::PaintSplatmapLayer(float worldX, float worldZ, float radius, int layer, float strength) {
     TerrainBrush brush;
     brush.radius = radius;
     brush.strength = strength;
@@ -551,12 +573,12 @@ void EditorTerrainSystem::PaintSplatmapLayer(float worldX, float worldZ, float r
 
     for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
-            TerrainChunk* chunk = m_Chunks[MakeChunkKey(cx, cz)].get();
+            TerrainChunk* terrain = m_Chunks[MakeChunkKey(cx, cz)]->GetTerrain();
 
             float chunkWorldX = cx * CHUNK_SIZE;
             float chunkWorldZ = cz * CHUNK_SIZE;
 
-            auto& data = chunk->GetSplatmapMutable();
+            auto& data = terrain->GetSplatmapMutable();
             if (data.splatmap.empty()) {
                 data.splatmap.resize(SPLATMAP_TEXELS * MAX_TERRAIN_LAYERS, 0);
                 for (int i = 0; i < SPLATMAP_TEXELS; i++) {
@@ -597,14 +619,14 @@ void EditorTerrainSystem::PaintSplatmapLayer(float worldX, float worldZ, float r
     }
 }
 
-void EditorTerrainSystem::SetHole(float worldX, float worldZ, bool isHole) {
+void EditorWorldSystem::SetHole(float worldX, float worldZ, bool isHole) {
     int32_t chunkX = WorldToChunkX(worldX);
     int32_t chunkZ = WorldToChunkZ(worldZ);
 
     int32_t key = MakeChunkKey(chunkX, chunkZ);
     auto it = m_Chunks.find(key);
-    if (it == m_Chunks.end() || it->second->GetState() != ChunkState::Active) return;
-    TerrainChunk* chunk = it->second.get();
+    if (it == m_Chunks.end() || it->second->GetTerrain()->GetState() != ChunkState::Active) return;
+    TerrainChunk* terrain = it->second->GetTerrain();
 
     float localX = worldX - chunkX * CHUNK_SIZE;
     float localZ = worldZ - chunkZ * CHUNK_SIZE;
@@ -614,7 +636,7 @@ void EditorTerrainSystem::SetHole(float worldX, float worldZ, bool isHole) {
     holeX = std::clamp(holeX, 0, HOLE_GRID_SIZE - 1);
     holeZ = std::clamp(holeZ, 0, HOLE_GRID_SIZE - 1);
 
-    auto& data = chunk->GetDataMutable();
+    auto& data = terrain->GetDataMutable();
     uint64_t bit = 1ULL << (holeZ * HOLE_GRID_SIZE + holeX);
 
     if (isHole) {
@@ -624,19 +646,19 @@ void EditorTerrainSystem::SetHole(float worldX, float worldZ, bool isHole) {
     }
 }
 
-void EditorTerrainSystem::EnsureChunkLoaded(int32_t chunkX, int32_t chunkZ) {
-    TerrainChunk* chunk = GetOrCreateChunk(chunkX, chunkZ);
-    if (chunk && chunk->GetState() != ChunkState::Active) {
+void EditorWorldSystem::EnsureChunkLoaded(int32_t chunkX, int32_t chunkZ) {
+    WorldChunk* chunk = GetOrCreateChunk(chunkX, chunkZ);
+    if (chunk && chunk->GetTerrain()->GetState() != ChunkState::Active) {
         LoadChunkFromDisk(chunk);
-        chunk->CreateGPUResources();
+        chunk->GetTerrain()->CreateGPUResources();
     }
 }
 
-TerrainChunk* EditorTerrainSystem::CreateChunk(int32_t chunkX, int32_t chunkZ) {
+WorldChunk* EditorWorldSystem::CreateChunk(int32_t chunkX, int32_t chunkZ) {
     return GetOrCreateChunk(chunkX, chunkZ);
 }
 
-void EditorTerrainSystem::DeleteChunk(int32_t chunkX, int32_t chunkZ) {
+void EditorWorldSystem::DeleteChunk(int32_t chunkX, int32_t chunkZ) {
     int32_t key = MakeChunkKey(chunkX, chunkZ);
     auto it = m_Chunks.find(key);
     if (it != m_Chunks.end()) {
@@ -647,7 +669,7 @@ void EditorTerrainSystem::DeleteChunk(int32_t chunkX, int32_t chunkZ) {
     }
 }
 
-void EditorTerrainSystem::SaveDirtyChunks() {
+void EditorWorldSystem::SaveDirtyChunks() {
     for (auto& [key, chunk] : m_Chunks) {
         if (chunk->IsModified()) {
             SaveChunkToDisk(chunk.get());
@@ -656,7 +678,7 @@ void EditorTerrainSystem::SaveDirtyChunks() {
     }
 }
 
-void EditorTerrainSystem::SaveChunk(int32_t chunkX, int32_t chunkZ) {
+void EditorWorldSystem::SaveChunk(int32_t chunkX, int32_t chunkZ) {
     int32_t key = MakeChunkKey(chunkX, chunkZ);
     auto it = m_Chunks.find(key);
     if (it != m_Chunks.end()) {
@@ -665,7 +687,7 @@ void EditorTerrainSystem::SaveChunk(int32_t chunkX, int32_t chunkZ) {
     }
 }
 
-void EditorTerrainSystem::BeginEdit(float worldX, float worldZ, float radius) {
+void EditorWorldSystem::BeginEdit(float worldX, float worldZ, float radius) {
     m_CurrentEditSnapshot = std::make_unique<EditSnapshot>();
 
     int minChunkX = WorldToChunkX(worldX - radius);
@@ -678,30 +700,30 @@ void EditorTerrainSystem::BeginEdit(float worldX, float worldZ, float radius) {
             int32_t key = MakeChunkKey(cx, cz);
             auto it = m_Chunks.find(key);
             if (it != m_Chunks.end()) {
-                m_CurrentEditSnapshot->chunkSnapshots.emplace_back(key, it->second->GetData());
+                m_CurrentEditSnapshot->chunkSnapshots.emplace_back(key, it->second->GetTerrain()->GetData());
             }
         }
     }
 }
 
-void EditorTerrainSystem::EndEdit() {
+void EditorWorldSystem::EndEdit() {
     m_CurrentEditSnapshot.reset();
 }
 
-void EditorTerrainSystem::CancelEdit() {
+void EditorWorldSystem::CancelEdit() {
     if (!m_CurrentEditSnapshot) return;
 
     for (auto& [key, data] : m_CurrentEditSnapshot->chunkSnapshots) {
         auto it = m_Chunks.find(key);
         if (it != m_Chunks.end()) {
-            it->second->LoadFromData(data);
+            it->second->GetTerrain()->LoadFromData(data);
         }
     }
 
     m_CurrentEditSnapshot.reset();
 }
 
-float EditorTerrainSystem::CalculateChunkDistance(int32_t chunkX, int32_t chunkZ) const {
+float EditorWorldSystem::CalculateChunkDistance(int32_t chunkX, int32_t chunkZ) const {
     float centerX = (chunkX + 0.5f) * CHUNK_SIZE;
     float centerZ = (chunkZ + 0.5f) * CHUNK_SIZE;
     float dx = centerX - m_CameraPosition.x;
@@ -709,25 +731,26 @@ float EditorTerrainSystem::CalculateChunkDistance(int32_t chunkX, int32_t chunkZ
     return std::sqrt(dx * dx + dz * dz);
 }
 
-bool EditorTerrainSystem::IsChunkVisible(int32_t chunkX, int32_t chunkZ) const {
+bool EditorWorldSystem::IsChunkVisible(int32_t chunkX, int32_t chunkZ) const {
     int32_t key = MakeChunkKey(chunkX, chunkZ);
     auto it = m_Chunks.find(key);
     if (it == m_Chunks.end()) return false;
 
-    return m_Frustum.IsBoxVisible(it->second->GetBoundsMin(), it->second->GetBoundsMax());
+    TerrainChunk* terrain = it->second->GetTerrain();
+    return m_Frustum.IsBoxVisible(terrain->GetBoundsMin(), terrain->GetBoundsMax());
 }
 
-void EditorTerrainSystem::DirtyNeighborChunks(int32_t cx, int32_t cz) {
+void EditorWorldSystem::DirtyNeighborChunks(int32_t cx, int32_t cz) {
     static const int offsets[][2] = {{-1,0},{1,0},{0,-1},{0,1}};
     for (auto& off : offsets) {
         auto it = m_Chunks.find(MakeChunkKey(cx + off[0], cz + off[1]));
-        if (it != m_Chunks.end() && it->second->GetState() == ChunkState::Active) {
-            it->second->MarkMeshDirty();
+        if (it != m_Chunks.end() && it->second->GetTerrain()->GetState() == ChunkState::Active) {
+            it->second->GetTerrain()->MarkMeshDirty();
         }
     }
 }
 
-void EditorTerrainSystem::ProcessLoadQueue() {
+void EditorWorldSystem::ProcessLoadQueue() {
     int loaded = 0;
     while (!m_LoadQueue.empty() && loaded < m_Settings.maxChunksPerFrame) {
         auto req = m_LoadQueue.front();
@@ -736,25 +759,26 @@ void EditorTerrainSystem::ProcessLoadQueue() {
         int32_t key = MakeChunkKey(req.chunkX, req.chunkZ);
         if (m_Chunks.find(key) != m_Chunks.end()) continue;
 
-        auto chunk = std::make_unique<TerrainChunk>(req.chunkX, req.chunkZ);
-        chunk->SetNormalMode(m_SobelNormals, m_SmoothNormals);
-        chunk->SetDiamondGrid(m_DiamondGrid);
-        chunk->SetMeshResolution(m_MeshResolution);
-        chunk->SetHeightSampler([this](int cx, int cz, int lx, int lz) {
+        auto chunk = std::make_unique<WorldChunk>(req.chunkX, req.chunkZ);
+        TerrainChunk* terrain = chunk->GetTerrain();
+        terrain->SetNormalMode(m_SobelNormals, m_SmoothNormals);
+        terrain->SetDiamondGrid(m_DiamondGrid);
+        terrain->SetMeshResolution(m_MeshResolution);
+        terrain->SetHeightSampler([this](int cx, int cz, int lx, int lz) {
             return GetChunkHeight(cx, cz, lx, lz);
         });
         LoadChunkFromDisk(chunk.get());
         ApplyDefaultMaterials(chunk.get());
         m_Chunks[key] = std::move(chunk);
         CopyBoundaryFromNeighbors(m_Chunks[key].get());
-        m_Chunks[key]->CreateGPUResources();
+        m_Chunks[key]->GetTerrain()->CreateGPUResources();
         m_Chunks[key]->ClearModified();
         DirtyNeighborChunks(req.chunkX, req.chunkZ);
         loaded++;
     }
 }
 
-void EditorTerrainSystem::UnloadDistantChunks() {
+void EditorWorldSystem::UnloadDistantChunks() {
     std::vector<int32_t> toUnload;
 
     for (auto& [key, chunk] : m_Chunks) {
@@ -774,15 +798,16 @@ void EditorTerrainSystem::UnloadDistantChunks() {
     }
 }
 
-std::string EditorTerrainSystem::GetChunkFilePath(int32_t chunkX, int32_t chunkZ) const {
-    return m_ProjectPath + "/chunk_" + std::to_string(chunkX) + "_" + std::to_string(chunkZ) + ".terrain";
+std::string EditorWorldSystem::GetChunkFilePath(int32_t chunkX, int32_t chunkZ) const {
+    return m_ProjectPath + "/chunk_" + std::to_string(chunkX) + "_" + std::to_string(chunkZ) + ".chunk";
 }
 
-void EditorTerrainSystem::LoadChunkFromDisk(TerrainChunk* chunk) {
+void EditorWorldSystem::LoadChunkFromDisk(WorldChunk* chunk) {
     std::string path = GetChunkFilePath(chunk->GetChunkX(), chunk->GetChunkZ());
     chunk->Load(path);
 
-    auto& data = chunk->GetDataMutable();
+    TerrainChunk* terrain = chunk->GetTerrain();
+    auto& data = terrain->GetDataMutable();
 
     for (int i = 0; i < MAX_TERRAIN_LAYERS; i++) {
         if (!data.materialIds[i].empty()) {
@@ -824,104 +849,51 @@ void EditorTerrainSystem::LoadChunkFromDisk(TerrainChunk* chunk) {
                 data.materialIds[i] = newIds[i];
             }
 
-            chunk->ClearModified();
+            terrain->ClearModified();
         }
     }
 }
 
-void EditorTerrainSystem::SaveChunkToDisk(TerrainChunk* chunk) {
+void EditorWorldSystem::SaveChunkToDisk(WorldChunk* chunk) {
     std::string path = GetChunkFilePath(chunk->GetChunkX(), chunk->GetChunkZ());
-
-    std::filesystem::create_directories(m_ProjectPath);
-
-    const auto& data = chunk->GetData();
-
-    if (data.heightmap.size() < CHUNK_HEIGHTMAP_SIZE) return;
-    if (data.splatmap.size() < (size_t)(SPLATMAP_TEXELS * MAX_TERRAIN_LAYERS)) return;
-
-    std::ofstream file(path, std::ios::binary);
-    if (!file.is_open()) return;
-
+    chunk->Save(path);
     m_KnownChunkFiles.insert(MakeChunkKey(chunk->GetChunkX(), chunk->GetChunkZ()));
-
-    uint32_t magic = 0x54455252;
-    uint32_t version = 4;
-    file.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
-    file.write(reinterpret_cast<const char*>(&version), sizeof(version));
-    file.write(reinterpret_cast<const char*>(&data.chunkX), sizeof(data.chunkX));
-    file.write(reinterpret_cast<const char*>(&data.chunkZ), sizeof(data.chunkZ));
-
-    file.write(reinterpret_cast<const char*>(data.heightmap.data()),
-               CHUNK_HEIGHTMAP_SIZE * sizeof(float));
-
-    file.write(reinterpret_cast<const char*>(data.splatmap.data()),
-               SPLATMAP_TEXELS * MAX_TERRAIN_LAYERS);
-
-    file.write(reinterpret_cast<const char*>(&data.holeMask), sizeof(data.holeMask));
-
-    file.write(reinterpret_cast<const char*>(&data.minHeight), sizeof(data.minHeight));
-    file.write(reinterpret_cast<const char*>(&data.maxHeight), sizeof(data.maxHeight));
-
-    for (int i = 0; i < MAX_TERRAIN_LAYERS; i++) {
-        uint16_t len = static_cast<uint16_t>(data.materialIds[i].size());
-        file.write(reinterpret_cast<const char*>(&len), sizeof(len));
-        if (len > 0) {
-            file.write(data.materialIds[i].data(), len);
-        }
-    }
-
-    // Version 4: write lights
-    uint32_t lightCount = static_cast<uint32_t>(data.lights.size());
-    file.write(reinterpret_cast<const char*>(&lightCount), sizeof(lightCount));
-    for (uint32_t i = 0; i < lightCount; i++) {
-        const auto& light = data.lights[i];
-        file.write(reinterpret_cast<const char*>(&light.type), sizeof(light.type));
-        file.write(reinterpret_cast<const char*>(&light.position), sizeof(light.position));
-        file.write(reinterpret_cast<const char*>(&light.direction), sizeof(light.direction));
-        file.write(reinterpret_cast<const char*>(&light.color), sizeof(light.color));
-        file.write(reinterpret_cast<const char*>(&light.intensity), sizeof(light.intensity));
-        file.write(reinterpret_cast<const char*>(&light.range), sizeof(light.range));
-        file.write(reinterpret_cast<const char*>(&light.innerAngle), sizeof(light.innerAngle));
-        file.write(reinterpret_cast<const char*>(&light.outerAngle), sizeof(light.outerAngle));
-        file.write(reinterpret_cast<const char*>(&light.castShadows), sizeof(light.castShadows));
-    }
-
-    file.close();
 }
 
-TerrainChunk* EditorTerrainSystem::GetOrCreateChunk(int32_t chunkX, int32_t chunkZ) {
+WorldChunk* EditorWorldSystem::GetOrCreateChunk(int32_t chunkX, int32_t chunkZ) {
     int32_t key = MakeChunkKey(chunkX, chunkZ);
     auto it = m_Chunks.find(key);
     if (it != m_Chunks.end()) {
         return it->second.get();
     }
 
-    auto chunk = std::make_unique<TerrainChunk>(chunkX, chunkZ);
-    chunk->SetNormalMode(m_SobelNormals, m_SmoothNormals);
-    chunk->SetDiamondGrid(m_DiamondGrid);
-    chunk->SetMeshResolution(m_MeshResolution);
-    chunk->SetHeightSampler([this](int cx, int cz, int lx, int lz) {
+    auto chunk = std::make_unique<WorldChunk>(chunkX, chunkZ);
+    TerrainChunk* terrain = chunk->GetTerrain();
+    terrain->SetNormalMode(m_SobelNormals, m_SmoothNormals);
+    terrain->SetDiamondGrid(m_DiamondGrid);
+    terrain->SetMeshResolution(m_MeshResolution);
+    terrain->SetHeightSampler([this](int cx, int cz, int lx, int lz) {
         return GetChunkHeight(cx, cz, lx, lz);
     });
     LoadChunkFromDisk(chunk.get());
     ApplyDefaultMaterials(chunk.get());
     CopyBoundaryFromNeighbors(chunk.get());
-    chunk->CreateGPUResources();
+    terrain->CreateGPUResources();
     chunk->ClearModified();
 
     m_KnownChunkFiles.insert(key);
 
-    TerrainChunk* ptr = chunk.get();
+    WorldChunk* ptr = chunk.get();
     m_Chunks[key] = std::move(chunk);
     DirtyNeighborChunks(chunkX, chunkZ);
     return ptr;
 }
 
-bool EditorTerrainSystem::EnsureChunksReady(int minCX, int maxCX, int minCZ, int maxCZ) {
+bool EditorWorldSystem::EnsureChunksReady(int minCX, int maxCX, int minCZ, int maxCZ) {
     for (int cz = minCZ; cz <= maxCZ; cz++) {
         for (int cx = minCX; cx <= maxCX; cx++) {
-            TerrainChunk* chunk = GetOrCreateChunk(cx, cz);
-            if (!chunk || chunk->GetState() != ChunkState::Active) {
+            WorldChunk* chunk = GetOrCreateChunk(cx, cz);
+            if (!chunk || chunk->GetTerrain()->GetState() != ChunkState::Active) {
                 return false;
             }
         }
@@ -929,19 +901,19 @@ bool EditorTerrainSystem::EnsureChunksReady(int minCX, int maxCX, int minCZ, int
     return true;
 }
 
-void EditorTerrainSystem::StitchEdges(int minCX, int maxCX, int minCZ, int maxCZ) {
+void EditorWorldSystem::StitchEdges(int minCX, int maxCX, int minCZ, int maxCZ) {
     for (int cz = minCZ; cz <= maxCZ; cz++) {
         for (int cx = minCX; cx <= maxCX; cx++) {
             int32_t key = MakeChunkKey(cx, cz);
             auto it = m_Chunks.find(key);
             if (it == m_Chunks.end()) continue;
-            auto& data = it->second->GetDataMutable();
+            auto& data = it->second->GetTerrain()->GetDataMutable();
             if (data.heightmap.empty()) continue;
 
             if (cx + 1 <= maxCX) {
                 auto rightIt = m_Chunks.find(MakeChunkKey(cx + 1, cz));
-                if (rightIt != m_Chunks.end() && !rightIt->second->GetData().heightmap.empty()) {
-                    auto& rdata = rightIt->second->GetDataMutable();
+                if (rightIt != m_Chunks.end() && !rightIt->second->GetTerrain()->GetData().heightmap.empty()) {
+                    auto& rdata = rightIt->second->GetTerrain()->GetDataMutable();
                     for (int lz = 0; lz < CHUNK_RESOLUTION; lz++) {
                         int thisIdx = lz * CHUNK_RESOLUTION + (CHUNK_RESOLUTION - 1);
                         int rightIdx = lz * CHUNK_RESOLUTION;
@@ -954,8 +926,8 @@ void EditorTerrainSystem::StitchEdges(int minCX, int maxCX, int minCZ, int maxCZ
 
             if (cz + 1 <= maxCZ) {
                 auto bottomIt = m_Chunks.find(MakeChunkKey(cx, cz + 1));
-                if (bottomIt != m_Chunks.end() && !bottomIt->second->GetData().heightmap.empty()) {
-                    auto& bdata = bottomIt->second->GetDataMutable();
+                if (bottomIt != m_Chunks.end() && !bottomIt->second->GetTerrain()->GetData().heightmap.empty()) {
+                    auto& bdata = bottomIt->second->GetTerrain()->GetDataMutable();
                     for (int lx = 0; lx < CHUNK_RESOLUTION; lx++) {
                         int thisIdx = (CHUNK_RESOLUTION - 1) * CHUNK_RESOLUTION + lx;
                         int bottomIdx = lx;
@@ -969,8 +941,9 @@ void EditorTerrainSystem::StitchEdges(int minCX, int maxCX, int minCZ, int maxCZ
     }
 }
 
-void EditorTerrainSystem::CopyBoundaryFromNeighbors(TerrainChunk* chunk) {
-    auto& data = chunk->GetDataMutable();
+void EditorWorldSystem::CopyBoundaryFromNeighbors(WorldChunk* chunk) {
+    TerrainChunk* terrain = chunk->GetTerrain();
+    auto& data = terrain->GetDataMutable();
     if (data.heightmap.empty()) {
         data.heightmap.resize(CHUNK_HEIGHTMAP_SIZE, 0.0f);
     }
@@ -981,7 +954,7 @@ void EditorTerrainSystem::CopyBoundaryFromNeighbors(TerrainChunk* chunk) {
 
     auto leftIt = m_Chunks.find(MakeChunkKey(cx - 1, cz));
     if (leftIt != m_Chunks.end()) {
-        const auto& nd = leftIt->second->GetData();
+        const auto& nd = leftIt->second->GetTerrain()->GetData();
         if (!nd.heightmap.empty()) {
             for (int lz = 0; lz < CHUNK_RESOLUTION; lz++)
                 data.heightmap[lz * CHUNK_RESOLUTION + 0] = nd.heightmap[lz * CHUNK_RESOLUTION + last];
@@ -990,7 +963,7 @@ void EditorTerrainSystem::CopyBoundaryFromNeighbors(TerrainChunk* chunk) {
 
     auto rightIt = m_Chunks.find(MakeChunkKey(cx + 1, cz));
     if (rightIt != m_Chunks.end()) {
-        const auto& nd = rightIt->second->GetData();
+        const auto& nd = rightIt->second->GetTerrain()->GetData();
         if (!nd.heightmap.empty()) {
             for (int lz = 0; lz < CHUNK_RESOLUTION; lz++)
                 data.heightmap[lz * CHUNK_RESOLUTION + last] = nd.heightmap[lz * CHUNK_RESOLUTION + 0];
@@ -999,7 +972,7 @@ void EditorTerrainSystem::CopyBoundaryFromNeighbors(TerrainChunk* chunk) {
 
     auto topIt = m_Chunks.find(MakeChunkKey(cx, cz - 1));
     if (topIt != m_Chunks.end()) {
-        const auto& nd = topIt->second->GetData();
+        const auto& nd = topIt->second->GetTerrain()->GetData();
         if (!nd.heightmap.empty()) {
             for (int lx = 0; lx < CHUNK_RESOLUTION; lx++)
                 data.heightmap[0 * CHUNK_RESOLUTION + lx] = nd.heightmap[last * CHUNK_RESOLUTION + lx];
@@ -1008,7 +981,7 @@ void EditorTerrainSystem::CopyBoundaryFromNeighbors(TerrainChunk* chunk) {
 
     auto bottomIt = m_Chunks.find(MakeChunkKey(cx, cz + 1));
     if (bottomIt != m_Chunks.end()) {
-        const auto& nd = bottomIt->second->GetData();
+        const auto& nd = bottomIt->second->GetTerrain()->GetData();
         if (!nd.heightmap.empty()) {
             for (int lx = 0; lx < CHUNK_RESOLUTION; lx++)
                 data.heightmap[last * CHUNK_RESOLUTION + lx] = nd.heightmap[0 * CHUNK_RESOLUTION + lx];
@@ -1018,7 +991,7 @@ void EditorTerrainSystem::CopyBoundaryFromNeighbors(TerrainChunk* chunk) {
     data.CalculateBounds();
 }
 
-void EditorTerrainSystem::ApplyBrush(float worldX, float worldZ, float radius,
+void EditorWorldSystem::ApplyBrush(float worldX, float worldZ, float radius,
     std::function<void(TerrainChunk*, int localX, int localZ, float weight)> operation) {
 
     int minChunkX = WorldToChunkX(worldX - radius);
@@ -1031,7 +1004,7 @@ void EditorTerrainSystem::ApplyBrush(float worldX, float worldZ, float radius,
     for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
             int32_t key = MakeChunkKey(cx, cz);
-            TerrainChunk* chunk = m_Chunks[key].get();
+            TerrainChunk* terrain = m_Chunks[key]->GetTerrain();
 
             float chunkWorldX = cx * CHUNK_SIZE;
             float chunkWorldZ = cz * CHUNK_SIZE;
@@ -1045,11 +1018,11 @@ void EditorTerrainSystem::ApplyBrush(float worldX, float worldZ, float radius,
                     float dz = vertWorldZ - worldZ;
                     float dist = std::sqrt(dx * dx + dz * dz);
 
-                    operation(chunk, lx, lz, dist);
+                    operation(terrain, lx, lz, dist);
                 }
             }
 
-            chunk->GetDataMutable().CalculateBounds();
+            terrain->GetDataMutable().CalculateBounds();
         }
     }
 

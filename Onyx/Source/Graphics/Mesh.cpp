@@ -11,6 +11,7 @@ namespace Onyx {
         , m_Textures(textures)
     {
         SetupMesh();
+        ComputeBounds();
     }
 
     void Mesh::Draw(Shader &shader)
@@ -53,6 +54,18 @@ namespace Onyx {
 		//delete m_VBO;
 		//delete m_EBO;
 	}
+
+    void Mesh::ComputeBounds()
+    {
+        if (m_Vertices.empty()) return;
+        m_BoundsMin = glm::vec3(std::numeric_limits<float>::max());
+        m_BoundsMax = glm::vec3(std::numeric_limits<float>::lowest());
+        for (const auto& v : m_Vertices) {
+            m_BoundsMin = glm::min(m_BoundsMin, v.position);
+            m_BoundsMax = glm::max(m_BoundsMax, v.position);
+        }
+        m_Center = (m_BoundsMin + m_BoundsMax) * 0.5f;
+    }
 
     void Mesh::SetupMesh()
     {

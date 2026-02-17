@@ -74,6 +74,15 @@ void RenderCommand::Finish() {
     glFinish();
 }
 
+void RenderCommand::EnablePolygonOffset(float factor, float units) {
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(factor, units);
+}
+
+void RenderCommand::DisablePolygonOffset() {
+    glDisable(GL_POLYGON_OFFSET_FILL);
+}
+
 void RenderCommand::SetWireframeMode(bool enabled) {
     if (enabled) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -89,6 +98,22 @@ void RenderCommand::SetLineWidth(float width) {
 void RenderCommand::DrawLines(const VertexArray& vao, uint32_t vertexCount) {
     vao.Bind();
     glDrawArrays(GL_LINES, 0, vertexCount);
+}
+
+void RenderCommand::DrawLineLoop(const VertexArray& vao, uint32_t vertexCount) {
+    vao.Bind();
+    glDrawArrays(GL_LINE_LOOP, 0, vertexCount);
+}
+
+void RenderCommand::DrawLineStrip(const VertexArray& vao, uint32_t vertexCount) {
+    vao.Bind();
+    glDrawArrays(GL_LINE_STRIP, 0, vertexCount);
+}
+
+void RenderCommand::DrawBatched(const VertexArray& vao, uint32_t drawCount) {
+    vao.Bind();
+    glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
+                                static_cast<GLsizei>(drawCount), 0);
 }
 
 void RenderCommand::ResetState() {
