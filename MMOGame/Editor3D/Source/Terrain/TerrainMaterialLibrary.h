@@ -1,6 +1,7 @@
 #pragma once
 
-#include "TerrainMaterial.h"
+#include "MaterialSerializer.h"
+#include <Graphics/Material.h>
 #include <Graphics/Texture.h>
 #include <Graphics/TextureArray.h>
 #include <string>
@@ -8,19 +9,20 @@
 #include <unordered_map>
 #include <memory>
 
+namespace Onyx { class AssetManager; }
+
 namespace Editor3D {
 
 class TerrainMaterialLibrary {
 public:
-    void Init(const std::string& assetRoot);
-    void ScanForMaterials();
+    void Init(const std::string& assetRoot, Onyx::AssetManager* assetManager);
 
-    const TerrainMaterial* GetMaterial(const std::string& id) const;
-    TerrainMaterial* GetMaterialMutable(const std::string& id);
+    const Onyx::Material* GetMaterial(const std::string& id) const;
+    Onyx::Material* GetMaterialMutable(const std::string& id);
     std::string CreateMaterial(const std::string& name, const std::string& directory = "");
     void SaveMaterial(const std::string& id);
-    void UpdateMaterial(const std::string& id, const TerrainMaterial& mat);
-    const std::vector<std::string>& GetMaterialIds() const { return m_MaterialIds; }
+    void UpdateMaterial(const std::string& id, const Onyx::Material& mat);
+    std::vector<std::string> GetMaterialIds() const;
 
     Onyx::Texture* GetDiffuseTexture(const std::string& materialId);
     Onyx::Texture* GetNormalTexture(const std::string& materialId);
@@ -40,21 +42,19 @@ public:
     Onyx::TextureArray* GetNormalArray() { return m_NormalArray.get(); }
     Onyx::TextureArray* GetRMAArray() { return m_RMAArray.get(); }
     bool IsArraysDirty() const { return m_ArraysDirty; }
+    void MarkArraysDirty() { m_ArraysDirty = true; }
 
 private:
     void CreateDefaultTextures();
-    void EnsureDefaultMaterials();
-    std::string GenerateUniqueId(const std::string& baseName) const;
     Onyx::Texture* GetMaterialTexture(const std::string& materialId,
-        std::string TerrainMaterial::*pathMember, Onyx::Texture* fallback);
+        std::string Onyx::Material::*pathMember, Onyx::Texture* fallback);
     void LoadArrayLayer(Onyx::TextureArray* array, int layer,
         const std::string& path, uint8_t fallbackR, uint8_t fallbackG, uint8_t fallbackB);
 
     std::string m_AssetRoot;
     std::string m_MaterialsDir;
 
-    std::unordered_map<std::string, TerrainMaterial> m_Materials;
-    std::vector<std::string> m_MaterialIds;
+    Onyx::AssetManager* m_AssetManager = nullptr;
 
     std::unordered_map<std::string, std::unique_ptr<Onyx::Texture>> m_TextureCache;
 

@@ -7,7 +7,8 @@
 #include <Graphics/Animator.h>
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
-#include <Graphics/MaterialLibrary.h>
+#include <Graphics/AssetManager.h>
+#include <Core/Application.h>
 #include <filesystem>
 #include <algorithm>
 #include <iostream>
@@ -206,7 +207,7 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
 
                         RenderMaterialSelector("Material##mesh", material.materialId);
                         if (!material.materialId.empty() && m_Viewport) {
-                            if (auto* mat = m_Viewport->GetMaterialLibrary().GetMaterial(material.materialId)) {
+                            if (auto* mat = Onyx::Application::GetInstance().GetAssetManager().GetMaterial(material.materialId)) {
                                 ImGui::TextDisabled("  Albedo: %s", mat->albedoPath.empty() ? "(none)" : mat->albedoPath.c_str());
                                 ImGui::TextDisabled("  Normal: %s", mat->normalPath.empty() ? "(none)" : mat->normalPath.c_str());
                             }
@@ -367,7 +368,7 @@ void InspectorPanel::RenderStaticObjectProperties(StaticObject* object) {
             object->SetMaterialId(matId);
         }
         if (!matId.empty() && m_Viewport) {
-            if (auto* mat = m_Viewport->GetMaterialLibrary().GetMaterial(matId)) {
+            if (auto* mat = Onyx::Application::GetInstance().GetAssetManager().GetMaterial(matId)) {
                 ImGui::TextDisabled("  Albedo: %s", mat->albedoPath.empty() ? "(none)" : mat->albedoPath.c_str());
                 ImGui::TextDisabled("  Normal: %s", mat->normalPath.empty() ? "(none)" : mat->normalPath.c_str());
             }
@@ -411,7 +412,7 @@ void InspectorPanel::RenderSpawnPointProperties(SpawnPoint* object) {
                 object->SetMaterialId(matId);
             }
             if (!matId.empty() && m_Viewport) {
-                if (auto* mat = m_Viewport->GetMaterialLibrary().GetMaterial(matId)) {
+                if (auto* mat = Onyx::Application::GetInstance().GetAssetManager().GetMaterial(matId)) {
                     ImGui::TextDisabled("  Albedo: %s", mat->albedoPath.empty() ? "(none)" : mat->albedoPath.c_str());
                     ImGui::TextDisabled("  Normal: %s", mat->normalPath.empty() ? "(none)" : mat->normalPath.c_str());
                 }
@@ -628,7 +629,7 @@ void InspectorPanel::RenderInstancePortalProperties(InstancePortal* object) {
 bool InspectorPanel::RenderMaterialSelector(const char* label, std::string& materialId) {
     if (!m_Viewport) return false;
 
-    auto& lib = m_Viewport->GetMaterialLibrary();
+    auto& lib = Onyx::Application::GetInstance().GetAssetManager();
     auto ids = lib.GetAllMaterialIds();
     std::sort(ids.begin(), ids.end());
 

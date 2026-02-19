@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Core/Layer.h>
+#include <Graphics/SceneRenderer.h>
 #include "Panels/PanelManager.h"
 #include "World/EditorWorld.h"
 #include "Map/EditorMapRegistry.h"
@@ -36,6 +37,7 @@ private:
     EditorWorld m_World;
     PanelManager m_PanelManager;
     ViewportPanel* m_ViewportPanel = nullptr;
+    std::unique_ptr<Onyx::SceneRenderer> m_SceneRenderer;
 
     // Map management
     Editor3D::EditorMapRegistry m_MapRegistry;

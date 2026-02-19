@@ -14,6 +14,8 @@ namespace Onyx {
 
         s_Instance = this;
 
+        m_AssetManager = std::make_unique<AssetManager>();
+
         m_ImGuiLayer = new ImGuiLayer();
         PushLayer(m_ImGuiLayer);
     }

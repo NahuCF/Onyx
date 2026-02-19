@@ -5,10 +5,14 @@
 namespace Onyx {
 
 struct Material {
-    std::string id;           // Unique key (e.g., "stone_wall")
-    std::string name;         // Display name
-    std::string albedoPath;   // Diffuse/base color texture path
-    std::string normalPath;   // Normal map path
+    std::string id;
+    std::string name;
+    std::string albedoPath;
+    std::string normalPath;
+    std::string rmaPath;
+    float tilingScale = 8.0f;
+    float normalStrength = 1.0f;
+    std::string filePath;
 };
 
 } // namespace Onyx

@@ -332,6 +332,8 @@ void AnimatedModel::ProcessMeshImpl(void* meshPtr, const void* scenePtr) {
     skinnedMesh.name = mesh->mName.C_Str();
     skinnedMesh.materialIndex = mesh->mMaterialIndex;
     skinnedMesh.indexCount = static_cast<uint32_t>(indices.size());
+    skinnedMesh.vertices = vertices;
+    skinnedMesh.indices = indices;
 
     skinnedMesh.vbo = std::make_unique<VertexBuffer>(
         vertices.data(),
@@ -351,13 +353,13 @@ void AnimatedModel::ProcessMeshImpl(void* meshPtr, const void* scenePtr) {
     }
 
     VertexLayout layout;
-    layout.PushFloat(3);
-    layout.PushFloat(3);
-    layout.PushFloat(2);
-    layout.PushFloat(3);
-    layout.PushFloat(3);
-    layout.PushInt(4);
-    layout.PushFloat(4);
+    layout.PushFloat(3); // position
+    layout.PushFloat(3); // normal
+    layout.PushFloat(2); // texCoords
+    layout.PushFloat(3); // tangent
+    layout.PushFloat(3); // bitangent
+    layout.PushInt(4);   // boneIds
+    layout.PushFloat(4); // boneWeights
 
     skinnedMesh.vao->SetVertexBuffer(skinnedMesh.vbo.get());
     skinnedMesh.vao->SetIndexBuffer(skinnedMesh.ebo.get());
@@ -538,6 +540,48 @@ std::vector<std::string> AnimatedModel::GetAnimationNames() const {
         names.push_back(anim->GetName());
     }
     return names;
+}
+
+void AnimatedModel::BuildMergedBuffers() {
+    if (m_Merged.vao) return;
+    if (m_Meshes.empty()) return;
+
+    std::vector<SkinnedVertex> allVertices;
+    std::vector<uint32_t> allIndices;
+
+    for (auto& mesh : m_Meshes) {
+        MergedMeshInfo info;
+        info.indexCount = static_cast<uint32_t>(mesh.indices.size());
+        info.firstIndex = static_cast<uint32_t>(allIndices.size());
+        info.baseVertex = static_cast<int32_t>(allVertices.size());
+
+        allVertices.insert(allVertices.end(), mesh.vertices.begin(), mesh.vertices.end());
+        allIndices.insert(allIndices.end(), mesh.indices.begin(), mesh.indices.end());
+
+        m_Merged.meshInfos.push_back(info);
+    }
+
+    m_Merged.totalVertices = static_cast<uint32_t>(allVertices.size());
+    m_Merged.totalIndices = static_cast<uint32_t>(allIndices.size());
+
+    m_Merged.vbo = std::make_unique<VertexBuffer>(
+        allVertices.data(), allVertices.size() * sizeof(SkinnedVertex));
+    m_Merged.ebo = std::make_unique<IndexBuffer>(
+        allIndices.data(), allIndices.size() * sizeof(uint32_t));
+    m_Merged.vao = std::make_unique<VertexArray>();
+
+    VertexLayout layout;
+    layout.PushFloat(3); // position
+    layout.PushFloat(3); // normal
+    layout.PushFloat(2); // texCoords
+    layout.PushFloat(3); // tangent
+    layout.PushFloat(3); // bitangent
+    layout.PushInt(4);   // boneIds
+    layout.PushFloat(4); // boneWeights
+
+    m_Merged.vao->SetVertexBuffer(m_Merged.vbo.get());
+    m_Merged.vao->SetIndexBuffer(m_Merged.ebo.get());
+    m_Merged.vao->SetLayout(layout);
 }
 
 } // namespace Onyx

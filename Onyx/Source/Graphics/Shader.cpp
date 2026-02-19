@@ -150,4 +150,9 @@ namespace Onyx {
     {
         glUniform1fv(GetLocation(name), count, values);
     }
+
+    void Shader::SetMat4Array(const std::string &name, const glm::mat4* matrices, int count)
+    {
+        glUniformMatrix4fv(GetLocation(name), count, GL_FALSE, &matrices[0][0][0]);
+    }
 }

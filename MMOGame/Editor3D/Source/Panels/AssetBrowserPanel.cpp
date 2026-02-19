@@ -109,7 +109,7 @@ void AssetBrowserPanel::OnImGuiRender() {
         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
             if (entry.isDirectory) {
                 NavigateTo(entry.path);
-            } else if (IsTerrainMaterialFile(entry.extension) && m_OnMaterialOpen) {
+            } else if (IsMaterialFile(entry.extension) && m_OnMaterialOpen) {
                 m_OnMaterialOpen(entry.path);
             }
         }
@@ -142,7 +142,7 @@ void AssetBrowserPanel::OnImGuiRender() {
                         m_World->Select(obj);
                     }
                 }
-                if (IsTerrainMaterialFile(entry.extension) && m_OnMaterialOpen) {
+                if (IsMaterialFile(entry.extension) && m_OnMaterialOpen) {
                     if (ImGui::MenuItem("Edit Material")) {
                         m_OnMaterialOpen(entry.path);
                     }
@@ -164,7 +164,7 @@ void AssetBrowserPanel::OnImGuiRender() {
     }
 
     if (ImGui::BeginPopupContextWindow("AssetBrowserContext", ImGuiPopupFlags_NoOpenOverItems | ImGuiPopupFlags_MouseButtonRight)) {
-        if (m_OnMaterialCreate && ImGui::MenuItem("Create Terrain Material")) {
+        if (m_OnMaterialCreate && ImGui::MenuItem("Create Material")) {
             m_OnMaterialCreate(m_CurrentDirectory);
             RefreshDirectory();
         }
@@ -295,7 +295,7 @@ std::string AssetBrowserPanel::GetAssetIcon(const AssetEntry& entry) const {
         return "[SHD]";
     }
 
-    if (IsTerrainMaterialFile(entry.extension)) {
+    if (IsMaterialFile(entry.extension)) {
         return "[MAT]";
     }
 
@@ -320,10 +320,10 @@ bool AssetBrowserPanel::IsShaderFile(const std::string& extension) const {
     return ext == ".vert" || ext == ".frag" || ext == ".glsl" || ext == ".hlsl";
 }
 
-bool AssetBrowserPanel::IsTerrainMaterialFile(const std::string& extension) const {
+bool AssetBrowserPanel::IsMaterialFile(const std::string& extension) const {
     std::string ext = extension;
     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-    return ext == ".terrainmat";
+    return ext == ".terrainmat" || ext == ".material";
 }
 
 } // namespace MMO

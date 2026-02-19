@@ -25,10 +25,13 @@ void StatisticsPanel::OnImGuiRender() {
             ImGui::Separator();
 
             if (m_Viewport) {
-                ImGui::Text("Triangles: %u", m_Viewport->GetTriangleCount());
-                ImGui::Text("Draw Calls: %u", m_Viewport->GetDrawCalls());
-                ImGui::Text("  Batched: %u", m_Viewport->GetBatchedDrawCalls());
-                ImGui::Text("  Batched Meshes: %u", m_Viewport->GetBatchedMeshCount());
+                auto& stats = m_Viewport->GetRenderStats();
+                ImGui::Text("Triangles: %u", stats.triangles);
+                ImGui::Text("Draw Calls: %u", stats.drawCalls);
+                ImGui::Text("  Static Batched: %u", stats.batchedDrawCalls);
+                ImGui::Text("  Batched Meshes: %u", stats.batchedMeshCount);
+                ImGui::Text("  Skinned: %u (%u instances)", stats.skinnedDrawCalls, stats.skinnedInstances);
+
             } else {
                 ImGui::TextDisabled("No viewport available");
             }

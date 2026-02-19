@@ -3,10 +3,9 @@
 #include "EditorPanel.h"
 #include <Graphics/Shader.h>
 #include <Graphics/Framebuffer.h>
-#include <Graphics/CascadedShadowMap.h>
 #include <Graphics/Buffers.h>
 #include <Graphics/Texture.h>
-#include <Graphics/MaterialLibrary.h>
+#include <Graphics/SceneRenderer.h>
 #include <Graphics/Model.h>
 #include "World/WorldTypes.h"
 #include "World/StaticObject.h"
@@ -29,6 +28,8 @@ public:
     void OnInit() override;
     void OnImGuiRender() override;
 
+    void SetSceneRenderer(Onyx::SceneRenderer* renderer) { m_SceneRenderer = renderer; }
+
     const glm::vec3& GetCameraPosition() const { return m_CameraPosition; }
     const glm::vec3& GetCameraFront() const { return m_CameraFront; }
     const glm::mat4& GetViewMatrix() const { return m_ViewMatrix; }
@@ -39,10 +40,7 @@ public:
     bool IsHovered() const { return m_ViewportHovered; }
     bool IsFocused() const { return m_ViewportFocused; }
 
-    uint32_t GetTriangleCount() const { return m_TriangleCount; }
-    uint32_t GetDrawCalls() const { return m_DrawCalls; }
-    uint32_t GetBatchedDrawCalls() const { return m_BatchedDrawCalls; }
-    uint32_t GetBatchedMeshCount() const { return m_BatchedMeshCount; }
+    const Onyx::RenderStats& GetRenderStats() const { return m_RenderStats; }
 
     float GetShadowPassTime() const { return m_ShadowPassTime; }
     float GetTerrainPassTime() const { return m_TerrainPassTime; }
@@ -79,7 +77,6 @@ public:
 
     Editor3D::EditorWorldSystem& GetWorldSystem() { return m_WorldSystem; }
     Editor3D::TerrainMaterialLibrary& GetTerrainMaterialLibrary() { return m_TerrainMaterialLibrary; }
-    Onyx::MaterialLibrary& GetMaterialLibrary() { return m_MaterialLibrary; }
     bool IsTerrainEnabled() const { return m_TerrainEnabled; }
     void SetTerrainEnabled(bool enabled) { m_TerrainEnabled = enabled; }
 
@@ -89,40 +86,34 @@ public:
         bool toolActive = false;
         TerrainToolMode mode = TerrainToolMode::Raise;
 
-        // Brush
         float brushRadius = 5.0f;
         float brushStrength = 1.0f;
         bool brushValid = false;
         glm::vec3 brushPos = glm::vec3(0.0f);
 
-        // Flatten
         float flattenHeight = 0.0f;
-        float flattenHardness = 0.5f;  // 0 = all gradient, 1 = all flat
+        float flattenHardness = 0.5f;
 
-        // Paint
         int paintLayer = 0;
         std::string selectedMaterialId;
 
-        // Ramp
         bool rampPlacing = false;
         glm::vec3 rampStart = glm::vec3(0.0f);
         float rampStartHeight = 0.0f;
 
-        // Rendering
         bool sobelNormals = true;
         bool smoothNormals = true;
-        bool pixelNormals = true;   // Per-pixel normals from heightmap texture
-        bool diamondGrid = true;    // 4-triangle diamond tessellation (WoW-style)
-        int meshResolution = 65;    // Mesh vertices per side (data always 65x65)
-        bool pbr = false;           // PBR rendering toggle
-        int debugSplatmap = 0;      // 0=off, 1=weights, 2=weight sum, 3=texel grid
+        bool pixelNormals = true;
+        bool diamondGrid = true;
+        int meshResolution = 65;
+        bool pbr = false;
+        int debugSplatmap = 0;
     };
 
     TerrainToolState m_TerrainTool;
 
 private:
     void RenderScene();
-    void RenderShadowPass();
     void RenderGrid();
     void RenderWorldObjects();
     void RenderTerrain();
@@ -137,7 +128,8 @@ private:
     void HandleGizmoInteraction();
     void UpdateCameraVectors();
 
-    // GPU Picking
+    void SubmitModelsToRenderer();
+
     struct PickResult {
         uint64_t objectGuid = 0;
         int meshIndex = -1;
@@ -150,48 +142,40 @@ private:
     void RenderObjectForPicking(StaticObject* obj);
     void RenderIconForPicking(WorldObject* obj, WorldObjectType type, float size);
 
-    // Ray casting for picking (kept as fallback)
     glm::vec3 ScreenToWorldRay(float screenX, float screenY);
 
-    // Framebuffer for viewport
     std::unique_ptr<Onyx::Framebuffer> m_Framebuffer;
-
-    // GPU Picking framebuffer (non-multisampled for pixel reading)
     std::unique_ptr<Onyx::Framebuffer> m_PickingFramebuffer;
 
-    // Billboard quad for icons
     std::unique_ptr<Onyx::VertexArray> m_BillboardVAO;
     std::unique_ptr<Onyx::VertexBuffer> m_BillboardVBO;
     std::unique_ptr<Onyx::IndexBuffer> m_BillboardEBO;
 
-    // Icon textures for different entity types
     std::unique_ptr<Onyx::Texture> m_LightIconTexture;
     std::unique_ptr<Onyx::Texture> m_SpawnIconTexture;
     std::unique_ptr<Onyx::Texture> m_ParticleIconTexture;
     std::unique_ptr<Onyx::Texture> m_PortalIconTexture;
     std::unique_ptr<Onyx::Texture> m_TriggerIconTexture;
 
-    // Shaders
-    std::unique_ptr<Onyx::Shader> m_ObjectShader;     // For rendering simple objects
-    std::unique_ptr<Onyx::Shader> m_ModelShader;      // For rendering loaded 3D models
-    std::unique_ptr<Onyx::Shader> m_InfiniteGridShader; // For infinite ground grid
-    std::unique_ptr<Onyx::Shader> m_OutlineShader;    // For selection outline
-    std::unique_ptr<Onyx::Shader> m_IconShader;       // For gizmo icons
-    std::unique_ptr<Onyx::Shader> m_PickingShader;    // For GPU picking (solid geometry)
-    std::unique_ptr<Onyx::Shader> m_PickingBillboardShader; // For GPU picking (billboards)
-    std::unique_ptr<Onyx::Shader> m_BillboardShader;       // For rendering billboard icons
+    std::unique_ptr<Onyx::Shader> m_ObjectShader;
+    std::unique_ptr<Onyx::Shader> m_ModelShader;
+    std::unique_ptr<Onyx::Shader> m_SkinnedShader;
+    std::unique_ptr<Onyx::Shader> m_InfiniteGridShader;
+    std::unique_ptr<Onyx::Shader> m_OutlineShader;
+    std::unique_ptr<Onyx::Shader> m_IconShader;
+    std::unique_ptr<Onyx::Shader> m_PickingShader;
+    std::unique_ptr<Onyx::Shader> m_PickingBillboardShader;
+    std::unique_ptr<Onyx::Shader> m_BillboardShader;
+    std::unique_ptr<Onyx::Shader> m_ShadowDepthShader;
 
-    // Primitive geometry
     std::unique_ptr<Onyx::VertexArray> m_CubeVAO;
     std::unique_ptr<Onyx::VertexBuffer> m_CubeVBO;
     std::unique_ptr<Onyx::IndexBuffer> m_CubeEBO;
 
-    // Grid geometry (fullscreen quad for infinite grid shader)
     std::unique_ptr<Onyx::VertexArray> m_GridVAO;
     std::unique_ptr<Onyx::VertexBuffer> m_GridVBO;
     std::unique_ptr<Onyx::IndexBuffer> m_GridEBO;
 
-    // Camera state
     glm::vec3 m_CameraPosition = glm::vec3(0.0f, 10.0f, 20.0f);
     glm::vec3 m_CameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 m_CameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -201,150 +185,80 @@ private:
     float m_CameraSpeed = 20.0f;
     float m_CameraSensitivity = 0.15f;
 
-    // Cached matrices
     glm::mat4 m_ViewMatrix = glm::mat4(1.0f);
     glm::mat4 m_ProjectionMatrix = glm::mat4(1.0f);
 
-    // Viewport state
     float m_ViewportWidth = 800.0f;
     float m_ViewportHeight = 600.0f;
     bool m_ViewportHovered = false;
     bool m_ViewportFocused = false;
-    glm::vec2 m_ViewportPos = glm::vec2(0.0f);  // Screen position of viewport
+    glm::vec2 m_ViewportPos = glm::vec2(0.0f);
 
-    // Mouse state for camera
     bool m_RightMouseDown = false;
     bool m_MiddleMouseDown = false;
     bool m_FirstMouse = true;
-    bool m_WantsContextMenu = false;  // Right-click context menu pending
+    bool m_WantsContextMenu = false;
 
-    // Visual settings
     glm::vec3 m_LightDir = glm::vec3(-0.5f, -1.0f, -0.3f);
     glm::vec3 m_LightColor = glm::vec3(1.0f, 1.0f, 1.0f);
     float m_AmbientStrength = 0.3f;
     bool m_ShowGrid = true;
     bool m_ShowWireframe = false;
-    bool m_EnableMSAA = true;  // 4x MSAA toggle
+    bool m_EnableMSAA = true;
     float m_GridSize = 100.0f;
     float m_GridSpacing = 1.0f;
 
-    // Lighting settings
     bool m_EnableDirectionalLight = true;
 
-    // Shadow settings
     bool m_EnableShadows = true;
-    float m_ShadowBias = 0.0f;
+    float m_ShadowBias = 0.005f;
     float m_ShadowDistance = 60.0f;
     uint32_t m_ShadowMapSize = 2048;
     float m_SplitLambda = 0.0f;
     bool m_ShowCascades = false;
 
-    // Cascaded shadow map
-    std::unique_ptr<Onyx::CascadedShadowMap> m_CSM;
-    std::unique_ptr<Onyx::Shader> m_ShadowDepthShader;
+    Onyx::RenderStats m_RenderStats;
 
-    // Statistics
-    uint32_t m_TriangleCount = 0;
-    uint32_t m_DrawCalls = 0;
-    uint32_t m_BatchedDrawCalls = 0;
-    uint32_t m_BatchedMeshCount = 0;
-
-    // Render pass timing (ms)
     bool m_ProfilePassTiming = false;
     float m_ShadowPassTime = 0.0f;
     float m_TerrainPassTime = 0.0f;
     float m_WorldObjectsPassTime = 0.0f;
     float m_TotalRenderTime = 0.0f;
 
-    // Transform gizmo
     std::unique_ptr<TransformGizmo> m_Gizmo;
     glm::vec3 m_GizmoStartObjectPos = glm::vec3(0.0f);
     glm::quat m_GizmoStartObjectRot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
     float m_GizmoStartObjectScale = 1.0f;
 
-    // Mesh transform gizmo state
     glm::vec3 m_GizmoStartMeshOffset = glm::vec3(0.0f);
     glm::vec3 m_GizmoStartMeshRotation = glm::vec3(0.0f);
     float m_GizmoStartMeshScale = 1.0f;
     std::string m_GizmoSelectedMeshName;
 
-    // Model cache - maps path to loaded model
-    std::unordered_map<std::string, std::unique_ptr<Onyx::Model>> m_ModelCache;
-
-    // Material library — owns texture cache and default textures
-    Onyx::MaterialLibrary m_MaterialLibrary;
-
-    // Get or load a model from cache
-    Onyx::Model* GetOrLoadModel(const std::string& path);
-
-    // Get or load a texture from cache (delegates to MaterialLibrary)
-    Onyx::Texture* GetOrLoadTexture(const std::string& path);
-
-    // Animated model cache
-    std::unordered_map<std::string, std::unique_ptr<Onyx::AnimatedModel>> m_AnimatedModelCache;
     std::unordered_map<uint64_t, std::unique_ptr<Onyx::Animator>> m_AnimatorCache;
 
-    Onyx::AnimatedModel* GetOrLoadAnimatedModel(const std::string& path);
+    // Persistent pointer caches — avoid repeated AssetManager string-hash lookups
+    struct ResolvedModel {
+        Onyx::Model* staticModel = nullptr;
+        Onyx::AnimatedModel* animModel = nullptr;
+        bool isAnimated = false;
+    };
+    std::unordered_map<std::string, ResolvedModel> m_ResolvedModelCache;
 
-    // Terrain
+    Onyx::SceneRenderer* m_SceneRenderer = nullptr;
+
     Editor3D::EditorWorldSystem m_WorldSystem;
     Editor3D::TerrainMaterialLibrary m_TerrainMaterialLibrary;
+
     bool m_TerrainEnabled = true;
     bool m_TerrainPainting = false;
     std::unique_ptr<Onyx::Shader> m_TerrainShader;
 
-    // Lights - collected from chunks each frame
+    ResolvedModel& ResolveModelCached(const std::string& path, bool checkAnimated = true);
+
     void CollectLights();
-    void UploadLightUniforms(Onyx::Shader* shader);
     std::vector<Editor3D::EditorLight> m_CollectedPointLights;
     std::vector<Editor3D::EditorLight> m_CollectedSpotLights;
-
-    // --- Batched rendering ---
-
-    // GPU-side per-draw data (matches SSBO layout in shaders)
-    struct DrawDataGPU {
-        glm::mat4 model;  // 64 bytes
-    };
-
-    // OpenGL draw command struct for glMultiDrawElementsIndirect
-    struct DrawCommand {
-        uint32_t count;
-        uint32_t instanceCount;
-        uint32_t firstIndex;
-        int32_t  baseVertex;
-        uint32_t baseInstance;
-    };
-
-    // Per-mesh entry for shadow frustum culling
-    struct MeshBoundsEntry {
-        glm::vec3 worldMin;
-        glm::vec3 worldMax;
-    };
-
-    // A batch of draws for one model+texture combination (shares a merged VAO)
-    struct ModelBatch {
-        Onyx::Model* model = nullptr;
-        std::string albedoPath;
-        std::string normalPath;
-        std::vector<DrawDataGPU> drawData;
-        std::vector<DrawCommand> commands;
-        std::vector<MeshBoundsEntry> meshEntries;  // for shadow culling
-        uint32_t totalTriangles = 0;
-    };
-
-    void BuildModelBatches();
-
-    // Batched rendering shaders
-    std::unique_ptr<Onyx::Shader> m_BatchedModelShader;
-    std::unique_ptr<Onyx::Shader> m_BatchedShadowShader;
-
-    // Persistent buffers for batched rendering
-    std::unique_ptr<Onyx::ShaderStorageBuffer> m_DrawDataSSBO;
-    std::unique_ptr<Onyx::DrawCommandBuffer> m_DrawCmdBO;
-
-    // Per-frame batch data
-    std::unordered_map<std::string, ModelBatch> m_ModelBatches;
-
 };
 
 } // namespace MMO

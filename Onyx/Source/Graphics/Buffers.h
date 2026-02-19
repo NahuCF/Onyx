@@ -90,6 +90,13 @@ namespace Onyx {
 		// Also binds to the given binding point.
 		void Upload(const void* data, size_t sizeBytes, uint32_t bindingPoint);
 
+		// Allocate GPU memory without uploading data (for GPU-written output buffers).
+		// Also binds to the given binding point.
+		void Allocate(size_t sizeBytes, uint32_t bindingPoint);
+
+		// Clear the entire buffer to a uint value (e.g., 0 for resetting atomic counters).
+		void ClearUint(uint32_t bindingPoint, uint32_t value);
+
 		uint32_t GetBufferID() const { return m_BufferID; }
 
 	private:

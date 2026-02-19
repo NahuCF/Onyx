@@ -30,7 +30,7 @@ void MaterialEditorPanel::OnImGuiRender() {
 
     if (m_CurrentMaterialId.empty()) {
         ImGui::TextDisabled("No material selected");
-        ImGui::TextDisabled("Double-click a .terrainmat file in the Asset Browser");
+        ImGui::TextDisabled("Double-click a .material or .terrainmat file in the Asset Browser");
         ImGui::End();
         HandleFileDialogs();
         return;
@@ -49,7 +49,7 @@ void MaterialEditorPanel::OnImGuiRender() {
     ImGui::Separator();
 
     ImGui::Text("Textures");
-    RenderTextureSlot("Diffuse", m_EditingCopy.diffusePath, 0);
+    RenderTextureSlot("Albedo", m_EditingCopy.albedoPath, 0);
     RenderTextureSlot("Normal", m_EditingCopy.normalPath, 1);
     RenderTextureSlot("RMA", m_EditingCopy.rmaPath, 2);
 
@@ -160,7 +160,7 @@ void MaterialEditorPanel::HandleFileDialogs() {
 
             if (m_BrowsingSlot >= 0 && m_BrowsingSlot <= 2) {
                 switch (m_BrowsingSlot) {
-                    case 0: m_EditingCopy.diffusePath = filePath; break;
+                    case 0: m_EditingCopy.albedoPath = filePath; break;
                     case 1: m_EditingCopy.normalPath = filePath; break;
                     case 2: m_EditingCopy.rmaPath = filePath; break;
                 }

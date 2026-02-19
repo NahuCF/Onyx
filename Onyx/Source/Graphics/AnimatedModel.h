@@ -4,6 +4,7 @@
 #include "Animation.h"
 #include "Buffers.h"
 #include "Texture.h"
+#include "Model.h"
 #include <string>
 #include <vector>
 #include <memory>
@@ -31,6 +32,20 @@ struct SkinnedMesh {
     uint32_t indexCount = 0;
     uint32_t materialIndex = 0;
     std::string name;
+
+    std::vector<SkinnedVertex> vertices;
+    std::vector<uint32_t> indices;
+};
+
+struct MergedMeshInfo;
+
+struct SkinnedMergedBuffers {
+    std::unique_ptr<VertexArray> vao;
+    std::unique_ptr<VertexBuffer> vbo;
+    std::unique_ptr<IndexBuffer> ebo;
+    uint32_t totalVertices = 0;
+    uint32_t totalIndices = 0;
+    std::vector<MergedMeshInfo> meshInfos;
 };
 
 struct AnimatedMaterial {
@@ -72,6 +87,10 @@ public:
 
     const std::string& GetPath() const { return m_Path; }
 
+    void BuildMergedBuffers();
+    const SkinnedMergedBuffers& GetMergedBuffers() const { return m_Merged; }
+    bool HasMergedBuffers() const { return m_Merged.vao != nullptr; }
+
     struct NodeData {
         std::string name;
         glm::mat4 transform;
@@ -109,6 +128,8 @@ private:
 
     std::vector<NodeData> m_NodeHierarchy;
     std::unordered_map<std::string, int> m_NodeMap;
+
+    SkinnedMergedBuffers m_Merged;
 };
 
 } // namespace Onyx

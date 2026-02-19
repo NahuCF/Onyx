@@ -1,4 +1,5 @@
 #include "TerrainMaterialLibrary.h"
+#include <Graphics/AssetManager.h>
 #include <filesystem>
 #include <algorithm>
 #include <iostream>
@@ -21,101 +22,72 @@ static bool ParseSolidColor(const std::string& path, uint8_t& r, uint8_t& g, uin
     return true;
 }
 
-void TerrainMaterialLibrary::Init(const std::string& assetRoot) {
+void TerrainMaterialLibrary::Init(const std::string& assetRoot, Onyx::AssetManager* assetManager) {
     m_AssetRoot = assetRoot;
     m_MaterialsDir = assetRoot + "/materials/terrain";
+    m_AssetManager = assetManager;
 
     std::filesystem::create_directories(m_MaterialsDir);
     CreateDefaultTextures();
-    ScanForMaterials();
-    EnsureDefaultMaterials();
-}
-
-void TerrainMaterialLibrary::ScanForMaterials() {
-    m_Materials.clear();
-    m_MaterialIds.clear();
-
-    namespace fs = std::filesystem;
-
-    if (!fs::exists(m_AssetRoot)) return;
-
-    for (const auto& entry : fs::recursive_directory_iterator(m_AssetRoot)) {
-        if (entry.path().extension() == ".terrainmat") {
-            TerrainMaterial mat;
-            if (LoadTerrainMaterial(entry.path().generic_string(), mat)) {
-                if (mat.id.empty()) {
-                    mat.id = entry.path().stem().string();
-                }
-                mat.filePath = entry.path().generic_string();
-                m_Materials[mat.id] = mat;
-                m_MaterialIds.push_back(mat.id);
-            }
-        }
-    }
-
-    std::sort(m_MaterialIds.begin(), m_MaterialIds.end());
+    ScanAndRegisterMaterials(m_AssetRoot, *m_AssetManager);
+    EnsureDefaultMaterials(m_MaterialsDir, *m_AssetManager);
     m_ArraysDirty = true;
 }
 
-const TerrainMaterial* TerrainMaterialLibrary::GetMaterial(const std::string& id) const {
-    auto it = m_Materials.find(id);
-    if (it == m_Materials.end()) return nullptr;
-    return &it->second;
+const Onyx::Material* TerrainMaterialLibrary::GetMaterial(const std::string& id) const {
+    if (!m_AssetManager) return nullptr;
+    return m_AssetManager->GetMaterial(id);
 }
 
-TerrainMaterial* TerrainMaterialLibrary::GetMaterialMutable(const std::string& id) {
-    auto it = m_Materials.find(id);
-    if (it == m_Materials.end()) return nullptr;
-    return &it->second;
+Onyx::Material* TerrainMaterialLibrary::GetMaterialMutable(const std::string& id) {
+    if (!m_AssetManager) return nullptr;
+    return m_AssetManager->GetMaterial(id);
 }
 
 std::string TerrainMaterialLibrary::CreateMaterial(const std::string& name, const std::string& directory) {
-    std::string id = GenerateUniqueId(name);
+    if (!m_AssetManager) return "";
+
+    std::string id = m_AssetManager->GenerateUniqueMaterialId(name);
     std::string dir = directory.empty() ? m_MaterialsDir : directory;
 
     std::filesystem::create_directories(dir);
 
-    TerrainMaterial mat;
+    Onyx::Material mat;
     mat.name = name;
     mat.id = id;
     mat.tilingScale = 8.0f;
     mat.normalStrength = 1.0f;
-    mat.filePath = dir + "/" + id + ".terrainmat";
+    mat.filePath = dir + "/" + id + ".material";
 
-    SaveTerrainMaterial(mat, mat.filePath);
-
-    m_Materials[id] = mat;
-    m_MaterialIds.push_back(id);
-    std::sort(m_MaterialIds.begin(), m_MaterialIds.end());
+    Editor3D::SaveMaterial(mat, mat.filePath);
+    m_AssetManager->RegisterMaterial(mat);
     m_ArraysDirty = true;
 
     return id;
 }
 
 void TerrainMaterialLibrary::SaveMaterial(const std::string& id) {
-    auto it = m_Materials.find(id);
-    if (it == m_Materials.end()) return;
+    if (!m_AssetManager) return;
 
-    if (it->second.filePath.empty()) {
-        it->second.filePath = m_MaterialsDir + "/" + id + ".terrainmat";
+    auto* mat = m_AssetManager->GetMaterial(id);
+    if (!mat) return;
+
+    if (mat->filePath.empty()) {
+        mat->filePath = m_MaterialsDir + "/" + id + ".material";
     }
 
-    SaveTerrainMaterial(it->second, it->second.filePath);
+    Editor3D::SaveMaterial(*mat, mat->filePath);
 }
 
-void TerrainMaterialLibrary::UpdateMaterial(const std::string& id, const TerrainMaterial& mat) {
-    bool isNew = (m_Materials.find(id) == m_Materials.end());
-    m_Materials[id] = mat;
-    if (isNew) {
-        m_MaterialIds.push_back(id);
-        std::sort(m_MaterialIds.begin(), m_MaterialIds.end());
-    }
+void TerrainMaterialLibrary::UpdateMaterial(const std::string& id, const Onyx::Material& mat) {
+    if (!m_AssetManager) return;
+    m_AssetManager->RegisterMaterial(mat);
     m_ArraysDirty = true;
 }
 
 Onyx::Texture* TerrainMaterialLibrary::GetMaterialTexture(
     const std::string& materialId,
-    std::string TerrainMaterial::*pathMember, Onyx::Texture* fallback)
+    std::string Onyx::Material::*pathMember, Onyx::Texture* fallback)
 {
     auto* mat = GetMaterial(materialId);
     if (!mat || (mat->*pathMember).empty()) return fallback;
@@ -123,15 +95,15 @@ Onyx::Texture* TerrainMaterialLibrary::GetMaterialTexture(
 }
 
 Onyx::Texture* TerrainMaterialLibrary::GetDiffuseTexture(const std::string& materialId) {
-    return GetMaterialTexture(materialId, &TerrainMaterial::diffusePath, m_DefaultDiffuse.get());
+    return GetMaterialTexture(materialId, &Onyx::Material::albedoPath, m_DefaultDiffuse.get());
 }
 
 Onyx::Texture* TerrainMaterialLibrary::GetNormalTexture(const std::string& materialId) {
-    return GetMaterialTexture(materialId, &TerrainMaterial::normalPath, m_DefaultNormal.get());
+    return GetMaterialTexture(materialId, &Onyx::Material::normalPath, m_DefaultNormal.get());
 }
 
 Onyx::Texture* TerrainMaterialLibrary::GetRMATexture(const std::string& materialId) {
-    return GetMaterialTexture(materialId, &TerrainMaterial::rmaPath, m_DefaultRMA.get());
+    return GetMaterialTexture(materialId, &Onyx::Material::rmaPath, m_DefaultRMA.get());
 }
 
 Onyx::Texture* TerrainMaterialLibrary::LoadOrGetCachedTexture(const std::string& path) {
@@ -177,58 +149,11 @@ void TerrainMaterialLibrary::CreateDefaultTextures() {
     m_DefaultRMA = Onyx::Texture::CreateSolidColor(128, 0, 255);
 }
 
-void TerrainMaterialLibrary::EnsureDefaultMaterials() {
-    if (!m_Materials.empty()) return;
-
-    struct DefaultMat {
-        const char* name;
-        const char* id;
-        uint8_t r, g, b;
-    };
-
-    DefaultMat defaults[] = {
-        {"Grass", "grass", 80, 140, 50},
-        {"Dirt",  "dirt",  140, 100, 60},
-        {"Rock",  "rock",  130, 130, 130},
-        {"Sand",  "sand",  200, 180, 120},
-    };
-
-    for (auto& def : defaults) {
-        TerrainMaterial mat;
-        mat.name = def.name;
-        mat.id = def.id;
-        mat.tilingScale = 8.0f;
-        mat.normalStrength = 1.0f;
-        mat.filePath = m_MaterialsDir + "/" + std::string(def.id) + ".terrainmat";
-
-        mat.diffusePath = "__solid_" + std::to_string(def.r) + "_"
-                        + std::to_string(def.g) + "_" + std::to_string(def.b);
-
-        SaveTerrainMaterial(mat, mat.filePath);
-        m_Materials[mat.id] = mat;
-        m_MaterialIds.push_back(mat.id);
-    }
-
-    std::sort(m_MaterialIds.begin(), m_MaterialIds.end());
-}
-
-std::string TerrainMaterialLibrary::GenerateUniqueId(const std::string& baseName) const {
-    std::string id = baseName;
-    std::transform(id.begin(), id.end(), id.begin(), ::tolower);
-    std::replace(id.begin(), id.end(), ' ', '_');
-
-    id.erase(std::remove_if(id.begin(), id.end(), [](char c) {
-        return !std::isalnum(c) && c != '_';
-    }), id.end());
-
-    if (id.empty()) id = "material";
-
-    if (m_Materials.find(id) == m_Materials.end()) return id;
-
-    for (int i = 1; ; i++) {
-        std::string candidate = id + "_" + std::to_string(i);
-        if (m_Materials.find(candidate) == m_Materials.end()) return candidate;
-    }
+std::vector<std::string> TerrainMaterialLibrary::GetMaterialIds() const {
+    if (!m_AssetManager) return {};
+    auto ids = m_AssetManager->GetAllMaterialIds();
+    std::sort(ids.begin(), ids.end());
+    return ids;
 }
 
 void TerrainMaterialLibrary::LoadArrayLayer(Onyx::TextureArray* array, int layer,
@@ -256,10 +181,11 @@ void TerrainMaterialLibrary::LoadArrayLayer(Onyx::TextureArray* array, int layer
 }
 
 void TerrainMaterialLibrary::RebuildTextureArrays() {
-    if (!m_ArraysDirty) return;
+    if (!m_ArraysDirty || !m_AssetManager) return;
     m_ArraysDirty = false;
 
-    int numMaterials = std::max(1, (int)m_MaterialIds.size());
+    auto ids = GetMaterialIds();
+    int numMaterials = std::max(1, (int)ids.size());
     const int ARRAY_SIZE = 1024;
 
     m_DiffuseArray = std::make_unique<Onyx::TextureArray>();
@@ -272,14 +198,14 @@ void TerrainMaterialLibrary::RebuildTextureArrays() {
 
     m_MaterialArrayIndex.clear();
 
-    for (int i = 0; i < (int)m_MaterialIds.size(); i++) {
-        const auto& matId = m_MaterialIds[i];
+    for (int i = 0; i < (int)ids.size(); i++) {
+        const auto& matId = ids[i];
         m_MaterialArrayIndex[matId] = i;
 
         const auto* mat = GetMaterial(matId);
         if (!mat) continue;
 
-        LoadArrayLayer(m_DiffuseArray.get(), i, mat->diffusePath, 255, 255, 255);
+        LoadArrayLayer(m_DiffuseArray.get(), i, mat->albedoPath, 255, 255, 255);
         LoadArrayLayer(m_NormalArray.get(), i, mat->normalPath, 128, 128, 255);
         LoadArrayLayer(m_RMAArray.get(), i, mat->rmaPath, 128, 0, 255);
     }

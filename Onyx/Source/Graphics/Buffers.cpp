@@ -219,8 +219,6 @@ namespace Onyx {
 		UnBind();
 	}
 
-	// --- ShaderStorageBuffer ---
-
 	ShaderStorageBuffer::ShaderStorageBuffer()
 	{
 		glGenBuffers(1, &m_BufferID);
@@ -258,7 +256,22 @@ namespace Onyx {
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, m_BufferID);
 	}
 
-	// --- DrawCommandBuffer ---
+	void ShaderStorageBuffer::Allocate(size_t sizeBytes, uint32_t bindingPoint)
+	{
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_BufferID);
+		if (sizeBytes > m_AllocatedSize) {
+			glBufferData(GL_SHADER_STORAGE_BUFFER, sizeBytes, nullptr, GL_DYNAMIC_DRAW);
+			m_AllocatedSize = sizeBytes;
+		}
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, m_BufferID);
+	}
+
+	void ShaderStorageBuffer::ClearUint(uint32_t bindingPoint, uint32_t value)
+	{
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_BufferID);
+		glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &value);
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, m_BufferID);
+	}
 
 	DrawCommandBuffer::DrawCommandBuffer()
 	{

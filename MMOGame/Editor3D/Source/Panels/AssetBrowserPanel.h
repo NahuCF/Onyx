@@ -45,7 +45,7 @@ private:
     bool IsModelFile(const std::string& extension) const;
     bool IsTextureFile(const std::string& extension) const;
     bool IsShaderFile(const std::string& extension) const;
-    bool IsTerrainMaterialFile(const std::string& extension) const;
+    bool IsMaterialFile(const std::string& extension) const;
 
     std::string m_RootDirectory;
     std::string m_CurrentDirectory;

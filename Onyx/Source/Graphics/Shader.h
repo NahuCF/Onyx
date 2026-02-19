@@ -29,6 +29,7 @@ namespace Onyx {
         void SetFloat(const std::string &name, float value);
         void SetIntArray(const std::string &name, const int* values, int count);
         void SetFloatArray(const std::string &name, const float* values, int count);
+        void SetMat4Array(const std::string &name, const glm::mat4* matrices, int count);
 
         int GetLocation(const std::string& name);
 	private:

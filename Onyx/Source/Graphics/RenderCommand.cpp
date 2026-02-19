@@ -116,6 +116,23 @@ void RenderCommand::DrawBatched(const VertexArray& vao, uint32_t drawCount) {
                                 static_cast<GLsizei>(drawCount), 0);
 }
 
+void RenderCommand::DrawBatchedIndirectCount(const VertexArray& vao, uint32_t countBufferID,
+                                               uint32_t maxDrawCount) {
+    vao.Bind();
+    glBindBuffer(GL_PARAMETER_BUFFER, countBufferID);
+    glMultiDrawElementsIndirectCount(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
+                                      0, static_cast<GLsizei>(maxDrawCount), 0);
+    glBindBuffer(GL_PARAMETER_BUFFER, 0);
+}
+
+void RenderCommand::DispatchCompute(uint32_t x, uint32_t y, uint32_t z) {
+    glDispatchCompute(x, y, z);
+}
+
+void RenderCommand::MemoryBarrier(uint32_t barriers) {
+    glMemoryBarrier(barriers);
+}
+
 void RenderCommand::ResetState() {
     glBindVertexArray(0);
     glUseProgram(0);

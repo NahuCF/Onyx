@@ -7,7 +7,7 @@
 #include "Panels/LightingPanel.h"
 #include "Panels/TerrainPanel.h"
 #include "Panels/MaterialEditorPanel.h"
-#include "Terrain/TerrainMaterial.h"
+#include "Terrain/MaterialSerializer.h"
 #include <filesystem>
 #include "Commands/EditorCommand.h"
 #include <Core/Application.h>
@@ -28,8 +28,13 @@ void Editor3DLayer::OnAttach() {
     m_ShowMapBrowser = true;
     m_MapLoaded = false;
 
+    // Create SceneRenderer
+    m_SceneRenderer = std::make_unique<Onyx::SceneRenderer>();
+    
+    m_SceneRenderer->Init(&Onyx::Application::GetInstance().GetAssetManager());
     // Setup panels (created once, rendered only when map is loaded)
     m_ViewportPanel = m_PanelManager.AddPanel<ViewportPanel>("Viewport", true);
+    m_ViewportPanel->SetSceneRenderer(m_SceneRenderer.get());
 
     m_PanelManager.AddPanel<HierarchyPanel>("Hierarchy", true);
 
@@ -62,8 +67,8 @@ void Editor3DLayer::OnAttach() {
             std::string matId = p.stem().string();
 
             auto& lib = m_ViewportPanel->GetTerrainMaterialLibrary();
-            Editor3D::TerrainMaterial mat;
-            if (Editor3D::LoadTerrainMaterial(filePath, mat)) {
+            Onyx::Material mat;
+            if (Editor3D::LoadMaterial(filePath, mat)) {
                 if (mat.id.empty()) mat.id = matId;
                 lib.UpdateMaterial(mat.id, mat);
                 materialEditor->OpenMaterial(mat.id);

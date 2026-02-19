@@ -2,6 +2,7 @@
 
 #include "EditorPanel.h"
 #include "Terrain/TerrainMaterialLibrary.h"
+#include <Graphics/Material.h>
 #include <string>
 #include <array>
 
@@ -20,7 +21,7 @@ public:
 private:
     Editor3D::TerrainMaterialLibrary* m_MaterialLibrary = nullptr;
     std::string m_CurrentMaterialId;
-    Editor3D::TerrainMaterial m_EditingCopy;
+    Onyx::Material m_EditingCopy;
     bool m_HasUnsavedChanges = false;
 
     void RenderTextureSlot(const char* label, std::string& texturePath, int slotIndex);
