@@ -3,6 +3,7 @@
 #include "Buffers.h"
 #include "Shader.h"
 #include "CascadedShadowMap.h"
+#include "Frustum.h"
 #include "AssetManager.h"
 #include "Model.h"
 #include "AnimatedModel.h"
@@ -47,6 +48,8 @@ struct RenderStats {
     uint32_t batchedMeshCount = 0;
     uint32_t skinnedDrawCalls = 0;
     uint32_t skinnedInstances = 0;
+    uint32_t meshesSubmitted = 0;
+    uint32_t meshesCulled = 0;
 };
 
 struct DirectionalLight {
@@ -152,11 +155,6 @@ private:
                               const glm::mat4& transform,
                               glm::vec3& worldMin, glm::vec3& worldMax);
 
-    static bool AABBInFrustum(const glm::vec3& min, const glm::vec3& max,
-                              const glm::vec4 planes[6]);
-
-    static void ExtractFrustumPlanes(const glm::mat4& vp, glm::vec4 planes[6]);
-
     static uint64_t MakeBatchKey(const void* ptr,
                                  const std::string& albedo,
                                  const std::string& normal);
@@ -189,6 +187,8 @@ private:
     float m_AmbientStrength = 0.3f;
     std::vector<PointLightData> m_PointLights;
     std::vector<SpotLightData> m_SpotLights;
+
+    Frustum m_CameraFrustum;
 
     std::unordered_map<uint64_t, StaticBatch> m_StaticBatches;
     std::vector<SkinnedSubmission> m_SkinnedQueue;

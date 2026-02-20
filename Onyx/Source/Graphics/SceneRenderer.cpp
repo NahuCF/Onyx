@@ -46,6 +46,8 @@ void SceneRenderer::Begin(const glm::mat4& view, const glm::mat4& projection, co
     m_Projection = projection;
     m_CameraPos = cameraPos;
 
+    m_CameraFrustum.Update(projection * view);
+
     m_StaticBatches.clear();
     m_SkinnedQueue.clear();
     m_PointLights.clear();
@@ -196,21 +198,8 @@ void SceneRenderer::RenderShadowPass(const ShadowCasterCallback& extraShadows) {
         m_CSM->BindCascade(cascade);
         const glm::mat4& lightSpaceMat = m_CSM->GetLightSpaceMatrix(cascade);
 
-        glm::vec4 planes[6];
-        ExtractFrustumPlanes(lightSpaceMat, planes);
-
-        // Pre-compute per-plane sign masks for branchless AABB test
-        glm::vec3 planeN[6];
-        float planeD[6];
-        glm::vec3 planeSign[6]; // 1 where normal > 0, 0 otherwise
-        for (int i = 0; i < 6; i++) {
-            planeN[i] = glm::vec3(planes[i]);
-            planeD[i] = planes[i].w;
-            planeSign[i] = glm::vec3(
-                planes[i].x > 0.0f ? 1.0f : 0.0f,
-                planes[i].y > 0.0f ? 1.0f : 0.0f,
-                planes[i].z > 0.0f ? 1.0f : 0.0f);
-        }
+        Frustum cascadeFrustum;
+        cascadeFrustum.Update(lightSpaceMat);
 
         m_StaticShadowShader->Bind();
         m_StaticShadowShader->SetMat4("u_LightSpaceMatrix", lightSpaceMat);
@@ -220,21 +209,7 @@ void SceneRenderer::RenderShadowPass(const ShadowCasterCallback& extraShadows) {
             culledCmds.clear();
 
             for (size_t i = 0; i < batch.bounds.size(); i++) {
-                const glm::vec3& bMin = batch.bounds[i].worldMin;
-                const glm::vec3& bMax = batch.bounds[i].worldMax;
-                const glm::vec3 extent = bMax - bMin;
-
-                bool visible = true;
-                for (int p = 0; p < 6; p++) {
-                    // p-vertex = bMin + extent * sign (branchless select of min/max per component)
-                    glm::vec3 pv = bMin + extent * planeSign[p];
-                    if (glm::dot(planeN[p], pv) + planeD[p] < 0.0f) {
-                        visible = false;
-                        break;
-                    }
-                }
-
-                if (visible) {
+                if (cascadeFrustum.IsBoxVisible(batch.bounds[i].worldMin, batch.bounds[i].worldMax)) {
                     culledData.push_back(batch.drawData[i]);
                     culledCmds.push_back(batch.commands[i]);
                 }
@@ -285,6 +260,9 @@ void SceneRenderer::RenderShadowPass(const ShadowCasterCallback& extraShadows) {
 void SceneRenderer::RenderStaticPass() {
     if (m_StaticBatches.empty()) return;
 
+    std::vector<StaticDrawData> culledData;
+    std::vector<DrawIndirectCommand> culledCmds;
+
     m_StaticBatchedShader->Bind();
     m_StaticBatchedShader->SetMat4("u_View", m_View);
     m_StaticBatchedShader->SetMat4("u_Projection", m_Projection);
@@ -296,6 +274,25 @@ void SceneRenderer::RenderStaticPass() {
     UploadShadowUniforms(m_StaticBatchedShader.get());
 
     for (auto& [key, batch] : m_StaticBatches) {
+        culledData.clear();
+        culledCmds.clear();
+
+        uint32_t totalMeshes = static_cast<uint32_t>(batch.bounds.size());
+        m_Stats.meshesSubmitted += totalMeshes;
+
+        uint32_t culledTriangles = 0;
+        for (size_t i = 0; i < batch.bounds.size(); i++) {
+            if (m_CameraFrustum.IsBoxVisible(batch.bounds[i].worldMin, batch.bounds[i].worldMax)) {
+                culledData.push_back(batch.drawData[i]);
+                culledCmds.push_back(batch.commands[i]);
+                culledTriangles += batch.commands[i].count / 3;
+            }
+        }
+
+        m_Stats.meshesCulled += totalMeshes - static_cast<uint32_t>(culledCmds.size());
+
+        if (culledCmds.empty()) continue;
+
         Texture* albedo = m_AssetManager->ResolveTexture(batch.albedoPath);
         Texture* normal = m_AssetManager->ResolveTexture(batch.normalPath);
         (albedo ? albedo : m_AssetManager->GetDefaultAlbedo())->Bind(0);
@@ -308,18 +305,18 @@ void SceneRenderer::RenderStaticPass() {
             m_StaticBatchedShader->SetInt("u_UseNormalMap", 0);
         }
 
-        uint32_t drawCount = static_cast<uint32_t>(batch.commands.size());
+        uint32_t drawCount = static_cast<uint32_t>(culledCmds.size());
 
-        m_StaticSSBO->Upload(batch.drawData.data(),
-            batch.drawData.size() * sizeof(StaticDrawData), 0);
-        m_StaticCmdBO->Upload(batch.commands.data(),
-            batch.commands.size() * sizeof(DrawIndirectCommand));
+        m_StaticSSBO->Upload(culledData.data(),
+            culledData.size() * sizeof(StaticDrawData), 0);
+        m_StaticCmdBO->Upload(culledCmds.data(),
+            culledCmds.size() * sizeof(DrawIndirectCommand));
 
         RenderCommand::DrawBatched(*batch.model->GetMergedBuffers().vao, drawCount);
 
         m_Stats.batchedMeshCount += drawCount;
         m_Stats.batchedDrawCalls++;
-        m_Stats.triangles += batch.totalTriangles;
+        m_Stats.triangles += culledTriangles;
     }
 
     m_StaticCmdBO->UnBind();
@@ -442,34 +439,6 @@ void SceneRenderer::TransformAABB(const glm::vec3& localMin, const glm::vec3& lo
         worldMin += glm::min(a, b);
         worldMax += glm::max(a, b);
     }
-}
-
-void SceneRenderer::ExtractFrustumPlanes(const glm::mat4& vp, glm::vec4 planes[6]) {
-    planes[0] = glm::vec4(vp[0][3]+vp[0][0], vp[1][3]+vp[1][0], vp[2][3]+vp[2][0], vp[3][3]+vp[3][0]);
-    planes[1] = glm::vec4(vp[0][3]-vp[0][0], vp[1][3]-vp[1][0], vp[2][3]-vp[2][0], vp[3][3]-vp[3][0]);
-    planes[2] = glm::vec4(vp[0][3]+vp[0][1], vp[1][3]+vp[1][1], vp[2][3]+vp[2][1], vp[3][3]+vp[3][1]);
-    planes[3] = glm::vec4(vp[0][3]-vp[0][1], vp[1][3]-vp[1][1], vp[2][3]-vp[2][1], vp[3][3]-vp[3][1]);
-    planes[4] = glm::vec4(vp[0][3]+vp[0][2], vp[1][3]+vp[1][2], vp[2][3]+vp[2][2], vp[3][3]+vp[3][2]);
-    planes[5] = glm::vec4(vp[0][3]-vp[0][2], vp[1][3]-vp[1][2], vp[2][3]-vp[2][2], vp[3][3]-vp[3][2]);
-
-    for (int i = 0; i < 6; i++) {
-        float len = glm::length(glm::vec3(planes[i]));
-        if (len > 0.0f) planes[i] /= len;
-    }
-}
-
-bool SceneRenderer::AABBInFrustum(const glm::vec3& min, const glm::vec3& max,
-                                   const glm::vec4 planes[6]) {
-    for (int i = 0; i < 6; i++) {
-        glm::vec3 p(
-            planes[i].x > 0 ? max.x : min.x,
-            planes[i].y > 0 ? max.y : min.y,
-            planes[i].z > 0 ? max.z : min.z
-        );
-        if (glm::dot(glm::vec3(planes[i]), p) + planes[i].w < 0.0f)
-            return false;
-    }
-    return true;
 }
 
 uint64_t SceneRenderer::MakeBatchKey(const void* ptr,
