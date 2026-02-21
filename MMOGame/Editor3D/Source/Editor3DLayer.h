@@ -8,6 +8,10 @@
 #include "Map/MapBrowserDialog.h"
 #include <memory>
 
+#ifdef HAS_DATABASE
+#include <Database/Database.h>
+#endif
+
 namespace MMO {
 
 class ViewportPanel;
@@ -34,6 +38,11 @@ private:
     void LoadMap(uint32_t mapId);
     void UnloadMap();
 
+#ifdef HAS_DATABASE
+    void RenderExportDialog();
+    void ExportMapToDatabase();
+#endif
+
     EditorWorld m_World;
     PanelManager m_PanelManager;
     ViewportPanel* m_ViewportPanel = nullptr;
@@ -45,6 +54,17 @@ private:
     uint32_t m_CurrentMapId = 0;
     bool m_MapLoaded = false;
     bool m_ShowMapBrowser = true;
+
+#ifdef HAS_DATABASE
+    // Database export
+    Database m_Database;
+    bool m_ShowExportDialog = false;
+    char m_DbHost[128] = "localhost";
+    char m_DbUser[64] = "root";
+    char m_DbPass[64] = "root";
+    char m_DbName[64] = "mmogame";
+    std::vector<std::string> m_ExportLog;
+#endif
 };
 
 } // namespace MMO

@@ -34,6 +34,9 @@ bool LoginServer::Initialize(const std::string& dbConnectionString, uint16_t por
         return false;
     }
 
+    // Load game data (races, classes, create info)
+    GameDataStore::Instance().LoadFromDatabase(m_Database);
+
     // Start network server
     if (!m_Network.Start(port)) {
         std::cerr << "Failed to start network server on port " << port << std::endl;
@@ -253,12 +256,21 @@ void LoginServer::HandleCreateCharacter(uint32_t peerId, ReadBuffer& buf) {
     C_CreateCharacter request;
     request.Deserialize(buf);
 
-    std::cout << "Create character: " << request.name << std::endl;
+    std::cout << "Create character: " << request.name
+              << " race=" << static_cast<int>(request.characterRace)
+              << " class=" << static_cast<int>(request.characterClass) << std::endl;
 
     // Validate name
     if (!ValidateCharacterName(request.name)) {
         SendError(peerId, ErrorCode::INVALID_NAME,
                   "Name must be 2-12 alphabetic characters");
+        return;
+    }
+
+    // Validate race+class combination
+    auto& gds = GameDataStore::Instance();
+    if (!gds.IsValidRaceClass(request.characterRace, request.characterClass)) {
+        SendError(peerId, ErrorCode::UNKNOWN_ERROR, "Invalid race/class combination");
         return;
     }
 
@@ -275,10 +287,23 @@ void LoginServer::HandleCreateCharacter(uint32_t peerId, ReadBuffer& buf) {
         return;
     }
 
+    // Look up data-driven stats and spawn location
+    const ClassTemplate* classTmpl = gds.GetClassTemplate(request.characterClass);
+    const RaceTemplate* raceTmpl = gds.GetRaceTemplate(request.characterRace);
+    const PlayerCreateInfo* createInfo = gds.GetPlayerCreateInfo(request.characterRace, request.characterClass);
+
+    int32_t maxHealth = classTmpl ? classTmpl->baseHealth : 100;
+    int32_t maxMana = classTmpl ? classTmpl->baseMana : 100;
+
+    uint32_t mapId = createInfo ? createInfo->mapId : 1;
+    float posX = createInfo ? createInfo->positionX : 10.0f;
+    float posY = createInfo ? createInfo->positionY : 10.0f;
+
     // Create character
     CharacterId newId;
     if (!m_Database.CreateCharacter(it->second.accountId, request.name,
-                                    request.characterClass, newId)) {
+                                    request.characterRace, request.characterClass,
+                                    mapId, posX, posY, maxHealth, maxMana, newId)) {
         SendError(peerId, ErrorCode::UNKNOWN_ERROR, "Failed to create character");
         return;
     }
@@ -291,6 +316,7 @@ void LoginServer::HandleCreateCharacter(uint32_t peerId, ReadBuffer& buf) {
     resp.errorCode = ErrorCode::NONE;
     resp.character.id = newId;
     resp.character.name = request.name;
+    resp.character.characterRace = request.characterRace;
     resp.character.characterClass = request.characterClass;
     resp.character.level = 1;
     resp.Serialize(response);
@@ -381,9 +407,10 @@ void LoginServer::SendCharacterList(uint32_t peerId) {
         CharacterInfo info;
         info.id = c.id;
         info.name = c.name;
+        info.characterRace = c.characterRace;
         info.characterClass = c.characterClass;
         info.level = c.level;
-        info.zoneName = std::to_string(c.mapId);
+        info.zoneName = GameDataStore::Instance().GetMapName(c.mapId);
         info.lastPlayed = c.lastPlayed;
         list.characters.push_back(info);
     }

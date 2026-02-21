@@ -31,6 +31,12 @@ void StatisticsPanel::OnImGuiRender() {
                 ImGui::Text("  Static Batched: %u", stats.batchedDrawCalls);
                 ImGui::Text("  Batched Meshes: %u", stats.batchedMeshCount);
                 ImGui::Text("  Skinned: %u (%u instances)", stats.skinnedDrawCalls, stats.skinnedInstances);
+                ImGui::Spacing();
+                ImGui::Text("Frustum Culling");
+                ImGui::Separator();
+                ImGui::Text("Meshes Submitted: %u", stats.meshesSubmitted);
+                ImGui::Text("Meshes Culled: %u", stats.meshesCulled);
+                ImGui::Text("Meshes Rendered: %u", stats.meshesSubmitted - stats.meshesCulled);
 
             } else {
                 ImGui::TextDisabled("No viewport available");

@@ -88,11 +88,12 @@ void GameClient::Login(const std::string& username, const std::string& password)
     m_LoginConnection.Send(packet);
 }
 
-void GameClient::CreateCharacter(const std::string& name, CharacterClass charClass) {
+void GameClient::CreateCharacter(const std::string& name, CharacterRace race, CharacterClass charClass) {
     WriteBuffer packet;
     packet.WriteU8(static_cast<uint8_t>(LoginPacketType::C_CREATE_CHARACTER));
     C_CreateCharacter request;
     request.name = name;
+    request.characterRace = race;
     request.characterClass = charClass;
     request.Serialize(packet);
     m_LoginConnection.Send(packet);
@@ -483,6 +484,7 @@ void GameClient::HandleEnterWorld(ReadBuffer& buf) {
     m_LocalPlayer.entityId = enter.yourEntityId;
     m_LocalPlayer.position = enter.spawnPosition;
     m_ZoneName = enter.zoneName;
+    m_MapId = enter.mapId;
     m_State = ClientState::IN_GAME;
 
     // Set abilities based on class

@@ -10,4 +10,5 @@
 #include "ParticleEmitter.h"
 #include "TriggerVolume.h"
 #include "InstancePortal.h"
+#include "PlayerSpawn.h"
 #include "GroupObject.h"

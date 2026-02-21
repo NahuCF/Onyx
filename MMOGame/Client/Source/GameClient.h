@@ -169,7 +169,7 @@ public:
     // Login flow
     void Register(const std::string& username, const std::string& password, const std::string& email);
     void Login(const std::string& username, const std::string& password);
-    void CreateCharacter(const std::string& name, CharacterClass charClass);
+    void CreateCharacter(const std::string& name, CharacterRace race, CharacterClass charClass);
     void DeleteCharacter(CharacterId id);
     void SelectCharacter(CharacterId id);
 
@@ -204,6 +204,7 @@ public:
     const std::vector<CharacterInfo>& GetCharacterList() const { return m_CharacterList; }
     const std::string& GetLastError() const { return m_LastError; }
     const std::string& GetZoneName() const { return m_ZoneName; }
+    uint32_t GetMapId() const { return m_MapId; }
 
     // Pending events for UI
     struct GameEvent {
@@ -293,6 +294,7 @@ private:
     LocalPlayer m_LocalPlayer;
     std::unordered_map<EntityId, RemoteEntity> m_Entities;
     std::string m_ZoneName;
+    uint32_t m_MapId = 0;
 
     // Events
     std::vector<GameEvent> m_PendingEvents;

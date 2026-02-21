@@ -35,6 +35,7 @@ public:
     ParticleEmitter* CreateParticleEmitter(const std::string& name = "Particle Emitter");
     TriggerVolume* CreateTriggerVolume(const std::string& name = "Trigger Volume");
     InstancePortal* CreateInstancePortal(const std::string& name = "Instance Portal");
+    PlayerSpawn* CreatePlayerSpawn(const std::string& name = "Player Spawn");
     GroupObject* CreateGroup(const std::string& name = "Group");
 
     // ─────────────────────────────────────────────────────────────
@@ -58,6 +59,7 @@ public:
     const std::vector<std::unique_ptr<ParticleEmitter>>& GetParticleEmitters() const { return m_ParticleEmitters; }
     const std::vector<std::unique_ptr<TriggerVolume>>& GetTriggerVolumes() const { return m_TriggerVolumes; }
     const std::vector<std::unique_ptr<InstancePortal>>& GetInstancePortals() const { return m_InstancePortals; }
+    const std::vector<std::unique_ptr<PlayerSpawn>>& GetPlayerSpawns() const { return m_PlayerSpawns; }
     const std::vector<std::unique_ptr<GroupObject>>& GetGroups() const { return m_Groups; }
 
     // Iterate all objects
@@ -182,6 +184,7 @@ private:
     std::vector<std::unique_ptr<ParticleEmitter>> m_ParticleEmitters;
     std::vector<std::unique_ptr<TriggerVolume>> m_TriggerVolumes;
     std::vector<std::unique_ptr<InstancePortal>> m_InstancePortals;
+    std::vector<std::unique_ptr<PlayerSpawn>> m_PlayerSpawns;
     std::vector<std::unique_ptr<GroupObject>> m_Groups;
 
     // Fast lookup by GUID

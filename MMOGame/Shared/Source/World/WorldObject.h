@@ -15,6 +15,7 @@ enum class WorldObjectType : uint8_t {
     PARTICLE_EMITTER,   // VFX placement
     TRIGGER_VOLUME,     // Invisible trigger areas
     INSTANCE_PORTAL,    // Dungeon entrance/exit
+    PLAYER_SPAWN,       // Player starting locations (race+class)
     SOUND_EMITTER,      // Ambient sound sources
     WAYPOINT,           // Patrol path points
     GROUP,              // Container for organizing objects

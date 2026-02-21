@@ -126,6 +126,20 @@ struct Currency {
 // ENUMS
 // ============================================================
 
+enum class CharacterRace : uint8_t {
+    NONE   = 0,
+    HUMAN  = 1,
+    ORC    = 2
+};
+
+inline const char* GetRaceName(CharacterRace race) {
+    switch (race) {
+        case CharacterRace::HUMAN: return "Human";
+        case CharacterRace::ORC:   return "Orc";
+        default:                   return "Unknown";
+    }
+}
+
 enum class CharacterClass : uint8_t {
     NONE = 0,
     WARRIOR = 1,
@@ -301,12 +315,38 @@ constexpr uint8_t INVENTORY_SIZE = 20;
 constexpr uint8_t EQUIPMENT_SLOT_COUNT = static_cast<uint8_t>(EquipmentSlot::COUNT);
 
 // ============================================================
+// RACE/CLASS TEMPLATES (loaded from DB via GameDataStore)
+// ============================================================
+
+struct RaceTemplate {
+    CharacterRace id;
+    std::string name;
+    uint8_t faction;
+    uint32_t classMask;
+    int32_t bonusStrength, bonusAgility, bonusStamina, bonusIntellect;
+};
+
+struct ClassTemplate {
+    CharacterClass id;
+    std::string name;
+    int32_t baseHealth, baseMana;
+    int32_t baseStrength, baseAgility, baseStamina, baseIntellect;
+};
+
+struct PlayerCreateInfo {
+    uint32_t mapId;
+    float positionX, positionY, positionZ;
+    float orientation;
+};
+
+// ============================================================
 // CHARACTER INFO (for character selection)
 // ============================================================
 
 struct CharacterInfo {
     CharacterId id;
     std::string name;
+    CharacterRace characterRace;
     CharacterClass characterClass;
     uint32_t level;
     std::string zoneName;

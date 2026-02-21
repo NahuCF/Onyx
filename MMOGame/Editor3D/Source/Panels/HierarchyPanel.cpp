@@ -100,6 +100,7 @@ void HierarchyPanel::RenderObjectNode(WorldObject* object, size_t indexInParent,
         case WorldObjectType::PARTICLE_EMITTER: icon = "[P] "; break;
         case WorldObjectType::TRIGGER_VOLUME: icon = "[T] "; break;
         case WorldObjectType::INSTANCE_PORTAL: icon = "[I] "; break;
+        case WorldObjectType::PLAYER_SPAWN: icon = "[R] "; break;
         default: break;
     }
 
@@ -419,6 +420,10 @@ void HierarchyPanel::RenderContextMenu() {
         }
         if (ImGui::MenuItem("Instance Portal")) {
             auto* obj = m_World->CreateInstancePortal();
+            m_World->Select(obj);
+        }
+        if (ImGui::MenuItem("Player Spawn")) {
+            auto* obj = m_World->CreatePlayerSpawn();
             m_World->Select(obj);
         }
         ImGui::EndMenu();

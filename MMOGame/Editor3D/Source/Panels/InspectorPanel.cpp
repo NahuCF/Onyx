@@ -48,6 +48,7 @@ void InspectorPanel::OnImGuiRender() {
         case WorldObjectType::PARTICLE_EMITTER: typeStr = "Particle Emitter"; break;
         case WorldObjectType::TRIGGER_VOLUME: typeStr = "Trigger Volume"; break;
         case WorldObjectType::INSTANCE_PORTAL: typeStr = "Instance Portal"; break;
+        case WorldObjectType::PLAYER_SPAWN: typeStr = "Player Spawn"; break;
         default: break;
     }
     ImGui::Text("Type: %s", typeStr);
@@ -88,6 +89,11 @@ void InspectorPanel::OnImGuiRender() {
         case WorldObjectType::INSTANCE_PORTAL:
             if (ImGui::CollapsingHeader("Instance Portal", ImGuiTreeNodeFlags_DefaultOpen)) {
                 RenderInstancePortalProperties(static_cast<InstancePortal*>(selection));
+            }
+            break;
+        case WorldObjectType::PLAYER_SPAWN:
+            if (ImGui::CollapsingHeader("Player Spawn", ImGuiTreeNodeFlags_DefaultOpen)) {
+                RenderPlayerSpawnProperties(static_cast<PlayerSpawn*>(selection));
             }
             break;
         default:
@@ -624,6 +630,51 @@ void InspectorPanel::RenderInstancePortalProperties(InstancePortal* object) {
     if (ImGui::InputScalar("Max Players", ImGuiDataType_U32, &maxPlayers)) {
         object->SetMaxPlayers(maxPlayers);
     }
+}
+
+void InspectorPanel::RenderPlayerSpawnProperties(PlayerSpawn* object) {
+    ImGui::Text("Spawn Assignments:");
+    ImGui::Spacing();
+
+    // Race+Class checkbox grid
+    struct RaceEntry { CharacterRace race; const char* name; };
+    struct ClassEntry { CharacterClass cls; const char* name; };
+
+    const RaceEntry races[] = {
+        { CharacterRace::HUMAN, "Human" },
+        { CharacterRace::ORC,   "Orc" }
+    };
+    const ClassEntry classes[] = {
+        { CharacterClass::WARRIOR, "Warrior" },
+        { CharacterClass::WITCH,   "Witch" }
+    };
+
+    for (const auto& race : races) {
+        for (const auto& cls : classes) {
+            bool has = object->HasRaceClass(race.race, cls.cls);
+            std::string label = std::string(race.name) + " " + cls.name;
+            if (ImGui::Checkbox(label.c_str(), &has)) {
+                if (has) {
+                    object->AddRaceClass(race.race, cls.cls);
+                } else {
+                    object->RemoveRaceClass(race.race, cls.cls);
+                }
+            }
+        }
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+
+    float orientation = object->GetOrientation();
+    if (ImGui::SliderAngle("Orientation", &orientation, 0.0f, 360.0f)) {
+        object->SetOrientation(orientation);
+    }
+
+    ImGui::Spacing();
+
+    size_t count = object->GetRaceClassPairs().size();
+    ImGui::TextDisabled("%zu race+class combination%s assigned", count, count == 1 ? "" : "s");
 }
 
 bool InspectorPanel::RenderMaterialSelector(const char* label, std::string& materialId) {

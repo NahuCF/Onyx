@@ -1,4 +1,5 @@
 #include "LoginServer.h"
+#include "../../Shared/Source/Data/GameDataStore.h"
 #include <iostream>
 #include <csignal>
 #include <cstdlib>

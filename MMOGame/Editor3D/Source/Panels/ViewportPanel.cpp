@@ -777,6 +777,24 @@ void ViewportPanel::RenderWorldObjects() {
         Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
     }
 
+    // Player spawns - rendered as distinct colored cubes (cyan/teal)
+    for (const auto& ps : m_World->GetPlayerSpawns()) {
+        if (!ps->IsVisible()) continue;
+
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), ps->GetPosition());
+        model = glm::scale(model, glm::vec3(0.6f));
+        m_ObjectShader->SetMat4("u_Model", model);
+
+        if (ps->IsSelected()) {
+            Onyx::RenderCommand::SetWireframeMode(true);
+            Onyx::RenderCommand::SetLineWidth(2.0f);
+            Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
+            Onyx::RenderCommand::SetWireframeMode(false);
+        }
+
+        Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
+    }
+
     if (m_ShowWireframe) {
         Onyx::RenderCommand::SetWireframeMode(false);
     }
@@ -1278,6 +1296,20 @@ void ViewportPanel::RenderPickingPass() {
         m_PickingShader->SetInt("u_ObjectID", static_cast<int>(objID));
         m_PickingShader->SetInt("u_MeshIndex", 0xFFF);
         m_PickingShader->SetInt("u_ObjectType", static_cast<int>(WorldObjectType::TRIGGER_VOLUME));
+        Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
+    }
+
+    for (const auto& obj : m_World->GetPlayerSpawns()) {
+        if (!obj->IsVisible() || obj->IsLocked()) continue;
+        uint32_t objID = static_cast<uint32_t>(obj->GetGuid() & 0xFFFF);
+
+        glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), obj->GetPosition());
+        modelMatrix = glm::scale(modelMatrix, glm::vec3(0.6f));
+
+        m_PickingShader->SetMat4("u_Model", modelMatrix);
+        m_PickingShader->SetInt("u_ObjectID", static_cast<int>(objID));
+        m_PickingShader->SetInt("u_MeshIndex", 0xFFF);
+        m_PickingShader->SetInt("u_ObjectType", static_cast<int>(WorldObjectType::PLAYER_SPAWN));
         Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, 36);
     }
 

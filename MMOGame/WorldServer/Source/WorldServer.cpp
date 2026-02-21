@@ -1,6 +1,9 @@
 #include "WorldServer.h"
 #include "Grid/Grid.h"
 #include "Items/Items.h"
+#ifdef HAS_DATABASE
+#include "../../Shared/Source/Data/GameDataStore.h"
+#endif
 #include <iostream>
 #include <thread>
 
@@ -28,8 +31,23 @@ bool WorldServer::Initialize(uint16_t port, const std::string& dbConnectionStrin
         }
     }
 
-    // Initialize map manager with templates
+    // Load game data (races, classes, create info)
+#ifdef HAS_DATABASE
+    if (m_Database.IsConnected()) {
+        GameDataStore::Instance().LoadFromDatabase(m_Database);
+    }
+#endif
+
+    // Initialize map manager with templates (from DB if available)
+#ifdef HAS_DATABASE
+    if (m_Database.IsConnected()) {
+        MapManager::Instance().Initialize(m_Database);
+    } else {
+        MapManager::Instance().Initialize();
+    }
+#else
     MapManager::Instance().Initialize();
+#endif
 
     std::cout << "World Server initialized on port " << port << std::endl;
     return true;
@@ -651,6 +669,7 @@ void WorldServer::SendEnterWorld(uint32_t peerId, EntityId entityId, MapInstance
     enter.yourEntityId = entityId;
     enter.spawnPosition = entity->GetMovement()->position;
     enter.zoneName = map->GetName();
+    enter.mapId = map->GetTemplateId();
     enter.Serialize(packet);
     m_Network.Send(peerId, packet);
 }
@@ -662,6 +681,7 @@ void WorldServer::SendMapChange(uint32_t peerId, EntityId newEntityId, const std
     enter.yourEntityId = newEntityId;
     enter.spawnPosition = position;
     enter.zoneName = mapName;
+    enter.mapId = map->GetTemplateId();
     enter.Serialize(packet);
     m_Network.Send(peerId, packet);
 

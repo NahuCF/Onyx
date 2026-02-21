@@ -9,6 +9,7 @@ namespace MMO {
 
 // Forward declarations
 class MapInstance;
+class Database;
 
 // ============================================================
 // MAP MANAGER (Singleton)
@@ -21,8 +22,9 @@ public:
         return instance;
     }
 
-    // Initialize with map templates
+    // Initialize with map templates (loads from DB if available, falls back to hardcoded)
     void Initialize();
+    void Initialize(Database& db);
 
     // Get map instance (creates if needed for world maps)
     MapInstance* GetMapInstance(uint32_t templateId);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../Shared/Source/Database/Database.h"
+#include "../../Shared/Source/Data/GameDataStore.h"
 #include "../../Shared/Source/Network/ENetWrapper.h"
 #include "../../Shared/Source/Packets/Packets.h"
 #include <unordered_map>

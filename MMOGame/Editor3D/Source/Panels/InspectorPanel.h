@@ -14,6 +14,7 @@ class Light;
 class ParticleEmitter;
 class TriggerVolume;
 class InstancePortal;
+class PlayerSpawn;
 
 class InspectorPanel : public EditorPanel {
 public:
@@ -31,6 +32,7 @@ private:
     void RenderParticleEmitterProperties(ParticleEmitter* object);
     void RenderTriggerVolumeProperties(TriggerVolume* object);
     void RenderInstancePortalProperties(InstancePortal* object);
+    void RenderPlayerSpawnProperties(PlayerSpawn* object);
 
     // Helper for material selector dropdown
     // Returns true if the materialId changed

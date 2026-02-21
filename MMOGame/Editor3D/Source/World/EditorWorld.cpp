@@ -11,6 +11,7 @@ EditorWorld::EditorWorld() {
     m_TypeVisibility[WorldObjectType::PARTICLE_EMITTER] = true;
     m_TypeVisibility[WorldObjectType::TRIGGER_VOLUME] = true;
     m_TypeVisibility[WorldObjectType::INSTANCE_PORTAL] = true;
+    m_TypeVisibility[WorldObjectType::PLAYER_SPAWN] = true;
     m_TypeVisibility[WorldObjectType::GROUP] = true;
 }
 
@@ -40,6 +41,7 @@ void EditorWorld::Clear() {
     m_ParticleEmitters.clear();
     m_TriggerVolumes.clear();
     m_InstancePortals.clear();
+    m_PlayerSpawns.clear();
     m_Groups.clear();
 
     m_NextGuid = 1;
@@ -137,6 +139,19 @@ InstancePortal* EditorWorld::CreateInstancePortal(const std::string& name) {
     return ptr;
 }
 
+PlayerSpawn* EditorWorld::CreatePlayerSpawn(const std::string& name) {
+    uint64_t guid = GenerateGuid();
+    auto obj = std::make_unique<PlayerSpawn>(guid, name);
+    PlayerSpawn* ptr = obj.get();
+
+    m_ObjectsByGuid[guid] = ptr;
+    m_PlayerSpawns.push_back(std::move(obj));
+    m_RootDisplayOrder.push_back(guid);
+
+    m_Dirty = true;
+    return ptr;
+}
+
 GroupObject* EditorWorld::CreateGroup(const std::string& name) {
     uint64_t guid = GenerateGuid();
     auto obj = std::make_unique<GroupObject>(guid, name);
@@ -175,6 +190,7 @@ void EditorWorld::ForEachObject(const std::function<void(WorldObject*)>& callbac
     for (auto& obj : m_ParticleEmitters) callback(obj.get());
     for (auto& obj : m_TriggerVolumes) callback(obj.get());
     for (auto& obj : m_InstancePortals) callback(obj.get());
+    for (auto& obj : m_PlayerSpawns) callback(obj.get());
     for (auto& obj : m_Groups) callback(obj.get());
 }
 
@@ -185,6 +201,7 @@ void EditorWorld::ForEachObject(const std::function<void(const WorldObject*)>& c
     for (const auto& obj : m_ParticleEmitters) callback(obj.get());
     for (const auto& obj : m_TriggerVolumes) callback(obj.get());
     for (const auto& obj : m_InstancePortals) callback(obj.get());
+    for (const auto& obj : m_PlayerSpawns) callback(obj.get());
     for (const auto& obj : m_Groups) callback(obj.get());
 }
 
@@ -195,6 +212,7 @@ size_t EditorWorld::GetObjectCount() const {
            m_ParticleEmitters.size() +
            m_TriggerVolumes.size() +
            m_InstancePortals.size() +
+           m_PlayerSpawns.size() +
            m_Groups.size();
 }
 
@@ -264,6 +282,9 @@ void EditorWorld::DeleteObject(uint64_t guid) {
             break;
         case WorldObjectType::INSTANCE_PORTAL:
             RemoveFromVector(m_InstancePortals, guid);
+            break;
+        case WorldObjectType::PLAYER_SPAWN:
+            RemoveFromVector(m_PlayerSpawns, guid);
             break;
         case WorldObjectType::GROUP:
             RemoveFromVector(m_Groups, guid);
@@ -524,6 +545,11 @@ WorldObject* EditorWorld::AddObject(std::unique_ptr<WorldObject> object) {
         case WorldObjectType::INSTANCE_PORTAL: {
             auto* portal = static_cast<InstancePortal*>(object.release());
             m_InstancePortals.push_back(std::unique_ptr<InstancePortal>(portal));
+            break;
+        }
+        case WorldObjectType::PLAYER_SPAWN: {
+            auto* playerSpawn = static_cast<PlayerSpawn*>(object.release());
+            m_PlayerSpawns.push_back(std::unique_ptr<PlayerSpawn>(playerSpawn));
             break;
         }
         case WorldObjectType::GROUP: {

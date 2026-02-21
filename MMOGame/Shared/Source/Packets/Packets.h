@@ -149,15 +149,18 @@ struct C_LoginRequest {
 
 struct C_CreateCharacter {
     std::string name;
+    CharacterRace characterRace;
     CharacterClass characterClass;
 
     void Serialize(WriteBuffer& buf) const {
         buf.WriteString(name);
+        buf.WriteU8(static_cast<uint8_t>(characterRace));
         buf.WriteU8(static_cast<uint8_t>(characterClass));
     }
 
     void Deserialize(ReadBuffer& buf) {
         name = buf.ReadString();
+        characterRace = static_cast<CharacterRace>(buf.ReadU8());
         characterClass = static_cast<CharacterClass>(buf.ReadU8());
     }
 };
@@ -238,6 +241,7 @@ struct S_CharacterList {
         for (const auto& c : characters) {
             buf.WriteU64(c.id);
             buf.WriteString(c.name);
+            buf.WriteU8(static_cast<uint8_t>(c.characterRace));
             buf.WriteU8(static_cast<uint8_t>(c.characterClass));
             buf.WriteU32(c.level);
             buf.WriteString(c.zoneName);
@@ -252,6 +256,7 @@ struct S_CharacterList {
         for (auto& c : characters) {
             c.id = buf.ReadU64();
             c.name = buf.ReadString();
+            c.characterRace = static_cast<CharacterRace>(buf.ReadU8());
             c.characterClass = static_cast<CharacterClass>(buf.ReadU8());
             c.level = buf.ReadU32();
             c.zoneName = buf.ReadString();
@@ -272,6 +277,7 @@ struct S_CharacterCreated {
         if (success) {
             buf.WriteU64(character.id);
             buf.WriteString(character.name);
+            buf.WriteU8(static_cast<uint8_t>(character.characterRace));
             buf.WriteU8(static_cast<uint8_t>(character.characterClass));
             buf.WriteU32(character.level);
         }
@@ -283,6 +289,7 @@ struct S_CharacterCreated {
         if (success) {
             character.id = buf.ReadU64();
             character.name = buf.ReadString();
+            character.characterRace = static_cast<CharacterRace>(buf.ReadU8());
             character.characterClass = static_cast<CharacterClass>(buf.ReadU8());
             character.level = buf.ReadU32();
         }
@@ -430,17 +437,20 @@ struct S_EnterWorld {
     EntityId yourEntityId;
     Vec2 spawnPosition;
     std::string zoneName;
+    uint32_t mapId = 0;
 
     void Serialize(WriteBuffer& buf) const {
         buf.WriteU32(yourEntityId);
         buf.WriteVec2(spawnPosition);
         buf.WriteString(zoneName);
+        buf.WriteU32(mapId);
     }
 
     void Deserialize(ReadBuffer& buf) {
         yourEntityId = buf.ReadU32();
         spawnPosition = buf.ReadVec2();
         zoneName = buf.ReadString();
+        mapId = buf.ReadU32();
     }
 };
 

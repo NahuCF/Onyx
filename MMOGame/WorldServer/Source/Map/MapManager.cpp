@@ -2,6 +2,9 @@
 #include "MapInstance.h"
 #include "MapTemplates.h"
 #include "Items/Items.h"
+#ifdef HAS_DATABASE
+#include "../../../Shared/Source/Database/Database.h"
+#endif
 #include <iostream>
 
 namespace MMO {
@@ -14,12 +17,66 @@ void MapManager::Initialize() {
     // Initialize item templates
     ItemTemplateManager::Instance().Initialize();
 
-    // Register map templates
+    // Register hardcoded map templates (fallback)
     m_Templates[1] = MapTemplates::CreateStartingZone();
     m_Templates[2] = MapTemplates::CreateDarkForest();
 
-    std::cout << "[MapManager] Initialized with " << m_Templates.size() << " map templates" << std::endl;
+    std::cout << "[MapManager] Initialized with " << m_Templates.size() << " hardcoded map templates" << std::endl;
 }
+
+#ifdef HAS_DATABASE
+void MapManager::Initialize(Database& db) {
+    // Initialize item templates
+    ItemTemplateManager::Instance().Initialize();
+
+    // Load all map templates from database
+    auto dbTemplates = db.LoadAllMapTemplates();
+
+    if (dbTemplates.empty()) {
+        std::cerr << "[MapManager] WARNING: No maps found in database! "
+                  << "Run schema.sql to seed default map_template rows." << std::endl;
+    }
+
+    for (auto& t : dbTemplates) {
+        MapTemplate tmpl;
+        tmpl.id = t.id;
+        tmpl.name = t.name;
+        tmpl.width = t.width;
+        tmpl.height = t.height;
+        tmpl.spawnPoint = Vec2(t.spawnX, t.spawnY);
+
+        // Load portals for this map
+        auto dbPortals = db.LoadPortals(t.id);
+        uint32_t portalIdx = 1;
+        for (auto& p : dbPortals) {
+            Portal portal;
+            portal.id = portalIdx++;
+            portal.position = Vec2(p.positionX, p.positionY);
+            portal.size = Vec2(p.sizeX, p.sizeY);
+            portal.destMapId = p.destMapId;
+            portal.destPosition = Vec2(p.destX, p.destY);
+            tmpl.portals.push_back(portal);
+        }
+
+        // Load creature spawns for this map
+        auto dbSpawns = db.LoadCreatureSpawns(t.id);
+        uint32_t spawnIdx = 1;
+        for (auto& s : dbSpawns) {
+            MobSpawnPoint spawn;
+            spawn.id = spawnIdx++;
+            spawn.creatureTemplateId = s.creatureTemplateId;
+            spawn.position = Vec2(s.positionX, s.positionY);
+            spawn.respawnTimeOverride = s.respawnTime;
+            spawn.corpseDecayTimeOverride = s.corpseDecayTime;
+            tmpl.mobSpawns.push_back(spawn);
+        }
+
+        m_Templates[tmpl.id] = std::move(tmpl);
+    }
+
+    std::cout << "[MapManager] Initialized with " << m_Templates.size() << " map templates from database" << std::endl;
+}
+#endif
 
 MapInstance* MapManager::GetMapInstance(uint32_t templateId) {
     // Check if instance already exists
