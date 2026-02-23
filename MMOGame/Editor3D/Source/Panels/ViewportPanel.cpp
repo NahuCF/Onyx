@@ -9,6 +9,7 @@
 #include <imgui.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <Graphics/PostProcess/SSAOEffect.h>
 #include <algorithm>
 #include <limits>
 #include <iostream>
@@ -204,6 +205,9 @@ void ViewportPanel::OnInit() {
         }
     }
     m_WorldSystem.SetDefaultMaterialIds(defaults);
+
+    m_PostProcessStack.Init();
+    m_PostProcessStack.AddEffect<Onyx::SSAOEffect>();
 }
 
 void ViewportPanel::OnImGuiRender() {
@@ -229,6 +233,7 @@ void ViewportPanel::OnImGuiRender() {
         uint32_t samples = m_EnableMSAA ? 4 : 1;
         m_Framebuffer->Create(newWidth, newHeight, samples);
         m_PickingFramebuffer->Create(newWidth, newHeight, 1);
+        m_PostProcessStack.Resize(newWidth, newHeight);
     }
 
     if (m_ViewportHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !m_RightMouseDown) {
@@ -261,11 +266,15 @@ void ViewportPanel::OnImGuiRender() {
 
     RenderScene();
 
-    ImGui::Image(
-        static_cast<ImTextureID>(m_Framebuffer->GetColorBufferID()),
-        ImVec2(m_ViewportWidth, m_ViewportHeight),
-        ImVec2(0, 1), ImVec2(1, 0)
-    );
+    {
+        uint32_t displayTexture = m_LastPostProcessOutput
+            ? m_LastPostProcessOutput : m_Framebuffer->GetColorBufferID();
+        ImGui::Image(
+            static_cast<ImTextureID>(displayTexture),
+            ImVec2(m_ViewportWidth, m_ViewportHeight),
+            ImVec2(0, 1), ImVec2(1, 0)
+        );
+    }
 
     {
         const char* buildVersion = "Build: " __DATE__ " " __TIME__;
@@ -283,6 +292,8 @@ void ViewportPanel::OnImGuiRender() {
         uint32_t samples = m_EnableMSAA ? 4 : 1;
         m_Framebuffer->Create(static_cast<uint32_t>(m_ViewportWidth),
                               static_cast<uint32_t>(m_ViewportHeight), samples);
+        m_PostProcessStack.Resize(static_cast<uint32_t>(m_ViewportWidth),
+                                  static_cast<uint32_t>(m_ViewportHeight));
     }
 
     if (m_WantsContextMenu && ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
@@ -514,6 +525,17 @@ void ViewportPanel::RenderScene() {
     m_Framebuffer->UnBind();
 
     m_Framebuffer->Resolve();
+
+    if (m_PostProcessStack.HasEnabledEffects()) {
+        m_LastPostProcessOutput = m_PostProcessStack.Execute(
+            m_Framebuffer->GetColorBufferID(),
+            m_Framebuffer->GetFrameBufferID(),
+            static_cast<uint32_t>(m_ViewportWidth),
+            static_cast<uint32_t>(m_ViewportHeight),
+            m_ProjectionMatrix);
+    } else {
+        m_LastPostProcessOutput = 0;
+    }
 
     m_TotalRenderTime = static_cast<float>((glfwGetTime() - totalStart) * 1000.0);
 }

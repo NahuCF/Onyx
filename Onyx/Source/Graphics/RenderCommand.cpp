@@ -66,6 +66,18 @@ void RenderCommand::BindTextureArray(uint32_t slot, uint32_t textureId) {
     glBindTexture(GL_TEXTURE_2D_ARRAY, textureId);
 }
 
+void RenderCommand::BindTexture2D(uint32_t slot, uint32_t textureId) {
+    glActiveTexture(GL_TEXTURE0 + slot);
+    glBindTexture(GL_TEXTURE_2D, textureId);
+}
+
+void RenderCommand::BlitDepth(uint32_t srcFBO, uint32_t dstFBO, uint32_t width, uint32_t height) {
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, srcFBO);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dstFBO);
+    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 void RenderCommand::ReadPixels(int x, int y, int width, int height, unsigned char* data) {
     glReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
 }

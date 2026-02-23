@@ -223,6 +223,27 @@ std::unique_ptr<Texture> Texture::CreateFloatTexture(const float* data, int widt
 		return texture;
 	}
 
+std::unique_ptr<Texture> Texture::CreateNoiseTexture(const float* data, int width, int height)
+	{
+		auto texture = std::unique_ptr<Texture>(new Texture());
+		texture->m_TextureWidth = width;
+		texture->m_TextureHeight = height;
+		texture->m_NChannels = 3;
+		texture->m_TextureData = nullptr;
+
+		glGenTextures(1, &texture->m_TextureID);
+		glBindTexture(GL_TEXTURE_2D, texture->m_TextureID);
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, data);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		return texture;
+	}
+
 	void Texture::SetFloatData(const float* data)
 	{
 		glTextureSubImage2D(m_TextureID, 0, 0, 0, m_TextureWidth, m_TextureHeight, GL_RED, GL_FLOAT, data);

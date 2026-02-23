@@ -9,7 +9,7 @@
 namespace Onyx {
 
 AssetManager::AssetManager() {
-    m_DefaultAlbedo = Texture::CreateSolidColor(255, 255, 255);
+    m_DefaultAlbedo = Texture::CreateSolidColor(200, 200, 200);
     m_DefaultNormal = Texture::CreateSolidColor(128, 128, 255);
 }
 

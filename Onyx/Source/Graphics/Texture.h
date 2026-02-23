@@ -15,6 +15,7 @@ namespace Onyx {
 		static std::unique_ptr<Texture> CreateSolidColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255);
 		static std::unique_ptr<Texture> CreateFromData(const void* data, int width, int height, int channels);
 		static std::unique_ptr<Texture> CreateFloatTexture(const float* data, int width, int height);
+		static std::unique_ptr<Texture> CreateNoiseTexture(const float* data, int width, int height);
 
 		void Bind() const;
 		void Bind(uint32_t slot) const;

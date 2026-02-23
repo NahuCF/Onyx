@@ -1,5 +1,6 @@
 #include "LightingPanel.h"
 #include "ViewportPanel.h"
+#include <Graphics/PostProcess/SSAOEffect.h>
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -89,6 +90,44 @@ void LightingPanel::OnImGuiRender() {
                 "%.2f", ImGuiSliderFlags_AlwaysClamp);
             ImGui::SetItemTooltip("0 = uniform splits, 1 = logarithmic splits");
             ImGui::Checkbox("Show Cascades", &m_Viewport->GetShowCascades());
+        }
+
+        ImGui::Unindent();
+    }
+
+    if (ImGui::CollapsingHeader("Ambient Occlusion (SSAO)")) {
+        ImGui::Indent();
+
+        auto* ssao = m_Viewport->GetPostProcessStack().GetEffect<Onyx::SSAOEffect>();
+        if (ssao) {
+            ImGui::Checkbox("Enable SSAO", &ssao->GetEnabled());
+
+            if (ssao->IsEnabled()) {
+                ImGui::SliderFloat("Radius", &ssao->GetRadius(), 0.1f, 3.0f, "%.2f");
+                ImGui::SetItemTooltip("Sampling hemisphere radius");
+
+                ImGui::SliderFloat("AO Bias", &ssao->GetBias(), 0.001f, 0.1f, "%.3f");
+                ImGui::SetItemTooltip("Self-occlusion prevention");
+
+                ImGui::SliderFloat("Intensity", &ssao->GetIntensity(), 0.5f, 4.0f, "%.2f");
+                ImGui::SetItemTooltip("Occlusion strength");
+
+                static const char* qualityLabels[] = { "Fast (16)", "Balanced (32)", "Quality (64)" };
+                static const int qualityValues[] = { 16, 32, 64 };
+
+                int& kernelSize = ssao->GetKernelSize();
+                int currentIdx = 1;
+                for (int i = 0; i < 3; i++) {
+                    if (qualityValues[i] == kernelSize) {
+                        currentIdx = i;
+                        break;
+                    }
+                }
+
+                if (ImGui::Combo("Quality", &currentIdx, qualityLabels, 3)) {
+                    kernelSize = qualityValues[currentIdx];
+                }
+            }
         }
 
         ImGui::Unindent();

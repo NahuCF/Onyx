@@ -6,6 +6,7 @@
 #include <Graphics/Buffers.h>
 #include <Graphics/Texture.h>
 #include <Graphics/SceneRenderer.h>
+#include <Graphics/PostProcess/PostProcessStack.h>
 #include <Graphics/Model.h>
 #include "World/WorldTypes.h"
 #include "World/StaticObject.h"
@@ -16,6 +17,7 @@
 #include <Graphics/Animator.h>
 #include <memory>
 #include <unordered_map>
+#include <vector>
 #include <glm/glm.hpp>
 
 namespace MMO {
@@ -63,6 +65,8 @@ public:
     bool& GetShowGrid() { return m_ShowGrid; }
     bool& GetShowWireframe() { return m_ShowWireframe; }
     bool& GetEnableMSAA() { return m_EnableMSAA; }
+
+    Onyx::PostProcessStack& GetPostProcessStack() { return m_PostProcessStack; }
 
     void FocusOnObject(const WorldObject* object);
     void FocusOnSelection();
@@ -259,6 +263,9 @@ private:
     void CollectLights();
     std::vector<Editor3D::EditorLight> m_CollectedPointLights;
     std::vector<Editor3D::EditorLight> m_CollectedSpotLights;
+
+    Onyx::PostProcessStack m_PostProcessStack;
+    uint32_t m_LastPostProcessOutput = 0;
 };
 
 } // namespace MMO
