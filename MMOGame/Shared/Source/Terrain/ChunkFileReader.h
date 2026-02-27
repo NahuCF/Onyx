@@ -3,6 +3,7 @@
 #include "TerrainData.h"
 #include <string>
 #include <vector>
+#include <fstream>
 
 namespace MMO {
 
@@ -39,5 +40,9 @@ struct ChunkFileData {
 // Read a .chunk file (CHNK container format)
 // Returns true on success
 bool LoadChunkFile(const std::string& path, ChunkFileData& out);
+
+// Read just the terrain section from an already-open .chunk stream
+void ReadTerrainSection(std::ifstream& file, TerrainChunkData& data,
+                        int32_t chunkX, int32_t chunkZ);
 
 } // namespace MMO

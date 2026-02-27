@@ -74,4 +74,25 @@ inline int WorldToChunkCoord(float worldCoord) {
     return static_cast<int>(std::floor(worldCoord / TERRAIN_CHUNK_SIZE));
 }
 
+// Split 8-channel interleaved splatmap into two RGBA textures
+inline void SplitSplatmapToRGBA(const std::vector<uint8_t>& splatmap,
+                                 std::vector<uint8_t>& rgba0,
+                                 std::vector<uint8_t>& rgba1) {
+    rgba0.resize(TERRAIN_SPLATMAP_TEXELS * 4);
+    rgba1.resize(TERRAIN_SPLATMAP_TEXELS * 4);
+
+    for (int i = 0; i < TERRAIN_SPLATMAP_TEXELS; i++) {
+        int src = i * TERRAIN_MAX_LAYERS;
+        rgba0[i * 4 + 0] = splatmap[src + 0];
+        rgba0[i * 4 + 1] = splatmap[src + 1];
+        rgba0[i * 4 + 2] = splatmap[src + 2];
+        rgba0[i * 4 + 3] = splatmap[src + 3];
+
+        rgba1[i * 4 + 0] = splatmap[src + 4];
+        rgba1[i * 4 + 1] = splatmap[src + 5];
+        rgba1[i * 4 + 2] = splatmap[src + 6];
+        rgba1[i * 4 + 3] = splatmap[src + 7];
+    }
+}
+
 } // namespace MMO

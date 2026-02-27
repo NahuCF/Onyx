@@ -10,7 +10,7 @@ static constexpr uint32_t LGHT_TAG   = 0x4C474854;
 static constexpr uint32_t OBJS_TAG   = 0x4F424A53;
 static constexpr uint32_t SNDS_TAG   = 0x534E4453;
 
-static void ReadTerrainSection(std::ifstream& file, TerrainChunkData& data, int32_t chunkX, int32_t chunkZ) {
+void ReadTerrainSection(std::ifstream& file, TerrainChunkData& data, int32_t chunkX, int32_t chunkZ) {
     data.chunkX = chunkX;
     data.chunkZ = chunkZ;
 
