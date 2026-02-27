@@ -109,31 +109,7 @@ void TerrainChunk::DestroyGPUResources() {
 }
 
 float TerrainChunk::GetHeightAt(float localX, float localZ) const {
-    if (m_Data.heightmap.empty()) return 0.0f;
-
-    float u = std::clamp(localX / CHUNK_SIZE, 0.0f, 1.0f);
-    float v = std::clamp(localZ / CHUNK_SIZE, 0.0f, 1.0f);
-
-    float fx = u * (CHUNK_RESOLUTION - 1);
-    float fz = v * (CHUNK_RESOLUTION - 1);
-
-    int x0 = static_cast<int>(fx);
-    int z0 = static_cast<int>(fz);
-    int x1 = std::min(x0 + 1, CHUNK_RESOLUTION - 1);
-    int z1 = std::min(z0 + 1, CHUNK_RESOLUTION - 1);
-
-    float fracX = fx - x0;
-    float fracZ = fz - z0;
-
-    float h00 = m_Data.heightmap[z0 * CHUNK_RESOLUTION + x0];
-    float h10 = m_Data.heightmap[z0 * CHUNK_RESOLUTION + x1];
-    float h01 = m_Data.heightmap[z1 * CHUNK_RESOLUTION + x0];
-    float h11 = m_Data.heightmap[z1 * CHUNK_RESOLUTION + x1];
-
-    float h0 = h00 + fracX * (h10 - h00);
-    float h1 = h01 + fracX * (h11 - h01);
-
-    return h0 + fracZ * (h1 - h0);
+    return MMO::GetTerrainHeight(m_Data, localX, localZ);
 }
 
 const std::string& TerrainChunk::GetLayerMaterial(int layer) const {
@@ -183,12 +159,12 @@ int TerrainChunk::FindLeastUsedLayer() const {
     return minLayer;
 }
 
-void TerrainChunk::Draw(Shader* shader) {
+void TerrainChunk::Draw(Shader* shader, bool allowRegenerate) {
     if (!m_VAO || m_State != ChunkState::Active) return;
 
     m_VAO->Bind();
 
-    if (m_Dirty) {
+    if (m_Dirty && allowRegenerate) {
         GenerateMesh();
         m_Dirty = false;
         m_SplatmapDirty = false;
@@ -240,21 +216,8 @@ void TerrainChunk::SetMeshResolution(int resolution) {
 void TerrainChunk::UpdateSplatmapTexture() {
     if (m_Data.splatmap.empty()) return;
 
-    std::vector<uint8_t> rgba0(SPLATMAP_TEXELS * 4);
-    std::vector<uint8_t> rgba1(SPLATMAP_TEXELS * 4);
-
-    for (int i = 0; i < SPLATMAP_TEXELS; i++) {
-        int src = i * MAX_TERRAIN_LAYERS;
-        rgba0[i * 4 + 0] = m_Data.splatmap[src + 0];
-        rgba0[i * 4 + 1] = m_Data.splatmap[src + 1];
-        rgba0[i * 4 + 2] = m_Data.splatmap[src + 2];
-        rgba0[i * 4 + 3] = m_Data.splatmap[src + 3];
-
-        rgba1[i * 4 + 0] = m_Data.splatmap[src + 4];
-        rgba1[i * 4 + 1] = m_Data.splatmap[src + 5];
-        rgba1[i * 4 + 2] = m_Data.splatmap[src + 6];
-        rgba1[i * 4 + 3] = m_Data.splatmap[src + 7];
-    }
+    std::vector<uint8_t> rgba0, rgba1;
+    MMO::SplitSplatmapToRGBA(m_Data.splatmap, rgba0, rgba1);
 
     if (!m_SplatmapTexture0) {
         m_SplatmapTexture0 = Texture::CreateFromData(rgba0.data(), SPLATMAP_RESOLUTION, SPLATMAP_RESOLUTION, 4);
@@ -272,223 +235,27 @@ void TerrainChunk::UpdateSplatmapTexture() {
 void TerrainChunk::GenerateMesh() {
     if (m_Data.heightmap.empty()) return;
 
-    const int dataRes = CHUNK_RESOLUTION;
-    const int dataQuads = dataRes - 1;
-    const int meshRes = m_MeshResolution;
-    const int meshQuads = meshRes - 1;
+    // Use shared generator for CPU work
+    MMO::TerrainMeshOptions opts;
+    opts.meshResolution = m_MeshResolution;
+    opts.sobelNormals = m_SobelNormals;
+    opts.smoothNormals = m_SmoothNormals;
+    opts.diamondGrid = m_DiamondGrid;
+    opts.generatePaddedHeightmap = true;
+    opts.heightSampler = m_HeightSampler;
 
-    int totalCornerVerts = meshRes * meshRes;
-    int totalCenterVerts = m_DiamondGrid ? (meshQuads * meshQuads) : 0;
-    int totalVerts = totalCornerVerts + totalCenterVerts;
-    int trisPerQuad = m_DiamondGrid ? 4 : 2;
+    PreparedMeshData meshData;
+    MMO::GenerateTerrainMesh(m_Data, opts, meshData);
 
-    std::vector<float> vertices;
-    vertices.reserve(totalVerts * 8);
+    m_IndexCount = meshData.indexCount;
 
-    std::vector<uint32_t> indices;
-    indices.reserve(meshQuads * meshQuads * trisPerQuad * 3);
-
-    float meshStep = CHUNK_SIZE / (float)meshQuads;
-    float dataStep = CHUNK_SIZE / (float)dataQuads;
-
-    auto sampleHeightInt = [&](int sx, int sz) -> float {
-        if (sx >= 0 && sx < dataRes && sz >= 0 && sz < dataRes) {
-            return m_Data.heightmap[sz * dataRes + sx];
-        }
-        if (m_HeightSampler) {
-            return m_HeightSampler(m_ChunkX, m_ChunkZ, sx, sz);
-        }
-        sx = std::clamp(sx, 0, dataRes - 1);
-        sz = std::clamp(sz, 0, dataRes - 1);
-        return m_Data.heightmap[sz * dataRes + sx];
-    };
-
-    auto sampleHeightBilinear = [&](float fx, float fz) -> float {
-        fx = std::clamp(fx, 0.0f, (float)(dataRes - 1));
-        fz = std::clamp(fz, 0.0f, (float)(dataRes - 1));
-        int x0 = std::min((int)fx, dataRes - 2);
-        int z0 = std::min((int)fz, dataRes - 2);
-        float tx = fx - x0;
-        float tz = fz - z0;
-        float h00 = m_Data.heightmap[z0 * dataRes + x0];
-        float h10 = m_Data.heightmap[z0 * dataRes + x0 + 1];
-        float h01 = m_Data.heightmap[(z0 + 1) * dataRes + x0];
-        float h11 = m_Data.heightmap[(z0 + 1) * dataRes + x0 + 1];
-        return h00 * (1 - tx) * (1 - tz) + h10 * tx * (1 - tz) +
-               h01 * (1 - tx) * tz + h11 * tx * tz;
-    };
-
-    const int dataTotalVerts = dataRes * dataRes;
-    std::vector<glm::vec3> dataNormals(dataTotalVerts);
-
-    for (int z = 0; z < dataRes; z++) {
-        for (int x = 0; x < dataRes; x++) {
-            glm::vec3 normal;
-
-            if (m_SobelNormals) {
-                float h00 = sampleHeightInt(x - 1, z - 1);
-                float h10 = sampleHeightInt(x,     z - 1);
-                float h20 = sampleHeightInt(x + 1, z - 1);
-                float h01 = sampleHeightInt(x - 1, z    );
-                float h21 = sampleHeightInt(x + 1, z    );
-                float h02 = sampleHeightInt(x - 1, z + 1);
-                float h12 = sampleHeightInt(x,     z + 1);
-                float h22 = sampleHeightInt(x + 1, z + 1);
-
-                float gx = -h00 + h20 - 2.0f * h01 + 2.0f * h21 - h02 + h22;
-                float gz =  h00 + 2.0f * h10 + h20 - h02 - 2.0f * h12 - h22;
-
-                normal = glm::normalize(glm::vec3(-gx, 8.0f * dataStep, -gz));
-            } else {
-                float hL = sampleHeightInt(x - 1, z);
-                float hR = sampleHeightInt(x + 1, z);
-                float hD = sampleHeightInt(x, z - 1);
-                float hU = sampleHeightInt(x, z + 1);
-
-                normal = glm::normalize(glm::vec3(hL - hR, 2.0f * dataStep, hD - hU));
-            }
-
-            dataNormals[z * dataRes + x] = normal;
-        }
-    }
-
-    if (m_SmoothNormals) {
-        auto computeSobelAt = [&](int sx, int sz) -> glm::vec3 {
-            float h00 = sampleHeightInt(sx - 1, sz - 1);
-            float h10 = sampleHeightInt(sx,     sz - 1);
-            float h20 = sampleHeightInt(sx + 1, sz - 1);
-            float h01 = sampleHeightInt(sx - 1, sz    );
-            float h21 = sampleHeightInt(sx + 1, sz    );
-            float h02 = sampleHeightInt(sx - 1, sz + 1);
-            float h12 = sampleHeightInt(sx,     sz + 1);
-            float h22 = sampleHeightInt(sx + 1, sz + 1);
-            float gx = -h00 + h20 - 2.0f * h01 + 2.0f * h21 - h02 + h22;
-            float gz =  h00 + 2.0f * h10 + h20 - h02 - 2.0f * h12 - h22;
-            return glm::normalize(glm::vec3(-gx, 8.0f * dataStep, -gz));
-        };
-
-        auto getNormal = [&](int nx, int nz) -> glm::vec3 {
-            if (nx >= 0 && nx < dataRes && nz >= 0 && nz < dataRes)
-                return dataNormals[nz * dataRes + nx];
-            return computeSobelAt(nx, nz);
-        };
-
-        std::vector<glm::vec3> smoothed(dataTotalVerts);
-
-        for (int z = 0; z < dataRes; z++) {
-            for (int x = 0; x < dataRes; x++) {
-                glm::vec3 sum = dataNormals[z * dataRes + x];
-                sum += getNormal(x - 1, z);
-                sum += getNormal(x + 1, z);
-                sum += getNormal(x, z - 1);
-                sum += getNormal(x, z + 1);
-                smoothed[z * dataRes + x] = glm::normalize(sum / 5.0f);
-            }
-        }
-
-        dataNormals = std::move(smoothed);
-    }
-
-    auto sampleNormalBilinear = [&](float fx, float fz) -> glm::vec3 {
-        fx = std::clamp(fx, 0.0f, (float)(dataRes - 1));
-        fz = std::clamp(fz, 0.0f, (float)(dataRes - 1));
-        int x0 = std::min((int)fx, dataRes - 2);
-        int z0 = std::min((int)fz, dataRes - 2);
-        float tx = fx - x0;
-        float tz = fz - z0;
-        glm::vec3 n00 = dataNormals[z0 * dataRes + x0];
-        glm::vec3 n10 = dataNormals[z0 * dataRes + x0 + 1];
-        glm::vec3 n01 = dataNormals[(z0 + 1) * dataRes + x0];
-        glm::vec3 n11 = dataNormals[(z0 + 1) * dataRes + x0 + 1];
-        return glm::normalize(n00 * (1 - tx) * (1 - tz) + n10 * tx * (1 - tz) +
-                              n01 * (1 - tx) * tz + n11 * tx * tz);
-    };
-
-    float worldOriginX = m_ChunkX * CHUNK_SIZE;
-    float worldOriginZ = m_ChunkZ * CHUNK_SIZE;
-
-    for (int z = 0; z < meshRes; z++) {
-        for (int x = 0; x < meshRes; x++) {
-            float hx = x * (float)dataQuads / meshQuads;
-            float hz = z * (float)dataQuads / meshQuads;
-
-            float px = worldOriginX + x * meshStep;
-            float pz = worldOriginZ + z * meshStep;
-            float py = sampleHeightBilinear(hx, hz);
-
-            vertices.push_back(px);
-            vertices.push_back(py);
-            vertices.push_back(pz);
-
-            glm::vec3 n = sampleNormalBilinear(hx, hz);
-            vertices.push_back(n.x);
-            vertices.push_back(n.y);
-            vertices.push_back(n.z);
-
-            vertices.push_back(static_cast<float>(x) / meshQuads);
-            vertices.push_back(static_cast<float>(z) / meshQuads);
-        }
-    }
-
-    if (m_DiamondGrid) {
-        for (int z = 0; z < meshQuads; z++) {
-            for (int x = 0; x < meshQuads; x++) {
-                float hx = (x + 0.5f) * (float)dataQuads / meshQuads;
-                float hz = (z + 0.5f) * (float)dataQuads / meshQuads;
-
-                float cx = worldOriginX + (x + 0.5f) * meshStep;
-                float cz = worldOriginZ + (z + 0.5f) * meshStep;
-                float cy = sampleHeightBilinear(hx, hz);
-
-                vertices.push_back(cx);
-                vertices.push_back(cy);
-                vertices.push_back(cz);
-
-                glm::vec3 cn = sampleNormalBilinear(hx, hz);
-                vertices.push_back(cn.x);
-                vertices.push_back(cn.y);
-                vertices.push_back(cn.z);
-
-                vertices.push_back((x + 0.5f) / meshQuads);
-                vertices.push_back((z + 0.5f) / meshQuads);
-            }
-        }
-    }
-
-    for (int z = 0; z < meshQuads; z++) {
-        for (int x = 0; x < meshQuads; x++) {
-            int holeX = std::min(x * HOLE_GRID_SIZE / meshQuads, HOLE_GRID_SIZE - 1);
-            int holeZ = std::min(z * HOLE_GRID_SIZE / meshQuads, HOLE_GRID_SIZE - 1);
-            uint64_t holeBit = 1ULL << (holeZ * HOLE_GRID_SIZE + holeX);
-            if (m_Data.holeMask & holeBit) continue;
-
-            uint32_t TL = z * meshRes + x;
-            uint32_t TR = TL + 1;
-            uint32_t BL = (z + 1) * meshRes + x;
-            uint32_t BR = BL + 1;
-
-            if (m_DiamondGrid) {
-                uint32_t C = totalCornerVerts + z * meshQuads + x;
-
-                indices.push_back(TL); indices.push_back(C);  indices.push_back(TR);
-                indices.push_back(TR); indices.push_back(C);  indices.push_back(BR);
-                indices.push_back(BR); indices.push_back(C);  indices.push_back(BL);
-                indices.push_back(BL); indices.push_back(C);  indices.push_back(TL);
-            } else {
-                indices.push_back(TL); indices.push_back(BL); indices.push_back(TR);
-                indices.push_back(TR); indices.push_back(BL); indices.push_back(BR);
-            }
-        }
-    }
-
-    m_IndexCount = static_cast<uint32_t>(indices.size());
-
+    // GPU upload
     if (!m_VAO) {
         RenderCommand::ResetState();
 
         m_VAO = std::make_unique<VertexArray>();
-        m_VBO = std::make_unique<VertexBuffer>(vertices.data(), vertices.size() * sizeof(float));
-        m_EBO = std::make_unique<IndexBuffer>(indices.data(), indices.size() * sizeof(uint32_t));
+        m_VBO = std::make_unique<VertexBuffer>(meshData.vertices.data(), meshData.vertices.size() * sizeof(float));
+        m_EBO = std::make_unique<IndexBuffer>(meshData.indices.data(), meshData.indices.size() * sizeof(uint32_t));
 
         VertexLayout layout({
             { VertexAttributeType::Float3 },
@@ -502,35 +269,100 @@ void TerrainChunk::GenerateMesh() {
         m_VAO->UnBind();
     } else {
         m_VBO->Bind();
-        m_VBO->SetData(vertices.data(), vertices.size() * sizeof(float));
-        m_EBO->SetData(indices.data(), indices.size() * sizeof(uint32_t));
+        m_VBO->SetData(meshData.vertices.data(), meshData.vertices.size() * sizeof(float));
+        m_EBO->SetData(meshData.indices.data(), meshData.indices.size() * sizeof(uint32_t));
     }
 
-    if (!m_Data.heightmap.empty()) {
-        const int paddedRes = CHUNK_RESOLUTION + 2;
-        std::vector<float> padded(paddedRes * paddedRes);
-
-        for (int z = 0; z < CHUNK_RESOLUTION; z++)
-            for (int x = 0; x < CHUNK_RESOLUTION; x++)
-                padded[(z + 1) * paddedRes + (x + 1)] = m_Data.heightmap[z * CHUNK_RESOLUTION + x];
-
-        for (int z = -1; z <= CHUNK_RESOLUTION; z++) {
-            padded[(z + 1) * paddedRes + 0] = sampleHeightInt(-1, z);
-            padded[(z + 1) * paddedRes + (paddedRes - 1)] = sampleHeightInt(CHUNK_RESOLUTION, z);
-        }
-        for (int x = 0; x < CHUNK_RESOLUTION; x++) {
-            padded[0 * paddedRes + (x + 1)] = sampleHeightInt(x, -1);
-            padded[(paddedRes - 1) * paddedRes + (x + 1)] = sampleHeightInt(x, CHUNK_RESOLUTION);
-        }
-
+    if (!meshData.paddedHeightmap.empty()) {
+        int paddedRes = meshData.paddedHeightmapResolution;
         if (!m_HeightmapTexture) {
-            m_HeightmapTexture = Texture::CreateFloatTexture(padded.data(), paddedRes, paddedRes);
+            m_HeightmapTexture = Texture::CreateFloatTexture(meshData.paddedHeightmap.data(), paddedRes, paddedRes);
         } else {
-            m_HeightmapTexture->SetFloatData(padded.data());
+            m_HeightmapTexture->SetFloatData(meshData.paddedHeightmap.data());
         }
     }
 
     UpdateSplatmapTexture();
+}
+
+void TerrainChunk::PrepareMeshCPU(PreparedMeshData& out, const HeightSampler& heightSampler) const {
+    MMO::TerrainMeshOptions opts;
+    opts.meshResolution = m_MeshResolution;
+    opts.sobelNormals = m_SobelNormals;
+    opts.smoothNormals = m_SmoothNormals;
+    opts.diamondGrid = m_DiamondGrid;
+    opts.generatePaddedHeightmap = true;
+    opts.heightSampler = heightSampler;
+    MMO::GenerateTerrainMesh(m_Data, opts, out);
+}
+
+void TerrainChunk::UploadPreparedMesh(PreparedMeshData& data) {
+    if (data.vertices.empty()) return;
+
+    m_IndexCount = data.indexCount;
+
+    if (!m_VAO) {
+        RenderCommand::ResetState();
+
+        m_VAO = std::make_unique<VertexArray>();
+        m_VBO = std::make_unique<VertexBuffer>(data.vertices.data(), data.vertices.size() * sizeof(float));
+        m_EBO = std::make_unique<IndexBuffer>(data.indices.data(), data.indices.size() * sizeof(uint32_t));
+
+        VertexLayout layout({
+            { VertexAttributeType::Float3 },
+            { VertexAttributeType::Float3 },
+            { VertexAttributeType::Float2 }
+        });
+
+        m_VAO->SetVertexBuffer(m_VBO.get());
+        m_VAO->SetLayout(layout);
+        m_VAO->SetIndexBuffer(m_EBO.get());
+        m_VAO->UnBind();
+    } else {
+        m_VBO->Bind();
+        m_VBO->SetData(data.vertices.data(), data.vertices.size() * sizeof(float));
+        m_EBO->SetData(data.indices.data(), data.indices.size() * sizeof(uint32_t));
+    }
+
+    if (!data.paddedHeightmap.empty()) {
+        int paddedRes = data.paddedHeightmapResolution;
+        if (!m_HeightmapTexture) {
+            m_HeightmapTexture = Texture::CreateFloatTexture(data.paddedHeightmap.data(), paddedRes, paddedRes);
+        } else {
+            m_HeightmapTexture->SetFloatData(data.paddedHeightmap.data());
+        }
+    }
+
+    if (!data.splatmapRGBA0.empty()) {
+        if (!m_SplatmapTexture0) {
+            m_SplatmapTexture0 = Texture::CreateFromData(data.splatmapRGBA0.data(), SPLATMAP_RESOLUTION, SPLATMAP_RESOLUTION, 4);
+        } else {
+            m_SplatmapTexture0->SetData(data.splatmapRGBA0.data());
+        }
+    }
+    if (!data.splatmapRGBA1.empty()) {
+        if (!m_SplatmapTexture1) {
+            m_SplatmapTexture1 = Texture::CreateFromData(data.splatmapRGBA1.data(), SPLATMAP_RESOLUTION, SPLATMAP_RESOLUTION, 4);
+        } else {
+            m_SplatmapTexture1->SetData(data.splatmapRGBA1.data());
+        }
+    }
+
+    m_State = ChunkState::Active;
+    m_Dirty = false;
+    m_SplatmapDirty = false;
+
+    // Free the CPU data now that it's on the GPU
+    data.vertices.clear();
+    data.vertices.shrink_to_fit();
+    data.indices.clear();
+    data.indices.shrink_to_fit();
+    data.paddedHeightmap.clear();
+    data.paddedHeightmap.shrink_to_fit();
+    data.splatmapRGBA0.clear();
+    data.splatmapRGBA0.shrink_to_fit();
+    data.splatmapRGBA1.clear();
+    data.splatmapRGBA1.shrink_to_fit();
 }
 
 } // namespace Editor3D

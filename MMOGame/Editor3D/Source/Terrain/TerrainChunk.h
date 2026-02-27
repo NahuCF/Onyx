@@ -1,53 +1,39 @@
 #pragma once
 
 #include <Onyx.h>
+#include <Terrain/TerrainData.h>
+#include <Terrain/TerrainMeshGenerator.h>
 #include <glm/glm.hpp>
 #include <vector>
 #include <memory>
 #include <string>
 #include <functional>
+#include <atomic>
 
 namespace Editor3D {
 
 using namespace Onyx;
 
-constexpr float CHUNK_SIZE = 64.0f;
-constexpr int CHUNK_RESOLUTION = 65;
-constexpr int CHUNK_HEIGHTMAP_SIZE = CHUNK_RESOLUTION * CHUNK_RESOLUTION;
-constexpr int HOLE_GRID_SIZE = 8;
-constexpr int MAX_TERRAIN_LAYERS = 8;
-constexpr int SPLATMAP_RESOLUTION = 64;
-constexpr int SPLATMAP_TEXELS = SPLATMAP_RESOLUTION * SPLATMAP_RESOLUTION;
+// Backward-compatible aliases for shared constants
+constexpr float CHUNK_SIZE = MMO::TERRAIN_CHUNK_SIZE;
+constexpr int CHUNK_RESOLUTION = MMO::TERRAIN_CHUNK_RESOLUTION;
+constexpr int CHUNK_HEIGHTMAP_SIZE = MMO::TERRAIN_CHUNK_HEIGHTMAP_SIZE;
+constexpr int HOLE_GRID_SIZE = MMO::TERRAIN_HOLE_GRID_SIZE;
+constexpr int MAX_TERRAIN_LAYERS = MMO::TERRAIN_MAX_LAYERS;
+constexpr int SPLATMAP_RESOLUTION = MMO::TERRAIN_SPLATMAP_RESOLUTION;
+constexpr int SPLATMAP_TEXELS = MMO::TERRAIN_SPLATMAP_TEXELS;
 
 enum class ChunkState {
     Unloaded,
     Loaded,
+    Preparing,   // CPU mesh generation in progress (background thread)
+    ReadyForGPU, // CPU mesh data ready, waiting for GL upload
     Active
 };
 
-struct TerrainChunkData {
-    int32_t chunkX = 0;
-    int32_t chunkZ = 0;
-
-    std::vector<float> heightmap;
-    std::vector<uint8_t> splatmap;
-    uint64_t holeMask = 0;
-
-    std::string materialIds[MAX_TERRAIN_LAYERS];
-
-    float minHeight = 0.0f;
-    float maxHeight = 0.0f;
-
-    void CalculateBounds() {
-        if (heightmap.empty()) return;
-        minHeight = heightmap[0];
-        maxHeight = heightmap[0];
-        for (float h : heightmap) {
-            minHeight = std::min(minHeight, h);
-            maxHeight = std::max(maxHeight, h);
-        }
-    }
-};
+// Use shared types
+using TerrainChunkData = MMO::TerrainChunkData;
+using PreparedMeshData = MMO::TerrainMeshData;
 
 class TerrainChunk {
 public:
@@ -75,8 +61,18 @@ public:
     void Load(const std::string& basePath);
     void LoadFromData(const TerrainChunkData& data);
     void Unload();
-    void CreateGPUResources();
+    void CreateGPUResources();       // Legacy: CPU + GPU in one call (main thread)
     void DestroyGPUResources();
+
+    using HeightSampler = std::function<float(int, int, int, int)>;
+    void SetHeightSampler(HeightSampler sampler) { m_HeightSampler = std::move(sampler); }
+
+    // Split mesh generation: CPU work (thread-safe) + GPU upload (main thread only)
+    // Pass null HeightSampler for background thread (uses clamped edge heights).
+    void PrepareMeshCPU(PreparedMeshData& out, const HeightSampler& heightSampler) const;
+    void UploadPreparedMesh(PreparedMeshData& data);
+
+    void SetState(ChunkState state) { m_State = state; }
 
     const TerrainChunkData& GetData() const { return m_Data; }
     TerrainChunkData& GetDataMutable() { m_Dirty = true; m_Modified = true; return m_Data; }
@@ -93,7 +89,7 @@ public:
     void MarkSplatmapDirty() { m_SplatmapDirty = true; m_Modified = true; }
     void MarkMeshDirty() { m_Dirty = true; }
 
-    void Draw(Shader* shader);
+    void Draw(Shader* shader, bool allowRegenerate = true);
 
     bool IsDirty() const { return m_Dirty; }
     void ClearDirty() { m_Dirty = false; }
@@ -105,9 +101,6 @@ public:
     void SetDiamondGrid(bool enabled);
     void SetMeshResolution(int resolution);
     int GetMeshResolution() const { return m_MeshResolution; }
-
-    using HeightSampler = std::function<float(int, int, int, int)>;
-    void SetHeightSampler(HeightSampler sampler) { m_HeightSampler = std::move(sampler); }
 
 private:
     int32_t m_ChunkX, m_ChunkZ;
