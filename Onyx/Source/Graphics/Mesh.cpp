@@ -6,16 +6,45 @@ namespace Onyx {
 
     Mesh::Mesh(std::vector<MeshVertex> vertices, std::vector<unsigned int> indices, std::vector<MeshTexture> textures, const std::string& name)
         : m_Name(name)
-        , m_Vertices(vertices)
-        , m_Indices(indices)
-        , m_Textures(textures)
+        , m_Vertices(std::move(vertices))
+        , m_Indices(std::move(indices))
+        , m_Textures(std::move(textures))
     {
         SetupMesh();
         ComputeBounds();
     }
 
+    Mesh::Mesh(std::vector<MeshVertex> vertices, std::vector<unsigned int> indices, std::vector<MeshTexture> textures, const std::string& name, bool deferGPU)
+        : m_Name(name)
+        , m_Vertices(std::move(vertices))
+        , m_Indices(std::move(indices))
+        , m_Textures(std::move(textures))
+    {
+        ComputeBounds();
+        if (!deferGPU) {
+            SetupMesh();
+        }
+    }
+
+    Mesh::Mesh(const std::string& name, const glm::vec3& boundsMin, const glm::vec3& boundsMax)
+        : m_Name(name)
+        , m_BoundsMin(boundsMin)
+        , m_BoundsMax(boundsMax)
+        , m_Center((boundsMin + boundsMax) * 0.5f)
+    {
+    }
+
+    void Mesh::EnsureGPU()
+    {
+        if (!m_GPUReady && !m_Vertices.empty()) {
+            SetupMesh();
+        }
+    }
+
     void Mesh::Draw(Shader &shader)
     {
+        EnsureGPU();
+
         unsigned int diffuseNr = 1;
         unsigned int specularNr = 1;
 
@@ -43,17 +72,39 @@ namespace Onyx {
 
     void Mesh::DrawGeometryOnly()
     {
+        EnsureGPU();
+
         glBindVertexArray(m_VAO);
         glDrawElements(GL_TRIANGLES, m_Indices.size(), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
     }
 
-    Mesh::~Mesh() 
+    Mesh::~Mesh()
 	{
-		//delete m_VAO;
-		//delete m_VBO;
-		//delete m_EBO;
+		if (m_VAO) glDeleteVertexArrays(1, &m_VAO);
+		if (m_VBO) glDeleteBuffers(1, &m_VBO);
+		if (m_EBO) glDeleteBuffers(1, &m_EBO);
 	}
+
+    Mesh::Mesh(Mesh&& other) noexcept
+        : m_Name(std::move(other.m_Name))
+        , m_Vertices(std::move(other.m_Vertices))
+        , m_Indices(std::move(other.m_Indices))
+        , m_Textures(std::move(other.m_Textures))
+        , m_VAO(other.m_VAO)
+        , m_VBO(other.m_VBO)
+        , m_EBO(other.m_EBO)
+        , m_GPUReady(other.m_GPUReady)
+        , m_BoundsMin(other.m_BoundsMin)
+        , m_BoundsMax(other.m_BoundsMax)
+        , m_Center(other.m_Center)
+    {
+        other.m_VAO = 0;
+        other.m_VBO = 0;
+        other.m_EBO = 0;
+        other.m_GPUReady = false;
+    }
+
 
     void Mesh::ComputeBounds()
     {
@@ -69,17 +120,14 @@ namespace Onyx {
 
     void Mesh::SetupMesh()
     {
-        //this->m_VAO = new VertexArray();
-        //this->m_VBO = new VertexBuffer()
-
         glGenVertexArrays(1, &m_VAO);
         glGenBuffers(1, &m_VBO);
         glGenBuffers(1, &m_EBO);
-    
+
         glBindVertexArray(m_VAO);
         glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
 
-        glBufferData(GL_ARRAY_BUFFER, m_Vertices.size() * sizeof(MeshVertex), &m_Vertices[0], GL_STATIC_DRAW);  
+        glBufferData(GL_ARRAY_BUFFER, m_Vertices.size() * sizeof(MeshVertex), &m_Vertices[0], GL_STATIC_DRAW);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_Indices.size() * sizeof(unsigned int),  &m_Indices[0], GL_STATIC_DRAW);
@@ -101,6 +149,8 @@ namespace Onyx {
         glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, bitangent));
 
         glBindVertexArray(0);
+
+        m_GPUReady = true;
     }
 
 }
