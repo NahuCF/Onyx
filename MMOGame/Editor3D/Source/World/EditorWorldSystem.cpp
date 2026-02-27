@@ -1,4 +1,6 @@
 #include "EditorWorldSystem.h"
+#include "EditorWorld.h"
+#include <World/StaticObject.h>
 #include <World/WorldObjectData.h>
 #include <algorithm>
 #include <cmath>
@@ -47,6 +49,7 @@ void EditorWorldSystem::Shutdown() {
     m_LoadQueue.clear();
     m_KnownChunkFiles.clear();
     m_MaterialLayerMap.clear();
+    m_ObjectChunkMap.clear();
 }
 
 void EditorWorldSystem::Update(const glm::vec3& cameraPos, const glm::mat4& viewProj, float deltaTime) {
@@ -670,6 +673,36 @@ void EditorWorldSystem::DeleteChunk(int32_t chunkX, int32_t chunkZ) {
 }
 
 void EditorWorldSystem::SaveDirtyChunks() {
+    // Gather objects from EditorWorld into chunks before checking dirty flags.
+    // This ensures chunks that gained/lost objects get marked dirty.
+    if (m_EditorWorld) {
+        // Find all chunks that currently contain objects
+        std::unordered_set<int32_t> affectedChunks;
+        for (const auto& obj : m_EditorWorld->GetStaticObjects()) {
+            int32_t cx = WorldToChunkX(obj->GetPosition().x);
+            int32_t cz = WorldToChunkZ(obj->GetPosition().z);
+            affectedChunks.insert(MakeChunkKey(cx, cz));
+        }
+        // Also include chunks that previously had objects (object may have moved away)
+        for (const auto& [guid, chunkKey] : m_ObjectChunkMap) {
+            affectedChunks.insert(chunkKey);
+        }
+        // Gather objects for affected chunks, auto-creating if needed
+        for (int32_t key : affectedChunks) {
+            auto it = m_Chunks.find(key);
+            if (it == m_Chunks.end()) {
+                // Object in the void — create a default chunk to hold it
+                int32_t cx = static_cast<int16_t>(static_cast<uint32_t>(key) >> 16);
+                int32_t cz = static_cast<int16_t>(static_cast<uint32_t>(key) & 0xFFFF);
+                GetOrCreateChunk(cx, cz);
+                it = m_Chunks.find(key);
+            }
+            if (it != m_Chunks.end()) {
+                GatherObjectsForChunk(it->second.get());
+            }
+        }
+    }
+
     for (auto& [key, chunk] : m_Chunks) {
         if (chunk->IsModified()) {
             SaveChunkToDisk(chunk.get());
@@ -794,6 +827,7 @@ void EditorWorldSystem::UnloadDistantChunks() {
             SaveChunkToDisk(chunk.get());
             chunk->ClearModified();
         }
+        RemoveChunkObjects(key);
         m_Chunks.erase(key);
     }
 }
@@ -805,6 +839,7 @@ std::string EditorWorldSystem::GetChunkFilePath(int32_t chunkX, int32_t chunkZ) 
 void EditorWorldSystem::LoadChunkFromDisk(WorldChunk* chunk) {
     std::string path = GetChunkFilePath(chunk->GetChunkX(), chunk->GetChunkZ());
     chunk->Load(path);
+    SpawnObjectsFromChunk(chunk);
 
     TerrainChunk* terrain = chunk->GetTerrain();
     auto& data = terrain->GetDataMutable();
@@ -855,6 +890,7 @@ void EditorWorldSystem::LoadChunkFromDisk(WorldChunk* chunk) {
 }
 
 void EditorWorldSystem::SaveChunkToDisk(WorldChunk* chunk) {
+    GatherObjectsForChunk(chunk);
     std::string path = GetChunkFilePath(chunk->GetChunkX(), chunk->GetChunkZ());
     chunk->Save(path);
     m_KnownChunkFiles.insert(MakeChunkKey(chunk->GetChunkX(), chunk->GetChunkZ()));
@@ -989,6 +1025,148 @@ void EditorWorldSystem::CopyBoundaryFromNeighbors(WorldChunk* chunk) {
     }
 
     data.CalculateBounds();
+}
+
+// ---- Object ↔ Chunk Bridge ----
+
+static ChunkObject StaticObjectToChunkObject(const MMO::StaticObject* obj) {
+    ChunkObject co;
+    co.guid = obj->GetGuid();
+    co.name = obj->GetName();
+    co.position = obj->GetPosition();
+    co.rotation = obj->GetRotation();
+    co.scale = obj->GetScale();
+    co.parentGuid = obj->GetParentGuid();
+    co.modelPath = obj->GetModelPath();
+    co.materialId = obj->GetMaterialId();
+
+    // Collider
+    const auto& col = obj->GetCollider();
+    co.colliderType = static_cast<uint8_t>(col.type);
+    co.colliderCenter = col.center;
+    co.colliderHalfExtents = col.halfExtents;
+    co.colliderRadius = col.radius;
+    co.colliderHeight = col.height;
+
+    // Rendering flags
+    co.castsShadow = obj->CastsShadow();
+    co.receivesLightmap = obj->ReceivesLightmap();
+    co.lightmapIndex = obj->GetLightmapIndex();
+    co.lightmapScaleOffset = obj->GetLightmapScaleOffset();
+
+    // Mesh materials
+    for (const auto& [meshName, mat] : obj->GetAllMeshMaterials()) {
+        ChunkObject::MeshMaterialEntry entry;
+        entry.meshName = meshName;
+        entry.materialId = mat.materialId;
+        entry.positionOffset = mat.positionOffset;
+        entry.rotationOffset = mat.rotationOffset;
+        entry.scaleMultiplier = mat.scaleMultiplier;
+        entry.visible = mat.visible;
+        co.meshMaterials.push_back(std::move(entry));
+    }
+
+    // Animations
+    co.animationPaths = obj->GetAnimationPaths();
+    co.currentAnimation = obj->GetCurrentAnimation();
+    co.animLoop = obj->GetAnimationLoop();
+    co.animSpeed = obj->GetAnimationSpeed();
+
+    return co;
+}
+
+static std::unique_ptr<MMO::StaticObject> ChunkObjectToStaticObject(const ChunkObject& co) {
+    auto obj = std::make_unique<MMO::StaticObject>(co.guid, co.name);
+    obj->SetPosition(co.position);
+    obj->SetRotation(co.rotation);
+    obj->SetScale(co.scale);
+    obj->SetParent(co.parentGuid);
+    obj->SetModelPath(co.modelPath);
+    obj->SetMaterialId(co.materialId);
+
+    // Collider
+    MMO::ColliderData col;
+    col.type = static_cast<MMO::ColliderType>(co.colliderType);
+    col.center = co.colliderCenter;
+    col.halfExtents = co.colliderHalfExtents;
+    col.radius = co.colliderRadius;
+    col.height = co.colliderHeight;
+    obj->SetCollider(col);
+
+    // Rendering flags
+    obj->SetCastsShadow(co.castsShadow);
+    obj->SetReceivesLightmap(co.receivesLightmap);
+    obj->SetLightmapIndex(co.lightmapIndex);
+    obj->SetLightmapScaleOffset(co.lightmapScaleOffset);
+
+    // Mesh materials
+    for (const auto& entry : co.meshMaterials) {
+        MMO::MeshMaterial mat;
+        mat.materialId = entry.materialId;
+        mat.positionOffset = entry.positionOffset;
+        mat.rotationOffset = entry.rotationOffset;
+        mat.scaleMultiplier = entry.scaleMultiplier;
+        mat.visible = entry.visible;
+        obj->SetMeshMaterial(entry.meshName, mat);
+    }
+
+    // Animations
+    for (const auto& path : co.animationPaths) {
+        obj->AddAnimationPath(path);
+    }
+    obj->SetCurrentAnimation(co.currentAnimation);
+    obj->SetAnimationLoop(co.animLoop);
+    obj->SetAnimationSpeed(co.animSpeed);
+
+    return obj;
+}
+
+void EditorWorldSystem::GatherObjectsForChunk(WorldChunk* chunk) {
+    if (!m_EditorWorld) return;
+
+    int32_t cx = chunk->GetChunkX();
+    int32_t cz = chunk->GetChunkZ();
+    chunk->GetObjects().clear();
+
+    for (const auto& obj : m_EditorWorld->GetStaticObjects()) {
+        int32_t objCX = WorldToChunkX(obj->GetPosition().x);
+        int32_t objCZ = WorldToChunkZ(obj->GetPosition().z);
+        if (objCX == cx && objCZ == cz) {
+            chunk->GetObjects().push_back(StaticObjectToChunkObject(obj.get()));
+        }
+    }
+}
+
+void EditorWorldSystem::SpawnObjectsFromChunk(WorldChunk* chunk) {
+    if (!m_EditorWorld) return;
+
+    int32_t key = MakeChunkKey(chunk->GetChunkX(), chunk->GetChunkZ());
+
+    for (const auto& co : chunk->GetObjects()) {
+        // Skip if this GUID already exists in the world (e.g., re-loading same chunk)
+        if (m_EditorWorld->GetObject(co.guid)) continue;
+
+        auto obj = ChunkObjectToStaticObject(co);
+        m_EditorWorld->EnsureGuidAbove(co.guid);
+        m_EditorWorld->AddObject(std::move(obj));
+        m_ObjectChunkMap[co.guid] = key;
+    }
+}
+
+void EditorWorldSystem::RemoveChunkObjects(int32_t chunkKey) {
+    if (!m_EditorWorld) return;
+
+    std::vector<uint64_t> toRemove;
+    for (auto& [guid, key] : m_ObjectChunkMap) {
+        if (key == chunkKey) {
+            toRemove.push_back(guid);
+        }
+    }
+
+    for (uint64_t guid : toRemove) {
+        m_EditorWorld->DeleteObject(guid);
+        m_ObjectChunkMap.erase(guid);
+    }
 }
 
 void EditorWorldSystem::ApplyBrush(float worldX, float worldZ, float radius,

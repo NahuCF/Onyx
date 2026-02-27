@@ -368,6 +368,7 @@ void Editor3DLayer::LoadMap(uint32_t mapId) {
 
     // Initialize terrain system with map-scoped chunks directory
     std::string chunksDir = m_MapRegistry.GetChunksDirectory(mapId);
+    m_ViewportPanel->GetWorldSystem().SetEditorWorld(&m_World);
     m_ViewportPanel->GetWorldSystem().Init(chunksDir);
 }
 

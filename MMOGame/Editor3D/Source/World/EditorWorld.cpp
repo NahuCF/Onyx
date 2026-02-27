@@ -297,6 +297,10 @@ void EditorWorld::DeleteObject(uint64_t guid) {
     m_ObjectsByGuid.erase(guid);
 
     m_Dirty = true;
+
+    if (m_OnObjectDeleted) {
+        m_OnObjectDeleted(guid);
+    }
 }
 
 void EditorWorld::DeleteSelected() {
@@ -563,6 +567,11 @@ WorldObject* EditorWorld::AddObject(std::unique_ptr<WorldObject> object) {
 
     // Add to GUID lookup
     m_ObjectsByGuid[guid] = ptr;
+
+    // Add to root display order if no parent
+    if (!ptr->HasParent()) {
+        m_RootDisplayOrder.push_back(guid);
+    }
 
     m_Dirty = true;
     return ptr;

@@ -8,6 +8,12 @@
 #include <memory>
 #include <functional>
 #include <unordered_set>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
+
+namespace MMO { class EditorWorld; }
 
 namespace Editor3D {
 
@@ -25,6 +31,8 @@ public:
     ~EditorWorldSystem();
 
     using PerChunkCallback = std::function<void(TerrainChunk*, Shader*)>;
+
+    void SetEditorWorld(MMO::EditorWorld* world) { m_EditorWorld = world; }
 
     void Init(const std::string& chunksDirectory);
     void Shutdown();
@@ -73,7 +81,9 @@ public:
     struct StreamingSettings {
         float loadDistance = 192.0f;
         float unloadDistance = 256.0f;
-        int maxChunksPerFrame = 4;
+        float preloadDistance = 320.0f;  // Pre-load models from chunks at this distance
+        int maxChunksPerFrame = 2;
+        int maxGPUUploadsPerFrame = 2;
         bool enableFrustumCulling = true;
     };
 
@@ -97,6 +107,8 @@ public:
     }
 
 private:
+    MMO::EditorWorld* m_EditorWorld = nullptr;
+
     std::string m_ProjectPath;
     StreamingSettings m_Settings;
     Stats m_Stats;
@@ -144,11 +156,42 @@ private:
     void ApplyBrush(float worldX, float worldZ, float radius,
                     std::function<void(TerrainChunk*, int localX, int localZ, float weight)> operation);
 
+    // Object ↔ Chunk bridge
+    void GatherObjectsForChunk(WorldChunk* chunk);
+    void SpawnObjectsFromChunk(WorldChunk* chunk);
+    void RemoveChunkObjects(int32_t chunkKey);
+    std::unordered_map<uint64_t, int32_t> m_ObjectChunkMap;  // guid → chunkKey
+
     void StitchEdges(int minCX, int maxCX, int minCZ, int maxCZ);
     void CopyBoundaryFromNeighbors(WorldChunk* chunk);
     float GetChunkHeight(int cx, int cz, int lx, int lz) const;
     void DirtyNeighborChunks(int32_t cx, int32_t cz);
     void PaintSplatmapLayer(float worldX, float worldZ, float radius, int layer, float strength);
+
+    // Model pre-loading: scan nearby chunk files for model paths and start async loading
+    void PreloadNearbyModels();
+    std::vector<std::string> PeekChunkModelPaths(int32_t chunkX, int32_t chunkZ);
+    std::unordered_set<int32_t> m_PreloadedChunkKeys;  // chunks we've already peeked at
+
+    // Background mesh generation thread
+    struct PendingMeshJob {
+        int32_t chunkKey = 0;
+        TerrainChunk* terrain = nullptr;
+        PreparedMeshData meshData;
+        bool dirty = false;  // true = re-generate existing chunk, false = new chunk
+    };
+
+    std::thread m_MeshGenThread;
+    std::mutex m_MeshGenMutex;
+    std::condition_variable m_MeshGenCV;
+    std::atomic<bool> m_ShutdownMeshGen{false};
+
+    std::deque<std::shared_ptr<PendingMeshJob>> m_MeshGenQueue;    // consumed by bg thread
+    std::deque<std::shared_ptr<PendingMeshJob>> m_MeshReadyQueue;  // consumed by main thread
+
+    void MeshGenThreadFunc();
+    void ProcessReadyMeshes();
+    void QueueMeshGeneration(int32_t chunkKey, TerrainChunk* terrain, bool dirty);
 };
 
 struct TerrainBrush {

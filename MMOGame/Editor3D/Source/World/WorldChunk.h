@@ -2,6 +2,7 @@
 
 #include "Terrain/TerrainChunk.h"
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <vector>
 #include <memory>
 #include <string>
@@ -27,13 +28,49 @@ struct EditorLight {
 constexpr int MAX_POINT_LIGHTS = 32;
 constexpr int MAX_SPOT_LIGHTS = 8;
 
-// ---- Static object placement data ----
-struct ChunkStaticObject {
-    std::string modelPath;
+// ---- Static object data (serialized in OBJS section v2) ----
+struct ChunkObject {
+    // WorldObject base
+    uint64_t guid = 0;
+    std::string name;
     glm::vec3 position = {0, 0, 0};
-    glm::vec3 rotation = {0, 0, 0};    // euler degrees
-    glm::vec3 scale = {1, 1, 1};
-    uint32_t flags = 0;                 // bit 0: hasCollision, bit 1: castShadows
+    glm::quat rotation = glm::quat(1, 0, 0, 0);  // identity
+    float scale = 1.0f;
+    uint64_t parentGuid = 0;
+
+    // StaticObject
+    std::string modelPath;
+    std::string materialId;
+
+    // Collider
+    uint8_t colliderType = 0;  // NONE=0, BOX=1, SPHERE=2, CAPSULE=3, MESH=4
+    glm::vec3 colliderCenter = {0, 0, 0};
+    glm::vec3 colliderHalfExtents = {1, 1, 1};
+    float colliderRadius = 1.0f;
+    float colliderHeight = 2.0f;
+
+    // Rendering flags
+    bool castsShadow = true;
+    bool receivesLightmap = true;
+    uint32_t lightmapIndex = 0;
+    glm::vec4 lightmapScaleOffset = {1, 1, 0, 0};
+
+    // Per-mesh materials
+    struct MeshMaterialEntry {
+        std::string meshName;
+        std::string materialId;
+        glm::vec3 positionOffset = {0, 0, 0};
+        glm::vec3 rotationOffset = {0, 0, 0};  // euler degrees
+        float scaleMultiplier = 1.0f;
+        bool visible = true;
+    };
+    std::vector<MeshMaterialEntry> meshMaterials;
+
+    // Animations
+    std::vector<std::string> animationPaths;
+    std::string currentAnimation;
+    bool animLoop = true;
+    float animSpeed = 1.0f;
 };
 
 // ---- Sound emitter data ----
@@ -62,8 +99,8 @@ public:
     // Non-terrain data
     std::vector<EditorLight>& GetLights() { m_Modified = true; return m_Lights; }
     const std::vector<EditorLight>& GetLights() const { return m_Lights; }
-    std::vector<ChunkStaticObject>& GetObjects() { m_Modified = true; return m_Objects; }
-    const std::vector<ChunkStaticObject>& GetObjects() const { return m_Objects; }
+    std::vector<ChunkObject>& GetObjects() { m_Modified = true; return m_Objects; }
+    const std::vector<ChunkObject>& GetObjects() const { return m_Objects; }
     std::vector<SoundEmitter>& GetSounds() { m_Modified = true; return m_Sounds; }
     const std::vector<SoundEmitter>& GetSounds() const { return m_Sounds; }
 
@@ -88,10 +125,11 @@ public:
 private:
     int32_t m_ChunkX, m_ChunkZ;
     bool m_Modified = false;
+    uint32_t m_LoadedVersion = 0;  // File version during Load()
 
     std::unique_ptr<TerrainChunk> m_Terrain;
     std::vector<EditorLight> m_Lights;
-    std::vector<ChunkStaticObject> m_Objects;
+    std::vector<ChunkObject> m_Objects;
     std::vector<SoundEmitter> m_Sounds;
 
     // Section readers/writers

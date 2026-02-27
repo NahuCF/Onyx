@@ -1,7 +1,25 @@
 #include "WorldChunk.h"
+#include <Terrain/ChunkFileReader.h>
 #include <filesystem>
 
 namespace Editor3D {
+
+static constexpr uint32_t CHUNK_FORMAT_VERSION = 2;
+
+static void WriteString(std::ofstream& f, const std::string& s) {
+    uint16_t len = static_cast<uint16_t>(s.size());
+    f.write(reinterpret_cast<const char*>(&len), sizeof(len));
+    if (len > 0) f.write(s.data(), len);
+}
+
+static std::string ReadString(std::ifstream& f) {
+    uint16_t len = 0;
+    f.read(reinterpret_cast<char*>(&len), sizeof(len));
+    if (len == 0 || len > 4096) return {};
+    std::string s(len, '\0');
+    f.read(s.data(), len);
+    return s;
+}
 
 WorldChunk::WorldChunk(int32_t chunkX, int32_t chunkZ)
     : m_ChunkX(chunkX), m_ChunkZ(chunkZ)
@@ -44,6 +62,7 @@ void WorldChunk::Load(const std::string& filePath) {
 
     uint32_t version;
     file.read(reinterpret_cast<char*>(&version), sizeof(version));
+    m_LoadedVersion = version;
 
     uint32_t mapId;
     file.read(reinterpret_cast<char*>(&mapId), sizeof(mapId));
@@ -99,7 +118,7 @@ void WorldChunk::Save(const std::string& filePath) {
 
     // CHNK header
     uint32_t magic = CHNK_MAGIC;
-    uint32_t version = 1;
+    uint32_t version = CHUNK_FORMAT_VERSION;
     uint32_t mapId = 0; // TODO: pass from EditorWorldSystem
 
     file.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
@@ -130,32 +149,7 @@ void WorldChunk::Unload() {
 
 void WorldChunk::LoadTerrainSection(std::ifstream& file) {
     TerrainChunkData data;
-    data.chunkX = m_ChunkX;
-    data.chunkZ = m_ChunkZ;
-
-    data.heightmap.resize(CHUNK_HEIGHTMAP_SIZE);
-    file.read(reinterpret_cast<char*>(data.heightmap.data()),
-              CHUNK_HEIGHTMAP_SIZE * sizeof(float));
-
-    data.splatmap.resize(SPLATMAP_TEXELS * MAX_TERRAIN_LAYERS);
-    file.read(reinterpret_cast<char*>(data.splatmap.data()),
-              SPLATMAP_TEXELS * MAX_TERRAIN_LAYERS);
-
-    file.read(reinterpret_cast<char*>(&data.holeMask), sizeof(data.holeMask));
-    file.read(reinterpret_cast<char*>(&data.minHeight), sizeof(data.minHeight));
-    file.read(reinterpret_cast<char*>(&data.maxHeight), sizeof(data.maxHeight));
-
-    for (int i = 0; i < MAX_TERRAIN_LAYERS; i++) {
-        uint16_t len = 0;
-        file.read(reinterpret_cast<char*>(&len), sizeof(len));
-        if (len > 0 && len < 256) {
-            data.materialIds[i].resize(len);
-            file.read(data.materialIds[i].data(), len);
-        } else {
-            data.materialIds[i].clear();
-        }
-    }
-
+    MMO::ReadTerrainSection(file, data, m_ChunkX, m_ChunkZ);
     m_Terrain->LoadFromData(data);
 }
 
@@ -180,6 +174,9 @@ void WorldChunk::LoadLightsSection(std::ifstream& file) {
 }
 
 void WorldChunk::LoadObjectsSection(std::ifstream& file) {
+    // v1 OBJS format is incompatible — skip
+    if (m_LoadedVersion < 2) return;
+
     uint32_t count = 0;
     file.read(reinterpret_cast<char*>(&count), sizeof(count));
     if (count > 65536) return;
@@ -188,17 +185,57 @@ void WorldChunk::LoadObjectsSection(std::ifstream& file) {
     for (uint32_t i = 0; i < count; i++) {
         auto& obj = m_Objects[i];
 
-        uint16_t pathLen = 0;
-        file.read(reinterpret_cast<char*>(&pathLen), sizeof(pathLen));
-        if (pathLen > 0 && pathLen < 1024) {
-            obj.modelPath.resize(pathLen);
-            file.read(obj.modelPath.data(), pathLen);
-        }
-
+        // WorldObject base
+        file.read(reinterpret_cast<char*>(&obj.guid), sizeof(obj.guid));
+        obj.name = ReadString(file);
         file.read(reinterpret_cast<char*>(&obj.position), sizeof(obj.position));
         file.read(reinterpret_cast<char*>(&obj.rotation), sizeof(obj.rotation));
         file.read(reinterpret_cast<char*>(&obj.scale), sizeof(obj.scale));
-        file.read(reinterpret_cast<char*>(&obj.flags), sizeof(obj.flags));
+        file.read(reinterpret_cast<char*>(&obj.parentGuid), sizeof(obj.parentGuid));
+
+        // StaticObject
+        obj.modelPath = ReadString(file);
+        obj.materialId = ReadString(file);
+
+        // Collider
+        file.read(reinterpret_cast<char*>(&obj.colliderType), sizeof(obj.colliderType));
+        file.read(reinterpret_cast<char*>(&obj.colliderCenter), sizeof(obj.colliderCenter));
+        file.read(reinterpret_cast<char*>(&obj.colliderHalfExtents), sizeof(obj.colliderHalfExtents));
+        file.read(reinterpret_cast<char*>(&obj.colliderRadius), sizeof(obj.colliderRadius));
+        file.read(reinterpret_cast<char*>(&obj.colliderHeight), sizeof(obj.colliderHeight));
+
+        // Rendering flags
+        uint8_t flags = 0;
+        file.read(reinterpret_cast<char*>(&flags), sizeof(flags));
+        obj.castsShadow = (flags & 0x01) != 0;
+        obj.receivesLightmap = (flags & 0x02) != 0;
+        file.read(reinterpret_cast<char*>(&obj.lightmapIndex), sizeof(obj.lightmapIndex));
+        file.read(reinterpret_cast<char*>(&obj.lightmapScaleOffset), sizeof(obj.lightmapScaleOffset));
+
+        // Mesh materials
+        uint16_t meshMatCount = 0;
+        file.read(reinterpret_cast<char*>(&meshMatCount), sizeof(meshMatCount));
+        obj.meshMaterials.resize(meshMatCount);
+        for (uint16_t m = 0; m < meshMatCount; m++) {
+            auto& mm = obj.meshMaterials[m];
+            mm.meshName = ReadString(file);
+            mm.materialId = ReadString(file);
+            file.read(reinterpret_cast<char*>(&mm.positionOffset), sizeof(mm.positionOffset));
+            file.read(reinterpret_cast<char*>(&mm.rotationOffset), sizeof(mm.rotationOffset));
+            file.read(reinterpret_cast<char*>(&mm.scaleMultiplier), sizeof(mm.scaleMultiplier));
+            file.read(reinterpret_cast<char*>(&mm.visible), sizeof(mm.visible));
+        }
+
+        // Animations
+        uint16_t animCount = 0;
+        file.read(reinterpret_cast<char*>(&animCount), sizeof(animCount));
+        obj.animationPaths.resize(animCount);
+        for (uint16_t a = 0; a < animCount; a++) {
+            obj.animationPaths[a] = ReadString(file);
+        }
+        obj.currentAnimation = ReadString(file);
+        file.read(reinterpret_cast<char*>(&obj.animLoop), sizeof(obj.animLoop));
+        file.read(reinterpret_cast<char*>(&obj.animSpeed), sizeof(obj.animSpeed));
     }
 }
 
@@ -304,14 +341,54 @@ void WorldChunk::SaveObjectsSection(std::ofstream& file) {
     uint32_t count = static_cast<uint32_t>(m_Objects.size());
     file.write(reinterpret_cast<const char*>(&count), sizeof(count));
     for (const auto& obj : m_Objects) {
-        uint16_t pathLen = static_cast<uint16_t>(obj.modelPath.size());
-        file.write(reinterpret_cast<const char*>(&pathLen), sizeof(pathLen));
-        if (pathLen > 0) file.write(obj.modelPath.data(), pathLen);
-
+        // WorldObject base
+        file.write(reinterpret_cast<const char*>(&obj.guid), sizeof(obj.guid));
+        WriteString(file, obj.name);
         file.write(reinterpret_cast<const char*>(&obj.position), sizeof(obj.position));
         file.write(reinterpret_cast<const char*>(&obj.rotation), sizeof(obj.rotation));
         file.write(reinterpret_cast<const char*>(&obj.scale), sizeof(obj.scale));
-        file.write(reinterpret_cast<const char*>(&obj.flags), sizeof(obj.flags));
+        file.write(reinterpret_cast<const char*>(&obj.parentGuid), sizeof(obj.parentGuid));
+
+        // StaticObject
+        WriteString(file, obj.modelPath);
+        WriteString(file, obj.materialId);
+
+        // Collider
+        file.write(reinterpret_cast<const char*>(&obj.colliderType), sizeof(obj.colliderType));
+        file.write(reinterpret_cast<const char*>(&obj.colliderCenter), sizeof(obj.colliderCenter));
+        file.write(reinterpret_cast<const char*>(&obj.colliderHalfExtents), sizeof(obj.colliderHalfExtents));
+        file.write(reinterpret_cast<const char*>(&obj.colliderRadius), sizeof(obj.colliderRadius));
+        file.write(reinterpret_cast<const char*>(&obj.colliderHeight), sizeof(obj.colliderHeight));
+
+        // Rendering flags
+        uint8_t flags = 0;
+        if (obj.castsShadow)      flags |= 0x01;
+        if (obj.receivesLightmap) flags |= 0x02;
+        file.write(reinterpret_cast<const char*>(&flags), sizeof(flags));
+        file.write(reinterpret_cast<const char*>(&obj.lightmapIndex), sizeof(obj.lightmapIndex));
+        file.write(reinterpret_cast<const char*>(&obj.lightmapScaleOffset), sizeof(obj.lightmapScaleOffset));
+
+        // Mesh materials
+        uint16_t meshMatCount = static_cast<uint16_t>(obj.meshMaterials.size());
+        file.write(reinterpret_cast<const char*>(&meshMatCount), sizeof(meshMatCount));
+        for (const auto& mm : obj.meshMaterials) {
+            WriteString(file, mm.meshName);
+            WriteString(file, mm.materialId);
+            file.write(reinterpret_cast<const char*>(&mm.positionOffset), sizeof(mm.positionOffset));
+            file.write(reinterpret_cast<const char*>(&mm.rotationOffset), sizeof(mm.rotationOffset));
+            file.write(reinterpret_cast<const char*>(&mm.scaleMultiplier), sizeof(mm.scaleMultiplier));
+            file.write(reinterpret_cast<const char*>(&mm.visible), sizeof(mm.visible));
+        }
+
+        // Animations
+        uint16_t animCount = static_cast<uint16_t>(obj.animationPaths.size());
+        file.write(reinterpret_cast<const char*>(&animCount), sizeof(animCount));
+        for (const auto& path : obj.animationPaths) {
+            WriteString(file, path);
+        }
+        WriteString(file, obj.currentAnimation);
+        file.write(reinterpret_cast<const char*>(&obj.animLoop), sizeof(obj.animLoop));
+        file.write(reinterpret_cast<const char*>(&obj.animSpeed), sizeof(obj.animSpeed));
     }
 
     auto dataEnd = file.tellp();

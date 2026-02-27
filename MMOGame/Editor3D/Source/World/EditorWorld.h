@@ -164,8 +164,14 @@ public:
     void SetSelectedMeshName(const std::string& name) { m_SelectedMeshName = name; }
     const std::string& GetSelectedMeshName() const { return m_SelectedMeshName; }
 
-    // Add an already-created object to the world (used for paste)
+    // Add an already-created object to the world (used for paste and chunk loading)
     WorldObject* AddObject(std::unique_ptr<WorldObject> object);
+
+    // Ensure GUID counter is above the given value (for loading objects with saved GUIDs)
+    void EnsureGuidAbove(uint64_t guid) { if (guid >= m_NextGuid) m_NextGuid = guid + 1; }
+
+    // Callback invoked after an object is deleted (for cache cleanup)
+    void SetOnObjectDeleted(std::function<void(uint64_t)> callback) { m_OnObjectDeleted = std::move(callback); }
 
 private:
     uint64_t GenerateGuid();
@@ -214,6 +220,9 @@ private:
     MeshMaterial m_MeshClipboard;
     bool m_HasMeshClipboard = false;
     std::string m_SelectedMeshName;  // Currently selected mesh name within model
+
+    // Deletion callback
+    std::function<void(uint64_t)> m_OnObjectDeleted;
 };
 
 } // namespace MMO
