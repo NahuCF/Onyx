@@ -60,6 +60,15 @@ namespace Onyx {
 		glBufferSubData(GL_ARRAY_BUFFER, offset, sizeBytes, data);
 	}
 
+	IndexBuffer::IndexBuffer(uint32_t sizeBytes)
+		: m_Count(0)
+	{
+		glGenBuffers(1, &m_BufferID);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_BufferID);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeBytes, nullptr, GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	}
+
 	IndexBuffer::IndexBuffer(uint32_t* indices, uint32_t sizeBytes)
 		: m_Count(sizeBytes / sizeof(uint32_t))
 	{
@@ -98,6 +107,12 @@ namespace Onyx {
 		m_Count = sizeBytes / sizeof(uint32_t);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_BufferID);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeBytes, data, GL_STATIC_DRAW);
+	}
+
+	void IndexBuffer::SetSubData(const void* data, uint32_t offset, uint32_t sizeBytes)
+	{
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_BufferID);
+		glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, offset, sizeBytes, data);
 	}
 
 	VertexArray::VertexArray()

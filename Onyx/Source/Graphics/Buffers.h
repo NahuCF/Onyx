@@ -24,13 +24,14 @@ namespace Onyx {
 		uint32_t GetBufferID() const { return m_BufferID; }
 
 	private:
-		uint32_t m_BufferID;
-		uint32_t m_BufferCount;
+		uint32_t m_BufferID = 0;
+		uint32_t m_BufferCount = 0;
 	};
 
 	class IndexBuffer
 	{
 	public:
+		IndexBuffer(uint32_t sizeBytes);  // Pre-allocate with no data
 		IndexBuffer(uint32_t* indices, uint32_t sizeBytes);
 		IndexBuffer(const void* data, uint32_t sizeBytes);
 
@@ -40,13 +41,15 @@ namespace Onyx {
 		void UnBind() const;
 
 		void SetData(const void* data, uint32_t sizeBytes);
+		void SetSubData(const void* data, uint32_t offset, uint32_t sizeBytes);
+		void SetCount(uint32_t count) { m_Count = count; }
 
 		uint32_t GetCount() const { return m_Count; }
 		uint32_t GetBufferID() const { return m_BufferID; }
 
 	private:
-		uint32_t m_BufferID;
-		uint32_t m_Count;
+		uint32_t m_BufferID = 0;
+		uint32_t m_Count = 0;
 	};
 
 	class VertexArray
