@@ -53,6 +53,8 @@ void SceneRenderer::Begin(const glm::mat4& view, const glm::mat4& projection, co
     m_PointLights.clear();
     m_SpotLights.clear();
     m_Stats = {};
+    m_SkinnedBatchesDirty = true;
+    m_BuiltSkinnedBatches.clear();
 }
 
 void SceneRenderer::SetDirectionalLight(const DirectionalLight& light) { m_DirLight = light; }
@@ -130,7 +132,6 @@ void SceneRenderer::RenderShadows(ShadowCasterCallback extraShadows) {
 }
 
 void SceneRenderer::RenderBatches() {
-    m_Stats = {};
     RenderStaticPass();
     RenderSkinnedPass();
 }
@@ -179,16 +180,24 @@ void SceneRenderer::UploadShadowUniforms(Shader* shader, int shadowTextureSlot) 
     }
 }
 
+const std::unordered_map<uint64_t, SceneRenderer::SkinnedBatch>& SceneRenderer::GetOrBuildSkinnedBatches() {
+    if (m_SkinnedBatchesDirty) {
+        m_BuiltSkinnedBatches.clear();
+        if (!m_SkinnedQueue.empty()) {
+            BuildSkinnedBatches(m_BuiltSkinnedBatches);
+        }
+        m_SkinnedBatchesDirty = false;
+    }
+    return m_BuiltSkinnedBatches;
+}
+
 void SceneRenderer::RenderShadowPass(const ShadowCasterCallback& extraShadows) {
     m_CSM->ClearAll();
     RenderCommand::EnableDepthTest();
     RenderCommand::DisableCulling();
     RenderCommand::EnablePolygonOffset(4.0f, 4.0f);
 
-    std::unordered_map<uint64_t, SkinnedBatch> skinnedBatches;
-    if (!m_SkinnedQueue.empty()) {
-        BuildSkinnedBatches(skinnedBatches);
-    }
+    const auto& skinnedBatches = GetOrBuildSkinnedBatches();
 
     // Reusable scratch vectors — avoid per-batch heap allocation
     std::vector<StaticDrawData> culledData;
@@ -232,7 +241,7 @@ void SceneRenderer::RenderShadowPass(const ShadowCasterCallback& extraShadows) {
             m_SkinnedShadowShader->Bind();
             m_SkinnedShadowShader->SetMat4("u_LightSpaceMatrix", lightSpaceMat);
 
-            for (auto& [key, batch] : skinnedBatches) {
+            for (const auto& [key, batch] : skinnedBatches) {
                 m_BoneSSBO->Upload(batch.packedBones.data(),
                     batch.packedBones.size() * sizeof(glm::mat4), 1);
                 m_SkinnedSSBO->Upload(batch.drawData.data(),
@@ -327,8 +336,7 @@ void SceneRenderer::RenderStaticPass() {
 void SceneRenderer::RenderSkinnedPass() {
     if (m_SkinnedQueue.empty()) return;
 
-    std::unordered_map<uint64_t, SkinnedBatch> skinnedBatches;
-    BuildSkinnedBatches(skinnedBatches);
+    const auto& skinnedBatches = GetOrBuildSkinnedBatches();
 
     m_SkinnedBatchedShader->Bind();
     m_SkinnedBatchedShader->SetMat4("u_View", m_View);
@@ -340,7 +348,7 @@ void SceneRenderer::RenderSkinnedPass() {
     UploadLightUniforms(m_SkinnedBatchedShader.get());
     UploadShadowUniforms(m_SkinnedBatchedShader.get());
 
-    for (auto& [key, batch] : skinnedBatches) {
+    for (const auto& [key, batch] : skinnedBatches) {
         Texture* albedo = m_AssetManager->ResolveTexture(batch.albedoPath);
         Texture* normal = m_AssetManager->ResolveTexture(batch.normalPath);
 

@@ -150,6 +150,7 @@ private:
     void RenderSkinnedPass();
 
     void BuildSkinnedBatches(std::unordered_map<uint64_t, SkinnedBatch>& out) const;
+    const std::unordered_map<uint64_t, SkinnedBatch>& GetOrBuildSkinnedBatches();
 
     static void TransformAABB(const glm::vec3& localMin, const glm::vec3& localMax,
                               const glm::mat4& transform,
@@ -192,6 +193,9 @@ private:
 
     std::unordered_map<uint64_t, StaticBatch> m_StaticBatches;
     std::vector<SkinnedSubmission> m_SkinnedQueue;
+
+    std::unordered_map<uint64_t, SkinnedBatch> m_BuiltSkinnedBatches;
+    bool m_SkinnedBatchesDirty = true;
 
     RenderStats m_Stats;
 };
