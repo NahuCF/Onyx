@@ -1,6 +1,7 @@
 #include "Model.h"
 
 #include <iostream>
+#include <functional>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -58,6 +59,141 @@ namespace Onyx {
 
     Model::~Model() = default;
 
+    // Construct from pre-parsed CPU data — defers per-mesh GL to first DrawGeometryOnly() call.
+    // Only BuildMergedBuffers() (called after this) creates GL resources immediately.
+    Model::Model(std::vector<CpuMeshData>&& meshData, const std::string& directory)
+        : m_Directory(directory), m_LoadTextures(false)
+    {
+        for (auto& cpuMesh : meshData) {
+            // Resolve texture IDs on main thread if paths were stored
+            for (auto& tex : cpuMesh.texturePaths) {
+                if (tex.id == 0 && !tex.path.empty()) {
+                    tex.id = TextureFromFile(tex.path.c_str(), m_Directory);
+                }
+            }
+            // deferGPU=true: skip SetupMesh(), GL created lazily on first Draw call
+            m_Meshes.emplace_back(std::move(cpuMesh.vertices), std::move(cpuMesh.indices),
+                                  std::move(cpuMesh.texturePaths), cpuMesh.name, true);
+        }
+    }
+
+    // Lightweight: creates bounds-only Mesh objects for async staged upload.
+    // No vertex data stored — MergedBuffers will be set separately by AssetManager.
+    Model::Model(const std::string& directory, const std::vector<MeshBoundsInfo>& meshBounds)
+        : m_Directory(directory), m_LoadTextures(false)
+    {
+        m_Meshes.reserve(meshBounds.size());
+        for (const auto& mb : meshBounds) {
+            m_Meshes.emplace_back(mb.name, mb.boundsMin, mb.boundsMax);
+        }
+    }
+
+    // Static: parse model file into CPU-only data (no GL calls, thread-safe)
+    std::vector<CpuMeshData> Model::ParseFromFile(const std::string& path, std::string& outDirectory, bool loadTexturePaths)
+    {
+        std::vector<CpuMeshData> result;
+
+        Assimp::Importer import;
+        const aiScene* scene = import.ReadFile(path,
+            aiProcess_Triangulate |
+            aiProcess_GenSmoothNormals |
+            aiProcess_CalcTangentSpace);
+
+        if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+            std::cout << "ERROR::ASSIMP::ParseFromFile: Failed to load: " << path << std::endl;
+            if (scene)
+                std::cout << "  Reason: " << import.GetErrorString() << std::endl;
+            return result;
+        }
+
+        outDirectory = path.substr(0, path.find_last_of('/'));
+
+        // Recursive lambda to traverse node hierarchy
+        std::function<void(aiNode*, const glm::mat4&)> processNode =
+            [&](aiNode* node, const glm::mat4& parentTransform) {
+            glm::mat4 nodeTransform = AiMatrixToGlm(node->mTransformation);
+            glm::mat4 globalTransform = parentTransform * nodeTransform;
+
+            for (unsigned int i = 0; i < node->mNumMeshes; i++) {
+                aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+                std::string meshName = mesh->mName.C_Str();
+                std::string nodeName = node->mName.C_Str();
+                if (meshName.empty() || meshName.find("Mesh") == 0) {
+                    meshName = nodeName;
+                }
+
+                CpuMeshData cpuMesh;
+                cpuMesh.name = meshName;
+
+                glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(globalTransform)));
+
+                for (unsigned int v = 0; v < mesh->mNumVertices; v++) {
+                    MeshVertex vertex;
+                    glm::vec3 localPos(mesh->mVertices[v].x, mesh->mVertices[v].y, mesh->mVertices[v].z);
+                    glm::vec4 transformedPos = globalTransform * glm::vec4(localPos, 1.0f);
+                    vertex.position = glm::vec3(transformedPos);
+
+                    if (mesh->HasNormals()) {
+                        glm::vec3 localNormal(mesh->mNormals[v].x, mesh->mNormals[v].y, mesh->mNormals[v].z);
+                        vertex.normal = glm::normalize(normalMatrix * localNormal);
+                    }
+
+                    if (mesh->mTextureCoords[0]) {
+                        vertex.texCoord = glm::vec2(mesh->mTextureCoords[0][v].x, mesh->mTextureCoords[0][v].y);
+                    } else {
+                        vertex.texCoord = glm::vec2(0.0f);
+                    }
+
+                    if (mesh->HasTangentsAndBitangents()) {
+                        glm::vec3 localTangent(mesh->mTangents[v].x, mesh->mTangents[v].y, mesh->mTangents[v].z);
+                        glm::vec3 localBitangent(mesh->mBitangents[v].x, mesh->mBitangents[v].y, mesh->mBitangents[v].z);
+                        vertex.tangent = glm::normalize(normalMatrix * localTangent);
+                        vertex.bitangent = glm::normalize(normalMatrix * localBitangent);
+                    } else {
+                        vertex.tangent = glm::vec3(0.0f);
+                        vertex.bitangent = glm::vec3(0.0f);
+                    }
+
+                    cpuMesh.vertices.push_back(vertex);
+                }
+
+                for (unsigned int f = 0; f < mesh->mNumFaces; f++) {
+                    aiFace& face = mesh->mFaces[f];
+                    for (unsigned int j = 0; j < face.mNumIndices; j++)
+                        cpuMesh.indices.push_back(face.mIndices[j]);
+                }
+
+                if (loadTexturePaths) {
+                    aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+                    auto loadPaths = [&](aiTextureType type, const std::string& typeName) {
+                        for (unsigned int t = 0; t < material->GetTextureCount(type); t++) {
+                            aiString str;
+                            material->GetTexture(type, t, &str);
+                            MeshTexture tex;
+                            tex.id = 0; // no GL texture yet
+                            tex.type = typeName;
+                            tex.path = str.C_Str();
+                            cpuMesh.texturePaths.push_back(tex);
+                        }
+                    };
+                    loadPaths(aiTextureType_DIFFUSE, "texture_diffuse");
+                    loadPaths(aiTextureType_SPECULAR, "texture_specular");
+                    loadPaths(aiTextureType_HEIGHT, "texture_normal");
+                    loadPaths(aiTextureType_AMBIENT, "texture_height");
+                }
+
+                result.push_back(std::move(cpuMesh));
+            }
+
+            for (unsigned int i = 0; i < node->mNumChildren; i++) {
+                processNode(node->mChildren[i], globalTransform);
+            }
+        };
+
+        processNode(scene->mRootNode, glm::mat4(1.0f));
+        return result;
+    }
+
     void Model::BuildMergedBuffers()
     {
         if (m_Meshes.empty() || m_Merged.vao != nullptr) return;
@@ -110,14 +246,7 @@ namespace Onyx {
 
         m_Merged.vao = std::make_unique<VertexArray>();
 
-        // Same 5-attribute vertex layout as Mesh::SetupMesh()
-        VertexLayout layout;
-        layout.PushFloat(3);  // Position
-        layout.PushFloat(3);  // Normal
-        layout.PushFloat(2);  // TexCoord
-        layout.PushFloat(3);  // Tangent
-        layout.PushFloat(3);  // Bitangent
-
+        auto layout = MeshVertex::GetLayout();
         m_Merged.vao->SetVertexBuffer(m_Merged.vbo.get());
         m_Merged.vao->SetIndexBuffer(m_Merged.ebo.get());
         m_Merged.vao->SetLayout(layout);
@@ -127,6 +256,38 @@ namespace Onyx {
     {
         for(unsigned int i = 0; i < m_Meshes.size(); i++)
             m_Meshes[i].Draw(shader);
+    }
+
+    void Model::DrawMergedMesh(size_t meshIndex) const {
+        if (!HasMergedBuffers()) return;
+        const auto& merged = m_Merged;
+        if (meshIndex >= merged.meshInfos.size()) return;
+
+        const auto& info = merged.meshInfos[meshIndex];
+        merged.vao->Bind();
+        glDrawElementsBaseVertex(
+            GL_TRIANGLES,
+            static_cast<GLsizei>(info.indexCount),
+            GL_UNSIGNED_INT,
+            reinterpret_cast<void*>(static_cast<uintptr_t>(info.firstIndex * sizeof(uint32_t))),
+            info.baseVertex);
+        merged.vao->UnBind();
+    }
+
+    void Model::DrawAllMergedMeshes() const {
+        if (!HasMergedBuffers()) return;
+        const auto& merged = m_Merged;
+
+        merged.vao->Bind();
+        for (const auto& info : merged.meshInfos) {
+            glDrawElementsBaseVertex(
+                GL_TRIANGLES,
+                static_cast<GLsizei>(info.indexCount),
+                GL_UNSIGNED_INT,
+                reinterpret_cast<void*>(static_cast<uintptr_t>(info.firstIndex * sizeof(uint32_t))),
+                info.baseVertex);
+        }
+        merged.vao->UnBind();
     }
 
     void Onyx::Model::ProcessNode(aiNode *node, const aiScene *scene, const glm::mat4& parentTransform)
@@ -271,12 +432,13 @@ namespace Onyx {
             }
 
             if(!skip)
-            {  
+            {
                 MeshTexture texture;
                 texture.id = TextureFromFile(str.C_Str(), m_Directory);
                 texture.type = typeName;
                 texture.path = str.C_Str();
                 m_UsedTextures.push_back(texture);
+                textures.push_back(texture);
             }
         }
 
@@ -317,6 +479,8 @@ namespace Onyx {
         {
             std::cout << "Texture failed to load at path: " << path << std::endl;
             stbi_image_free(data);
+            glDeleteTextures(1, &textureID);
+            return 0;
         }
 
         return textureID;

@@ -30,6 +30,19 @@ namespace Onyx {
         std::vector<MergedMeshInfo> meshInfos;
     };
 
+    struct CpuMeshData {
+        std::vector<MeshVertex> vertices;
+        std::vector<uint32_t> indices;
+        std::vector<MeshTexture> texturePaths;  // paths stored, id=0 (no GL texture yet)
+        std::string name;
+    };
+
+    struct MeshBoundsInfo {
+        std::string name;
+        glm::vec3 boundsMin{0.0f};
+        glm::vec3 boundsMax{0.0f};
+    };
+
     class Model
     {
     public:
@@ -38,16 +51,32 @@ namespace Onyx {
         {
             LoadModel(path);
         }
+
+        // Construct from pre-parsed CPU data (GPU upload only — must be called on main thread)
+        Model(std::vector<CpuMeshData>&& meshData, const std::string& directory);
+
+        // Lightweight constructor for async staged upload — creates bounds-only Mesh objects.
+        // No vertex data stored, no ComputeBounds iteration. MergedBuffers set separately.
+        Model(const std::string& directory, const std::vector<MeshBoundsInfo>& meshBounds);
+
         ~Model();
 
         void Draw(Onyx::Shader &shader);
+
+        // Draw a single mesh via merged buffers (non-batched, for picking/wireframe)
+        void DrawMergedMesh(size_t meshIndex) const;
+        // Draw all meshes via merged buffers (non-batched, for spawn rendering)
+        void DrawAllMergedMeshes() const;
 
         std::vector<Mesh>& GetMeshes() { return m_Meshes; }
         const std::vector<Mesh>& GetMeshes() const { return m_Meshes; }
 
         void BuildMergedBuffers();
+        void SetMergedBuffers(MergedBuffers&& merged) { m_Merged = std::move(merged); }
         const MergedBuffers& GetMergedBuffers() const { return m_Merged; }
         bool HasMergedBuffers() const { return m_Merged.vao != nullptr; }
+
+        static std::vector<CpuMeshData> ParseFromFile(const std::string& path, std::string& outDirectory, bool loadTexturePaths = true);
 
     private:
         void LoadModel(std::string path);
