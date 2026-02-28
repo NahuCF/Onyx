@@ -1,4 +1,5 @@
 #include "EditorTerrainSystem.h"
+#include <Terrain/ChunkIO.h>
 #include <World/WorldObjectData.h>
 #include <algorithm>
 #include <cmath>
@@ -844,8 +845,8 @@ void EditorTerrainSystem::SaveChunkToDisk(TerrainChunk* chunk) {
 
     m_KnownChunkFiles.insert(MakeChunkKey(chunk->GetChunkX(), chunk->GetChunkZ()));
 
-    uint32_t magic = 0x54455252;
-    uint32_t version = 4;
+    uint32_t magic = MMO::TERR_TAG;
+    uint32_t version = MMO::TERRAIN_FORMAT_VERSION;
     file.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
     file.write(reinterpret_cast<const char*>(&version), sizeof(version));
     file.write(reinterpret_cast<const char*>(&data.chunkX), sizeof(data.chunkX));
@@ -863,27 +864,7 @@ void EditorTerrainSystem::SaveChunkToDisk(TerrainChunk* chunk) {
     file.write(reinterpret_cast<const char*>(&data.maxHeight), sizeof(data.maxHeight));
 
     for (int i = 0; i < MAX_TERRAIN_LAYERS; i++) {
-        uint16_t len = static_cast<uint16_t>(data.materialIds[i].size());
-        file.write(reinterpret_cast<const char*>(&len), sizeof(len));
-        if (len > 0) {
-            file.write(data.materialIds[i].data(), len);
-        }
-    }
-
-    // Version 4: write lights
-    uint32_t lightCount = static_cast<uint32_t>(data.lights.size());
-    file.write(reinterpret_cast<const char*>(&lightCount), sizeof(lightCount));
-    for (uint32_t i = 0; i < lightCount; i++) {
-        const auto& light = data.lights[i];
-        file.write(reinterpret_cast<const char*>(&light.type), sizeof(light.type));
-        file.write(reinterpret_cast<const char*>(&light.position), sizeof(light.position));
-        file.write(reinterpret_cast<const char*>(&light.direction), sizeof(light.direction));
-        file.write(reinterpret_cast<const char*>(&light.color), sizeof(light.color));
-        file.write(reinterpret_cast<const char*>(&light.intensity), sizeof(light.intensity));
-        file.write(reinterpret_cast<const char*>(&light.range), sizeof(light.range));
-        file.write(reinterpret_cast<const char*>(&light.innerAngle), sizeof(light.innerAngle));
-        file.write(reinterpret_cast<const char*>(&light.outerAngle), sizeof(light.outerAngle));
-        file.write(reinterpret_cast<const char*>(&light.castShadows), sizeof(light.castShadows));
+        MMO::WriteString(file, data.materialIds[i]);
     }
 
     file.close();

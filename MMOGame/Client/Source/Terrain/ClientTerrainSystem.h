@@ -1,7 +1,8 @@
 #pragma once
 
-#include "../../../Shared/Source/Terrain/TerrainData.h"
-#include "../../../Shared/Source/Terrain/ChunkFileReader.h"
+#include <Terrain/TerrainData.h>
+#include <Terrain/ChunkFileReader.h>
+#include <Terrain/TerrainMeshGenerator.h>
 #include <Onyx.h>
 #include <glm/glm.hpp>
 #include <unordered_map>

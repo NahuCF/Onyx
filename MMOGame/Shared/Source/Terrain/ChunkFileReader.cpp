@@ -1,14 +1,9 @@
 #include "ChunkFileReader.h"
+#include "ChunkIO.h"
 #include <fstream>
 #include <iostream>
 
 namespace MMO {
-
-static constexpr uint32_t CHNK_MAGIC = 0x43484E4B;
-static constexpr uint32_t TERR_TAG   = 0x54455252;
-static constexpr uint32_t LGHT_TAG   = 0x4C474854;
-static constexpr uint32_t OBJS_TAG   = 0x4F424A53;
-static constexpr uint32_t SNDS_TAG   = 0x534E4453;
 
 void ReadTerrainSection(std::ifstream& file, TerrainChunkData& data, int32_t chunkX, int32_t chunkZ) {
     data.chunkX = chunkX;
@@ -27,21 +22,14 @@ void ReadTerrainSection(std::ifstream& file, TerrainChunkData& data, int32_t chu
     file.read(reinterpret_cast<char*>(&data.maxHeight), sizeof(data.maxHeight));
 
     for (int i = 0; i < TERRAIN_MAX_LAYERS; i++) {
-        uint16_t len = 0;
-        file.read(reinterpret_cast<char*>(&len), sizeof(len));
-        if (len > 0 && len < 256) {
-            data.materialIds[i].resize(len);
-            file.read(data.materialIds[i].data(), len);
-        } else {
-            data.materialIds[i].clear();
-        }
+        data.materialIds[i] = ReadString(file);
     }
 }
 
 static void ReadLightsSection(std::ifstream& file, std::vector<ChunkLightData>& lights) {
     uint32_t count = 0;
     file.read(reinterpret_cast<char*>(&count), sizeof(count));
-    if (count > 4096) return;
+    if (count > MAX_LIGHTS_PER_CHUNK) return;
 
     lights.resize(count);
     for (uint32_t i = 0; i < count; i++) {
@@ -61,18 +49,12 @@ static void ReadLightsSection(std::ifstream& file, std::vector<ChunkLightData>& 
 static void ReadObjectsSection(std::ifstream& file, std::vector<ChunkObjectData>& objects) {
     uint32_t count = 0;
     file.read(reinterpret_cast<char*>(&count), sizeof(count));
-    if (count > 65536) return;
+    if (count > MAX_OBJECTS_PER_CHUNK) return;
 
     objects.resize(count);
     for (uint32_t i = 0; i < count; i++) {
         auto& obj = objects[i];
-
-        uint16_t pathLen = 0;
-        file.read(reinterpret_cast<char*>(&pathLen), sizeof(pathLen));
-        if (pathLen > 0 && pathLen < 1024) {
-            obj.modelPath.resize(pathLen);
-            file.read(obj.modelPath.data(), pathLen);
-        }
+        obj.modelPath = ReadString(file);
 
         file.read(reinterpret_cast<char*>(&obj.position), sizeof(obj.position));
         file.read(reinterpret_cast<char*>(&obj.rotation), sizeof(obj.rotation));
@@ -93,6 +75,10 @@ bool LoadChunkFile(const std::string& path, ChunkFileData& out) {
 
     uint32_t version;
     file.read(reinterpret_cast<char*>(&version), sizeof(version));
+    if (version != CHUNK_FORMAT_VERSION) {
+        std::cerr << "ChunkFileReader: unexpected CHNK version " << version
+                  << " (expected " << CHUNK_FORMAT_VERSION << ") in " << path << "\n";
+    }
 
     file.read(reinterpret_cast<char*>(&out.mapId), sizeof(out.mapId));
 

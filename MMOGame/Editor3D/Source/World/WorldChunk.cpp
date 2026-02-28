@@ -1,25 +1,12 @@
 #include "WorldChunk.h"
 #include <Terrain/ChunkFileReader.h>
+#include <Terrain/ChunkIO.h>
 #include <filesystem>
 
+using MMO::WriteString;
+using MMO::ReadString;
+
 namespace Editor3D {
-
-static constexpr uint32_t CHUNK_FORMAT_VERSION = 2;
-
-static void WriteString(std::ofstream& f, const std::string& s) {
-    uint16_t len = static_cast<uint16_t>(s.size());
-    f.write(reinterpret_cast<const char*>(&len), sizeof(len));
-    if (len > 0) f.write(s.data(), len);
-}
-
-static std::string ReadString(std::ifstream& f) {
-    uint16_t len = 0;
-    f.read(reinterpret_cast<char*>(&len), sizeof(len));
-    if (len == 0 || len > 4096) return {};
-    std::string s(len, '\0');
-    f.read(s.data(), len);
-    return s;
-}
 
 WorldChunk::WorldChunk(int32_t chunkX, int32_t chunkZ)
     : m_ChunkX(chunkX), m_ChunkZ(chunkZ)
@@ -55,7 +42,7 @@ void WorldChunk::Load(const std::string& filePath) {
     // Read and validate CHNK header
     uint32_t magic;
     file.read(reinterpret_cast<char*>(&magic), sizeof(magic));
-    if (magic != CHNK_MAGIC) {
+    if (magic != MMO::CHNK_MAGIC) {
         file.close();
         return;
     }
@@ -85,10 +72,10 @@ void WorldChunk::Load(const std::string& filePath) {
         auto sectionStart = file.tellg();
 
         switch (sectionType) {
-            case TERR_TAG:  LoadTerrainSection(file); break;
-            case LGHT_TAG:  LoadLightsSection(file);  break;
-            case OBJS_TAG:  LoadObjectsSection(file); break;
-            case SNDS_TAG:  LoadSoundsSection(file);  break;
+            case MMO::TERR_TAG:  LoadTerrainSection(file); break;
+            case MMO::LGHT_TAG:  LoadLightsSection(file);  break;
+            case MMO::OBJS_TAG:  LoadObjectsSection(file); break;
+            case MMO::SNDS_TAG:  LoadSoundsSection(file);  break;
             default: break; // Unknown section — skip
         }
 
@@ -117,8 +104,8 @@ void WorldChunk::Save(const std::string& filePath) {
     if (!m_Sounds.empty()) sectionCount++;
 
     // CHNK header
-    uint32_t magic = CHNK_MAGIC;
-    uint32_t version = CHUNK_FORMAT_VERSION;
+    uint32_t magic = MMO::CHNK_MAGIC;
+    uint32_t version = MMO::CHUNK_FORMAT_VERSION;
     uint32_t mapId = 0; // TODO: pass from EditorWorldSystem
 
     file.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
@@ -156,7 +143,7 @@ void WorldChunk::LoadTerrainSection(std::ifstream& file) {
 void WorldChunk::LoadLightsSection(std::ifstream& file) {
     uint32_t count = 0;
     file.read(reinterpret_cast<char*>(&count), sizeof(count));
-    if (count > 4096) return; // sanity limit
+    if (count > MMO::MAX_LIGHTS_PER_CHUNK) return;
 
     m_Lights.resize(count);
     for (uint32_t i = 0; i < count; i++) {
@@ -179,7 +166,7 @@ void WorldChunk::LoadObjectsSection(std::ifstream& file) {
 
     uint32_t count = 0;
     file.read(reinterpret_cast<char*>(&count), sizeof(count));
-    if (count > 65536) return;
+    if (count > MMO::MAX_OBJECTS_PER_CHUNK) return;
 
     m_Objects.resize(count);
     for (uint32_t i = 0; i < count; i++) {
@@ -242,19 +229,12 @@ void WorldChunk::LoadObjectsSection(std::ifstream& file) {
 void WorldChunk::LoadSoundsSection(std::ifstream& file) {
     uint32_t count = 0;
     file.read(reinterpret_cast<char*>(&count), sizeof(count));
-    if (count > 4096) return;
+    if (count > MMO::MAX_SOUNDS_PER_CHUNK) return;
 
     m_Sounds.resize(count);
     for (uint32_t i = 0; i < count; i++) {
         auto& snd = m_Sounds[i];
-
-        uint16_t pathLen = 0;
-        file.read(reinterpret_cast<char*>(&pathLen), sizeof(pathLen));
-        if (pathLen > 0 && pathLen < 1024) {
-            snd.soundPath.resize(pathLen);
-            file.read(snd.soundPath.data(), pathLen);
-        }
-
+        snd.soundPath = ReadString(file);
         file.read(reinterpret_cast<char*>(&snd.position), sizeof(snd.position));
         file.read(reinterpret_cast<char*>(&snd.volume), sizeof(snd.volume));
         file.read(reinterpret_cast<char*>(&snd.minRange), sizeof(snd.minRange));
@@ -267,14 +247,7 @@ void WorldChunk::LoadSoundsSection(std::ifstream& file) {
 
 void WorldChunk::SaveTerrainSection(std::ofstream& file) {
     const auto& data = m_Terrain->GetData();
-
-    uint32_t tag = TERR_TAG;
-    uint32_t size = 0; // placeholder
-    file.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
-    auto sizePos = file.tellp();
-    file.write(reinterpret_cast<const char*>(&size), sizeof(size));
-
-    auto dataStart = file.tellp();
+    MMO::SectionWriter section(file, MMO::TERR_TAG);
 
     file.write(reinterpret_cast<const char*>(data.heightmap.data()),
                CHUNK_HEIGHTMAP_SIZE * sizeof(float));
@@ -285,28 +258,12 @@ void WorldChunk::SaveTerrainSection(std::ofstream& file) {
     file.write(reinterpret_cast<const char*>(&data.maxHeight), sizeof(data.maxHeight));
 
     for (int i = 0; i < MAX_TERRAIN_LAYERS; i++) {
-        uint16_t len = static_cast<uint16_t>(data.materialIds[i].size());
-        file.write(reinterpret_cast<const char*>(&len), sizeof(len));
-        if (len > 0) {
-            file.write(data.materialIds[i].data(), len);
-        }
+        WriteString(file, data.materialIds[i]);
     }
-
-    auto dataEnd = file.tellp();
-    size = static_cast<uint32_t>(dataEnd - dataStart);
-    file.seekp(sizePos);
-    file.write(reinterpret_cast<const char*>(&size), sizeof(size));
-    file.seekp(dataEnd);
 }
 
 void WorldChunk::SaveLightsSection(std::ofstream& file) {
-    uint32_t tag = LGHT_TAG;
-    uint32_t size = 0;
-    file.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
-    auto sizePos = file.tellp();
-    file.write(reinterpret_cast<const char*>(&size), sizeof(size));
-
-    auto dataStart = file.tellp();
+    MMO::SectionWriter section(file, MMO::LGHT_TAG);
 
     uint32_t count = static_cast<uint32_t>(m_Lights.size());
     file.write(reinterpret_cast<const char*>(&count), sizeof(count));
@@ -321,22 +278,10 @@ void WorldChunk::SaveLightsSection(std::ofstream& file) {
         file.write(reinterpret_cast<const char*>(&light.outerAngle), sizeof(light.outerAngle));
         file.write(reinterpret_cast<const char*>(&light.castShadows), sizeof(light.castShadows));
     }
-
-    auto dataEnd = file.tellp();
-    size = static_cast<uint32_t>(dataEnd - dataStart);
-    file.seekp(sizePos);
-    file.write(reinterpret_cast<const char*>(&size), sizeof(size));
-    file.seekp(dataEnd);
 }
 
 void WorldChunk::SaveObjectsSection(std::ofstream& file) {
-    uint32_t tag = OBJS_TAG;
-    uint32_t size = 0;
-    file.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
-    auto sizePos = file.tellp();
-    file.write(reinterpret_cast<const char*>(&size), sizeof(size));
-
-    auto dataStart = file.tellp();
+    MMO::SectionWriter section(file, MMO::OBJS_TAG);
 
     uint32_t count = static_cast<uint32_t>(m_Objects.size());
     file.write(reinterpret_cast<const char*>(&count), sizeof(count));
@@ -390,42 +335,21 @@ void WorldChunk::SaveObjectsSection(std::ofstream& file) {
         file.write(reinterpret_cast<const char*>(&obj.animLoop), sizeof(obj.animLoop));
         file.write(reinterpret_cast<const char*>(&obj.animSpeed), sizeof(obj.animSpeed));
     }
-
-    auto dataEnd = file.tellp();
-    size = static_cast<uint32_t>(dataEnd - dataStart);
-    file.seekp(sizePos);
-    file.write(reinterpret_cast<const char*>(&size), sizeof(size));
-    file.seekp(dataEnd);
 }
 
 void WorldChunk::SaveSoundsSection(std::ofstream& file) {
-    uint32_t tag = SNDS_TAG;
-    uint32_t size = 0;
-    file.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
-    auto sizePos = file.tellp();
-    file.write(reinterpret_cast<const char*>(&size), sizeof(size));
-
-    auto dataStart = file.tellp();
+    MMO::SectionWriter section(file, MMO::SNDS_TAG);
 
     uint32_t count = static_cast<uint32_t>(m_Sounds.size());
     file.write(reinterpret_cast<const char*>(&count), sizeof(count));
     for (const auto& snd : m_Sounds) {
-        uint16_t pathLen = static_cast<uint16_t>(snd.soundPath.size());
-        file.write(reinterpret_cast<const char*>(&pathLen), sizeof(pathLen));
-        if (pathLen > 0) file.write(snd.soundPath.data(), pathLen);
-
+        WriteString(file, snd.soundPath);
         file.write(reinterpret_cast<const char*>(&snd.position), sizeof(snd.position));
         file.write(reinterpret_cast<const char*>(&snd.volume), sizeof(snd.volume));
         file.write(reinterpret_cast<const char*>(&snd.minRange), sizeof(snd.minRange));
         file.write(reinterpret_cast<const char*>(&snd.maxRange), sizeof(snd.maxRange));
         file.write(reinterpret_cast<const char*>(&snd.loop), sizeof(snd.loop));
     }
-
-    auto dataEnd = file.tellp();
-    size = static_cast<uint32_t>(dataEnd - dataStart);
-    file.seekp(sizePos);
-    file.write(reinterpret_cast<const char*>(&size), sizeof(size));
-    file.seekp(dataEnd);
 }
 
 } // namespace Editor3D

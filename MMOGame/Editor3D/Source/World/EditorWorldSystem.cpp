@@ -2,6 +2,8 @@
 #include "EditorWorld.h"
 #include <World/StaticObject.h>
 #include <World/WorldObjectData.h>
+#include <Core/Application.h>
+#include <Graphics/AssetManager.h>
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -13,6 +15,7 @@ using Shared::WorldToChunkZ;
 namespace Editor3D {
 
 EditorWorldSystem::EditorWorldSystem() {
+    m_MeshGenThread = std::thread(&EditorWorldSystem::MeshGenThreadFunc, this);
 }
 
 EditorWorldSystem::~EditorWorldSystem() {
@@ -44,12 +47,18 @@ void EditorWorldSystem::Init(const std::string& chunksDirectory) {
 }
 
 void EditorWorldSystem::Shutdown() {
+    // Stop background mesh generation thread
+    m_ShutdownMeshGen.store(true);
+    m_MeshGenCV.notify_one();
+    if (m_MeshGenThread.joinable()) m_MeshGenThread.join();
+
     SaveDirtyChunks();
     m_Chunks.clear();
     m_LoadQueue.clear();
     m_KnownChunkFiles.clear();
     m_MaterialLayerMap.clear();
     m_ObjectChunkMap.clear();
+    m_PreloadedChunkKeys.clear();
 }
 
 void EditorWorldSystem::Update(const glm::vec3& cameraPos, const glm::mat4& viewProj, float deltaTime) {
@@ -89,13 +98,18 @@ void EditorWorldSystem::Update(const glm::vec3& cameraPos, const glm::mat4& view
 
     ProcessLoadQueue();
     UnloadDistantChunks();
+    PreloadNearbyModels();
 
+    // Queue any Loaded chunks for background mesh generation
     for (auto& [key, chunk] : m_Chunks) {
         TerrainChunk* terrain = chunk->GetTerrain();
         if (terrain->GetState() == ChunkState::Loaded) {
-            terrain->CreateGPUResources();
+            QueueMeshGeneration(key, terrain, false);
         }
     }
+
+    // Upload ready meshes to GPU (fast — only GL calls, no CPU mesh work)
+    ProcessReadyMeshes();
 
     m_Stats.totalChunks = (int)m_Chunks.size();
     m_Stats.loadedChunks = 0;
@@ -103,7 +117,8 @@ void EditorWorldSystem::Update(const glm::vec3& cameraPos, const glm::mat4& view
     m_Stats.dirtyChunks = 0;
 
     for (auto& [key, chunk] : m_Chunks) {
-        if (chunk->GetTerrain()->GetState() == ChunkState::Active) {
+        auto state = chunk->GetTerrain()->GetState();
+        if (state == ChunkState::Active) {
             m_Stats.loadedChunks++;
             if (IsChunkVisible(chunk->GetChunkX(), chunk->GetChunkZ())) {
                 m_Stats.visibleChunks++;
@@ -122,6 +137,7 @@ void EditorWorldSystem::RenderTerrain(Shader* terrainShader, const glm::mat4& vi
     static const glm::mat4 identity(1.0f);
     terrainShader->SetMat4("u_Model", identity);
 
+    int dirtyRegens = 0;
     for (auto& [key, chunk] : m_Chunks) {
         TerrainChunk* terrain = chunk->GetTerrain();
         if (terrain->GetState() != ChunkState::Active) continue;
@@ -129,7 +145,13 @@ void EditorWorldSystem::RenderTerrain(Shader* terrainShader, const glm::mat4& vi
             if (perChunkSetup) {
                 perChunkSetup(terrain, terrainShader);
             }
-            terrain->Draw(terrainShader);
+            // Throttle dirty mesh regeneration to max 2 per frame
+            bool allowRegen = true;
+            if (terrain->IsDirty()) {
+                allowRegen = (dirtyRegens < 2);
+                if (allowRegen) dirtyRegens++;
+            }
+            terrain->Draw(terrainShader, allowRegen);
         }
     }
 }
@@ -800,11 +822,12 @@ void EditorWorldSystem::ProcessLoadQueue() {
         terrain->SetHeightSampler([this](int cx, int cz, int lx, int lz) {
             return GetChunkHeight(cx, cz, lx, lz);
         });
-        LoadChunkFromDisk(chunk.get());
+        LoadChunkFromDisk(chunk.get());  // Fast: just disk I/O (~1ms)
         ApplyDefaultMaterials(chunk.get());
         m_Chunks[key] = std::move(chunk);
         CopyBoundaryFromNeighbors(m_Chunks[key].get());
-        m_Chunks[key]->GetTerrain()->CreateGPUResources();
+        // Don't call CreateGPUResources() here — mesh generation is queued
+        // to background thread by Update(). GPU upload happens in ProcessReadyMeshes().
         m_Chunks[key]->ClearModified();
         DirtyNeighborChunks(req.chunkX, req.chunkZ);
         loaded++;
@@ -1142,6 +1165,13 @@ void EditorWorldSystem::SpawnObjectsFromChunk(WorldChunk* chunk) {
 
     int32_t key = MakeChunkKey(chunk->GetChunkX(), chunk->GetChunkZ());
 
+    // Pre-request async model loading for all objects in this chunk
+    auto& assets = Onyx::Application::GetInstance().GetAssetManager();
+    for (const auto& co : chunk->GetObjects()) {
+        if (!co.modelPath.empty())
+            assets.RequestModelAsync(co.modelPath, !co.animationPaths.empty());
+    }
+
     for (const auto& co : chunk->GetObjects()) {
         // Skip if this GUID already exists in the world (e.g., re-loading same chunk)
         if (m_EditorWorld->GetObject(co.guid)) continue;
@@ -1210,6 +1240,216 @@ void EditorWorldSystem::ApplyBrush(float worldX, float worldZ, float radius,
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
             DirtyNeighborChunks(cx, cz);
         }
+    }
+}
+
+// ---- Model Pre-loading ----
+
+std::vector<std::string> EditorWorldSystem::PeekChunkModelPaths(int32_t chunkX, int32_t chunkZ) {
+    std::vector<std::string> paths;
+
+    std::string filePath = GetChunkFilePath(chunkX, chunkZ);
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open()) return paths;
+
+    // Read CHNK header
+    uint32_t magic;
+    file.read(reinterpret_cast<char*>(&magic), sizeof(magic));
+    if (magic != MMO::CHNK_MAGIC) return paths;
+
+    uint32_t version;
+    file.read(reinterpret_cast<char*>(&version), sizeof(version));
+    if (version < 2) return paths;  // v1 has no OBJS section
+
+    uint32_t mapId;
+    file.read(reinterpret_cast<char*>(&mapId), sizeof(mapId));
+
+    int32_t cx, cz;
+    file.read(reinterpret_cast<char*>(&cx), sizeof(cx));
+    file.read(reinterpret_cast<char*>(&cz), sizeof(cz));
+
+    uint32_t sectionCount;
+    file.read(reinterpret_cast<char*>(&sectionCount), sizeof(sectionCount));
+
+    // Scan sections looking for OBJS
+    for (uint32_t s = 0; s < sectionCount && file.good(); s++) {
+        uint32_t sectionType, sectionSize;
+        file.read(reinterpret_cast<char*>(&sectionType), sizeof(sectionType));
+        file.read(reinterpret_cast<char*>(&sectionSize), sizeof(sectionSize));
+        auto sectionStart = file.tellg();
+
+        if (sectionType == MMO::OBJS_TAG) {
+            // Read just the model paths from the objects section
+            uint32_t count = 0;
+            file.read(reinterpret_cast<char*>(&count), sizeof(count));
+            if (count > MMO::MAX_OBJECTS_PER_CHUNK) break;
+
+            for (uint32_t i = 0; i < count && file.good(); i++) {
+                // Skip: guid(8) + name string
+                file.seekg(sizeof(uint64_t), std::ios::cur);
+                uint16_t nameLen = 0;
+                file.read(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
+                if (nameLen > 0) file.seekg(nameLen, std::ios::cur);
+
+                // Skip: position(12) + rotation(16) + scale(4) + parentGuid(8)
+                file.seekg(12 + 16 + 4 + 8, std::ios::cur);
+
+                // Read modelPath
+                uint16_t pathLen = 0;
+                file.read(reinterpret_cast<char*>(&pathLen), sizeof(pathLen));
+                if (pathLen > 0 && pathLen < 4096) {
+                    std::string modelPath(pathLen, '\0');
+                    file.read(modelPath.data(), pathLen);
+                    if (!modelPath.empty()) {
+                        paths.push_back(std::move(modelPath));
+                    }
+                }
+
+                // Skip rest of this object — seek to next section
+                // We don't know exact remaining size per object, so break after reading paths
+                // Actually we need to skip remaining fields to get to next object
+                // Skip: materialId string
+                uint16_t matLen = 0;
+                file.read(reinterpret_cast<char*>(&matLen), sizeof(matLen));
+                if (matLen > 0) file.seekg(matLen, std::ios::cur);
+
+                // Skip: collider(1+12+12+4+4) + flags(1) + lightmapIndex(4) + lightmapScaleOffset(16)
+                file.seekg(1 + 12 + 12 + 4 + 4 + 1 + 4 + 16, std::ios::cur);
+
+                // Skip: meshMaterials
+                uint16_t meshMatCount = 0;
+                file.read(reinterpret_cast<char*>(&meshMatCount), sizeof(meshMatCount));
+                for (uint16_t m = 0; m < meshMatCount && file.good(); m++) {
+                    // meshName string + materialId string
+                    uint16_t len1 = 0, len2 = 0;
+                    file.read(reinterpret_cast<char*>(&len1), sizeof(len1));
+                    if (len1 > 0) file.seekg(len1, std::ios::cur);
+                    file.read(reinterpret_cast<char*>(&len2), sizeof(len2));
+                    if (len2 > 0) file.seekg(len2, std::ios::cur);
+                    // positionOffset(12) + rotationOffset(12) + scaleMultiplier(4) + visible(1)
+                    file.seekg(12 + 12 + 4 + 1, std::ios::cur);
+                }
+
+                // Skip: animations
+                uint16_t animCount = 0;
+                file.read(reinterpret_cast<char*>(&animCount), sizeof(animCount));
+                for (uint16_t a = 0; a < animCount && file.good(); a++) {
+                    uint16_t aLen = 0;
+                    file.read(reinterpret_cast<char*>(&aLen), sizeof(aLen));
+                    if (aLen > 0) file.seekg(aLen, std::ios::cur);
+                }
+                // currentAnimation string + animLoop(1) + animSpeed(4)
+                uint16_t curAnimLen = 0;
+                file.read(reinterpret_cast<char*>(&curAnimLen), sizeof(curAnimLen));
+                if (curAnimLen > 0) file.seekg(curAnimLen, std::ios::cur);
+                file.seekg(1 + 4, std::ios::cur);
+            }
+            break;  // Found OBJS, done
+        }
+
+        // Skip to next section
+        file.seekg(sectionStart + static_cast<std::streamoff>(sectionSize));
+    }
+
+    return paths;
+}
+
+void EditorWorldSystem::PreloadNearbyModels() {
+    int centerChunkX = WorldToChunkX(m_CameraPosition.x);
+    int centerChunkZ = WorldToChunkZ(m_CameraPosition.z);
+    int preloadRadius = static_cast<int>(std::ceil(m_Settings.preloadDistance / CHUNK_SIZE));
+
+    auto& assets = Onyx::Application::GetInstance().GetAssetManager();
+
+    for (int dz = -preloadRadius; dz <= preloadRadius; dz++) {
+        for (int dx = -preloadRadius; dx <= preloadRadius; dx++) {
+            int32_t chunkX = centerChunkX + dx;
+            int32_t chunkZ = centerChunkZ + dz;
+            int32_t key = MakeChunkKey(chunkX, chunkZ);
+
+            // Skip if already peeked, already loaded, or no file on disk
+            if (m_PreloadedChunkKeys.count(key)) continue;
+            if (m_Chunks.count(key)) continue;
+            if (!m_KnownChunkFiles.count(key)) continue;
+
+            float dist = CalculateChunkDistance(chunkX, chunkZ);
+            if (dist > m_Settings.preloadDistance) continue;
+
+            m_PreloadedChunkKeys.insert(key);
+
+            auto modelPaths = PeekChunkModelPaths(chunkX, chunkZ);
+            for (const auto& path : modelPaths) {
+                assets.RequestModelAsync(path);
+            }
+        }
+    }
+}
+
+// ---- Background Mesh Generation ----
+
+void EditorWorldSystem::MeshGenThreadFunc() {
+    while (true) {
+        std::shared_ptr<PendingMeshJob> job;
+        {
+            std::unique_lock<std::mutex> lock(m_MeshGenMutex);
+            m_MeshGenCV.wait(lock, [this] {
+                return m_ShutdownMeshGen.load() || !m_MeshGenQueue.empty();
+            });
+            if (m_ShutdownMeshGen.load() && m_MeshGenQueue.empty()) return;
+            if (m_MeshGenQueue.empty()) continue;
+            job = m_MeshGenQueue.front();
+            m_MeshGenQueue.pop_front();
+        }
+
+        // CPU mesh generation — no GL calls, thread-safe with empty HeightSampler
+        // (edge normals use clamped heights; corrected when neighbors regenerate)
+        TerrainChunk::HeightSampler noSampler;
+        job->terrain->PrepareMeshCPU(job->meshData, noSampler);
+
+        // Move to ready queue for main thread GPU upload
+        {
+            std::lock_guard<std::mutex> lock(m_MeshGenMutex);
+            m_MeshReadyQueue.push_back(std::move(job));
+        }
+    }
+}
+
+void EditorWorldSystem::QueueMeshGeneration(int32_t chunkKey, TerrainChunk* terrain, bool dirty) {
+    // Don't queue if already queued (Preparing state)
+    if (terrain->GetState() == ChunkState::Preparing) return;
+
+    terrain->SetState(ChunkState::Preparing);
+
+    auto job = std::make_shared<PendingMeshJob>();
+    job->chunkKey = chunkKey;
+    job->terrain = terrain;
+    job->dirty = dirty;
+
+    {
+        std::lock_guard<std::mutex> lock(m_MeshGenMutex);
+        m_MeshGenQueue.push_back(std::move(job));
+    }
+    m_MeshGenCV.notify_one();
+}
+
+void EditorWorldSystem::ProcessReadyMeshes() {
+    std::deque<std::shared_ptr<PendingMeshJob>> ready;
+    {
+        std::lock_guard<std::mutex> lock(m_MeshGenMutex);
+        ready.swap(m_MeshReadyQueue);
+    }
+
+    int uploaded = 0;
+    for (auto& job : ready) {
+        if (uploaded >= m_Settings.maxGPUUploadsPerFrame) {
+            // Re-queue excess jobs for next frame
+            std::lock_guard<std::mutex> lock(m_MeshGenMutex);
+            m_MeshReadyQueue.push_back(std::move(job));
+            continue;
+        }
+
+        job->terrain->UploadPreparedMesh(job->meshData);
+        uploaded++;
     }
 }
 

@@ -1,7 +1,9 @@
 #include "TerrainChunk.h"
+#include <Terrain/ChunkIO.h>
 #include <fstream>
 #include <cstring>
 #include <algorithm>
+#include <iostream>
 
 namespace Editor3D {
 
@@ -32,14 +34,17 @@ void TerrainChunk::Load(const std::string& basePath) {
 
     uint32_t magic;
     file.read(reinterpret_cast<char*>(&magic), sizeof(magic));
-    if (magic != 0x54455252) {
+    if (magic != MMO::TERR_TAG) {
+        std::cerr << "TerrainChunk::Load: bad magic in " << basePath << "\n";
         file.close();
         return;
     }
 
     uint32_t version;
     file.read(reinterpret_cast<char*>(&version), sizeof(version));
-    if (version != 3) {
+    if (version != MMO::TERRAIN_FORMAT_VERSION) {
+        std::cerr << "TerrainChunk::Load: unexpected version " << version
+                  << " (expected " << MMO::TERRAIN_FORMAT_VERSION << ") in " << basePath << "\n";
         file.close();
         return;
     }
@@ -61,14 +66,7 @@ void TerrainChunk::Load(const std::string& basePath) {
     file.read(reinterpret_cast<char*>(&m_Data.maxHeight), sizeof(m_Data.maxHeight));
 
     for (int i = 0; i < MAX_TERRAIN_LAYERS; i++) {
-        uint16_t len = 0;
-        file.read(reinterpret_cast<char*>(&len), sizeof(len));
-        if (len > 0 && len < 256) {
-            m_Data.materialIds[i].resize(len);
-            file.read(m_Data.materialIds[i].data(), len);
-        } else {
-            m_Data.materialIds[i].clear();
-        }
+        m_Data.materialIds[i] = MMO::ReadString(file);
     }
 
     file.close();

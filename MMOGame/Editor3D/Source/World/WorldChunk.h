@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Terrain/TerrainChunk.h"
+#include <Terrain/ChunkFormat.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
@@ -114,13 +115,6 @@ public:
     bool IsReady() const { return m_Terrain && m_Terrain->IsReady(); }
     bool IsModified() const { return m_Modified || (m_Terrain && m_Terrain->IsModified()); }
     void ClearModified() { m_Modified = false; if (m_Terrain) m_Terrain->ClearModified(); }
-
-    // Magic values for file format
-    static constexpr uint32_t CHNK_MAGIC = 0x43484E4B;  // "CHNK"
-    static constexpr uint32_t TERR_TAG   = 0x54455252;   // Section tag: terrain
-    static constexpr uint32_t OBJS_TAG   = 0x4F424A53;   // Section tag: objects
-    static constexpr uint32_t LGHT_TAG   = 0x4C474854;   // Section tag: lights
-    static constexpr uint32_t SNDS_TAG   = 0x534E4453;   // Section tag: sounds
 
 private:
     int32_t m_ChunkX, m_ChunkZ;
