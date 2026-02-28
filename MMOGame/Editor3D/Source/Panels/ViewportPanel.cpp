@@ -11,8 +11,6 @@
 #include <glm/gtc/quaternion.hpp>
 #include <Graphics/PostProcess/SSAOEffect.h>
 #include <algorithm>
-#include <limits>
-#include <iostream>
 #include <cmath>
 
 namespace MMO {
@@ -208,6 +206,12 @@ void ViewportPanel::OnInit() {
 
     m_PostProcessStack.Init();
     m_PostProcessStack.AddEffect<Onyx::SSAOEffect>();
+
+    if (m_World) {
+        m_World->SetOnObjectDeleted([this](uint64_t guid) {
+            InvalidateAnimator(guid);
+        });
+    }
 }
 
 void ViewportPanel::OnImGuiRender() {
@@ -418,7 +422,8 @@ void ViewportPanel::SubmitModelsToRenderer() {
 void ViewportPanel::RenderScene() {
     if (!m_SceneRenderer) return;
 
-    double totalStart = glfwGetTime();
+    double totalStart = m_ProfilePassTiming ? glfwGetTime() : 0.0;
+    m_ResolveModelTime = 0.0f;
 
     CollectLights();
 
@@ -447,10 +452,18 @@ void ViewportPanel::RenderScene() {
                                         std::cos(glm::radians(sl.outerAngle))});
     }
 
-    SubmitModelsToRenderer();
+    // Process async model GPU uploads (1 per frame to avoid hitches)
+    Onyx::Application::GetInstance().GetAssetManager().ProcessGPUUploads(1);
+
+    {
+        double t = m_ProfilePassTiming ? glfwGetTime() : 0.0;
+        SubmitModelsToRenderer();
+        if (m_ProfilePassTiming)
+            m_SubmitModelsTime = static_cast<float>((glfwGetTime() - t) * 1000.0);
+    }
 
     // Shadow pass (model batches + terrain/cube shadows via callback)
-    double t0 = glfwGetTime();
+    double t0 = m_ProfilePassTiming ? glfwGetTime() : 0.0;
     m_SceneRenderer->RenderShadows([this](uint32_t cascade, const glm::mat4& lightSpaceMat) {
         m_ShadowDepthShader->Bind();
         m_ShadowDepthShader->SetMat4("u_LightSpaceMatrix", lightSpaceMat);
@@ -466,16 +479,19 @@ void ViewportPanel::RenderScene() {
             }
         }
 
-        // Terrain shadows
+        // Terrain shadows (frustum-culled per cascade, no dirty regens)
         if (m_TerrainEnabled) {
             m_ShadowDepthShader->SetMat4(modelLoc, glm::mat4(1.0f));
+            Onyx::Frustum cascadeFrustum;
+            cascadeFrustum.Update(lightSpaceMat);
             for (auto& [key, wchunk] : m_WorldSystem.GetChunks()) {
-                if (wchunk->GetState() != Editor3D::ChunkState::Active) continue;
-                wchunk->GetTerrain()->Draw(m_ShadowDepthShader.get());
+                auto* terrain = wchunk->GetTerrain();
+                if (terrain->GetState() != Editor3D::ChunkState::Active) continue;
+                if (!cascadeFrustum.IsBoxVisible(terrain->GetBoundsMin(), terrain->GetBoundsMax())) continue;
+                terrain->Draw(m_ShadowDepthShader.get(), false);
             }
         }
     });
-
     if (m_ProfilePassTiming) {
         Onyx::RenderCommand::Finish();
         m_ShadowPassTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
@@ -493,7 +509,7 @@ void ViewportPanel::RenderScene() {
         RenderGrid();
     }
 
-    t0 = glfwGetTime();
+    t0 = m_ProfilePassTiming ? glfwGetTime() : 0.0;
     if (m_TerrainEnabled) {
         if (m_ShowWireframe) Onyx::RenderCommand::SetWireframeMode(true);
         RenderTerrain();
@@ -504,18 +520,21 @@ void ViewportPanel::RenderScene() {
         m_TerrainPassTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
     }
 
-    t0 = glfwGetTime();
-
+    t0 = m_ProfilePassTiming ? glfwGetTime() : 0.0;
     if (m_ShowWireframe) Onyx::RenderCommand::SetWireframeMode(true);
     m_SceneRenderer->RenderBatches();
     if (m_ShowWireframe) Onyx::RenderCommand::SetWireframeMode(false);
-
     m_RenderStats = m_SceneRenderer->GetStats();
+    if (m_ProfilePassTiming) {
+        Onyx::RenderCommand::Finish();
+        m_BatchRenderTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
+    }
 
+    t0 = m_ProfilePassTiming ? glfwGetTime() : 0.0;
     RenderWorldObjects();
     if (m_ProfilePassTiming) {
         Onyx::RenderCommand::Finish();
-        m_WorldObjectsPassTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
+        m_WorldObjectRenderTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
     }
 
     RenderGizmoIcons();
@@ -537,7 +556,9 @@ void ViewportPanel::RenderScene() {
         m_LastPostProcessOutput = 0;
     }
 
-    m_TotalRenderTime = static_cast<float>((glfwGetTime() - totalStart) * 1000.0);
+    if (m_ProfilePassTiming) {
+        m_TotalRenderTime = static_cast<float>((glfwGetTime() - totalStart) * 1000.0);
+    }
 }
 
 void ViewportPanel::RenderGrid() {
@@ -610,12 +631,13 @@ void ViewportPanel::RenderWorldObjects() {
                 auto& mesh = model->GetMeshes()[selectedMeshIdx];
                 const MeshMaterial* meshMat = mesh.m_Name.empty() ? nullptr : obj->GetMeshMaterial(mesh.m_Name);
                 m_ModelShader->SetMat4(modelShaderModelLoc, ComputeMeshMatrix(objectMatrix, meshMat, mesh.GetCenter()));
-                mesh.DrawGeometryOnly();
+                model->DrawMergedMesh(selectedMeshIdx);
             } else {
-                for (auto& mesh : model->GetMeshes()) {
+                for (size_t mi = 0; mi < model->GetMeshes().size(); mi++) {
+                    auto& mesh = model->GetMeshes()[mi];
                     const MeshMaterial* meshMat = mesh.m_Name.empty() ? nullptr : obj->GetMeshMaterial(mesh.m_Name);
                     m_ModelShader->SetMat4(modelShaderModelLoc, ComputeMeshMatrix(objectMatrix, meshMat, mesh.GetCenter()));
-                    mesh.DrawGeometryOnly();
+                    model->DrawMergedMesh(mi);
                 }
             }
             Onyx::RenderCommand::SetWireframeMode(m_ShowWireframe);
@@ -698,16 +720,12 @@ void ViewportPanel::RenderWorldObjects() {
                     m_ModelShader->SetInt("u_UseNormalMap", 1);
                 }
 
-                for (auto& mesh : model->GetMeshes()) {
-                    mesh.DrawGeometryOnly();
-                }
+                model->DrawAllMergedMeshes();
 
                 if (spawn->IsSelected()) {
                     Onyx::RenderCommand::SetWireframeMode(true);
                     Onyx::RenderCommand::SetLineWidth(2.0f);
-                    for (auto& mesh : model->GetMeshes()) {
-                        mesh.DrawGeometryOnly();
-                    }
+                    model->DrawAllMergedMeshes();
                     Onyx::RenderCommand::SetWireframeMode(false);
                 }
                 continue;
@@ -1299,7 +1317,7 @@ void ViewportPanel::RenderPickingPass() {
                     m_PickingShader->SetInt("u_ObjectID", static_cast<int>(objID));
                     m_PickingShader->SetInt("u_MeshIndex", static_cast<int>(meshIdx));
                     m_PickingShader->SetInt("u_ObjectType", static_cast<int>(WorldObjectType::SPAWN_POINT));
-                    model->GetMeshes()[meshIdx].DrawGeometryOnly();
+                    model->DrawMergedMesh(meshIdx);
                 }
                 continue;
             }
@@ -1394,7 +1412,7 @@ void ViewportPanel::RenderObjectForPicking(StaticObject* obj) {
                 m_PickingShader->SetInt("u_ObjectID", static_cast<int>(objID));
                 m_PickingShader->SetInt("u_MeshIndex", static_cast<int>(meshIdx));
                 m_PickingShader->SetInt("u_ObjectType", static_cast<int>(WorldObjectType::STATIC_OBJECT));
-                mesh.DrawGeometryOnly();
+                model->DrawMergedMesh(meshIdx);
             }
             return;
         }
@@ -1503,23 +1521,45 @@ void ViewportPanel::UpdateCameraVectors() {
 }
 
 ViewportPanel::ResolvedModel& ViewportPanel::ResolveModelCached(const std::string& path, bool checkAnimated) {
+    // Only return cached entry if it actually resolved to something (or permanently failed)
     auto it = m_ResolvedModelCache.find(path);
     if (it != m_ResolvedModelCache.end()) return it->second;
 
-    auto& entry = m_ResolvedModelCache[path];
-    auto& assets = Onyx::Application::GetInstance().GetAssetManager();
+    double resolveStart = glfwGetTime();
 
-    if (checkAnimated) {
-        auto* anim = assets.Get(assets.LoadAnimatedModel(path));
+    auto& assets = Onyx::Application::GetInstance().GetAssetManager();
+    auto status = assets.GetModelStatus(path);
+
+    if (status == Onyx::ModelLoadStatus::NotRequested) {
+        assets.RequestModelAsync(path, checkAnimated);
+    } else if (status == Onyx::ModelLoadStatus::Ready) {
+        // Async load completed — populate cache from AssetManager
+        auto& entry = m_ResolvedModelCache[path];
+        auto* anim = assets.FindAnimatedModel(path);
         if (anim && anim->GetAnimationCount() > 0) {
             entry.animModel = anim;
             entry.isAnimated = true;
-            return entry;
+        } else {
+            entry.staticModel = assets.FindModel(path);
         }
+        float resolveMs = static_cast<float>((glfwGetTime() - resolveStart) * 1000.0);
+        if (resolveMs > m_ResolveModelTime) m_ResolveModelTime = resolveMs;
+        std::cout << "[MODEL] Resolved: " << path
+                  << " (animated=" << entry.isAnimated
+                  << " meshes=" << (entry.staticModel ? entry.staticModel->GetMeshes().size() : 0)
+                  << ") " << resolveMs << " ms" << std::endl;
+        return entry;
+    } else if (status == Onyx::ModelLoadStatus::Failed) {
+        // Don't cache — return static empty so retry is possible on next request
+        static ResolvedModel s_FailedEmpty;
+        s_FailedEmpty = {};
+        return s_FailedEmpty;
     }
 
-    entry.staticModel = assets.Get(assets.LoadModel(path));
-    return entry;
+    // Not ready yet — return temporary empty without caching
+    static ResolvedModel s_Empty;
+    s_Empty = {};
+    return s_Empty;
 }
 
 Onyx::Model* ViewportPanel::GetModel(const std::string& path) {

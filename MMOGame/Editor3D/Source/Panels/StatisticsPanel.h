@@ -1,7 +1,6 @@
 #pragma once
 
 #include "EditorPanel.h"
-#include <cstdint>
 
 namespace MMO {
 

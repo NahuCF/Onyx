@@ -1,7 +1,6 @@
 #include "StatisticsPanel.h"
 #include "ViewportPanel.h"
 #include "../World/EditorWorldSystem.h"
-#include <Core/Application.h>
 #include <imgui.h>
 
 namespace MMO {
@@ -9,16 +8,16 @@ namespace MMO {
 void StatisticsPanel::OnImGuiRender() {
     ImGui::Begin("Statistics", &m_IsOpen);
 
+    float rawDeltaTime = ImGui::GetIO().DeltaTime * 1000.0f;
+    float fps = ImGui::GetIO().Framerate;
+
     if (ImGui::BeginTabBar("StatsTabs")) {
         if (ImGui::BeginTabItem("General")) {
             ImGui::Text("Performance");
             ImGui::Separator();
 
-            float fps = ImGui::GetIO().Framerate;
-            float frameTime = 1000.0f / fps;
-
             ImGui::Text("FPS: %.1f", fps);
-            ImGui::Text("Frame Time: %.2f ms", frameTime);
+            ImGui::Text("Frame Time: %.2f ms", rawDeltaTime);
 
             ImGui::Spacing();
             ImGui::Text("Rendering");
@@ -37,7 +36,6 @@ void StatisticsPanel::OnImGuiRender() {
                 ImGui::Text("Meshes Submitted: %u", stats.meshesSubmitted);
                 ImGui::Text("Meshes Culled: %u", stats.meshesCulled);
                 ImGui::Text("Meshes Rendered: %u", stats.meshesSubmitted - stats.meshesCulled);
-
             } else {
                 ImGui::TextDisabled("No viewport available");
             }
@@ -50,16 +48,16 @@ void StatisticsPanel::OnImGuiRender() {
                 ImGui::Checkbox("Profile Pass Timing (reduces FPS)", &m_Viewport->GetProfilePassTiming());
                 ImGui::Separator();
 
-                ImGui::Text("Total Render: %6.2f ms", m_Viewport->GetTotalRenderTime());
-
                 if (m_Viewport->GetProfilePassTiming()) {
-                    ImGui::Spacing();
-                    ImGui::Text("Shadow Pass:  %6.2f ms", m_Viewport->GetShadowPassTime());
-                    ImGui::Text("Terrain:      %6.2f ms", m_Viewport->GetTerrainPassTime());
-                    ImGui::Text("World Objects:%6.2f ms", m_Viewport->GetWorldObjectsPassTime());
+                    ImGui::Text("Total Render:    %6.2f ms", m_Viewport->GetTotalRenderTime());
+                    ImGui::Text("Submit Models:   %6.2f ms", m_Viewport->GetSubmitModelsTime());
+                    ImGui::Text("  Resolve Model: %6.2f ms", m_Viewport->GetResolveModelTime());
+                    ImGui::Text("Shadow Pass:     %6.2f ms", m_Viewport->GetShadowPassTime());
+                    ImGui::Text("Terrain:         %6.2f ms", m_Viewport->GetTerrainPassTime());
+                    ImGui::Text("Batch Render:    %6.2f ms", m_Viewport->GetBatchRenderTime());
+                    ImGui::Text("World Objects:   %6.2f ms", m_Viewport->GetWorldObjectRenderTime());
                 } else {
-                    ImGui::Spacing();
-                    ImGui::TextDisabled("Enable profiling to see per-pass timing");
+                    ImGui::TextDisabled("Enable profiling for per-pass timing");
                 }
 
             } else {

@@ -44,10 +44,13 @@ public:
 
     const Onyx::RenderStats& GetRenderStats() const { return m_RenderStats; }
 
+    float GetTotalRenderTime() const { return m_TotalRenderTime; }
+    float GetSubmitModelsTime() const { return m_SubmitModelsTime; }
+    float GetResolveModelTime() const { return m_ResolveModelTime; }
     float GetShadowPassTime() const { return m_ShadowPassTime; }
     float GetTerrainPassTime() const { return m_TerrainPassTime; }
-    float GetWorldObjectsPassTime() const { return m_WorldObjectsPassTime; }
-    float GetTotalRenderTime() const { return m_TotalRenderTime; }
+    float GetBatchRenderTime() const { return m_BatchRenderTime; }
+    float GetWorldObjectRenderTime() const { return m_WorldObjectRenderTime; }
     bool& GetProfilePassTiming() { return m_ProfilePassTiming; }
 
     glm::vec3& GetLightDir() { return m_LightDir; }
@@ -224,10 +227,13 @@ private:
     Onyx::RenderStats m_RenderStats;
 
     bool m_ProfilePassTiming = false;
+    float m_TotalRenderTime = 0.0f;
+    float m_SubmitModelsTime = 0.0f;
+    float m_ResolveModelTime = 0.0f;
     float m_ShadowPassTime = 0.0f;
     float m_TerrainPassTime = 0.0f;
-    float m_WorldObjectsPassTime = 0.0f;
-    float m_TotalRenderTime = 0.0f;
+    float m_BatchRenderTime = 0.0f;
+    float m_WorldObjectRenderTime = 0.0f;
 
     std::unique_ptr<TransformGizmo> m_Gizmo;
     glm::vec3 m_GizmoStartObjectPos = glm::vec3(0.0f);
