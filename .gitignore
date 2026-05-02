@@ -70,3 +70,12 @@ Thumbs.db
 imgui.ini
 
 *.terrain
+*md
+!CLAUDE.md
+!docs/
+!docs/*.md
+
+*assets/
+*Maps/
+
+Learning/*
