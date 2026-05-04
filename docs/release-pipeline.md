@@ -32,7 +32,7 @@ Designer's daily iteration loop.
 
 Goal: edit → test in ~5 seconds.
 
-**v1 (minimal)** can ship before the full DB pipeline lands: only the spawn entity is wired through, schema migration system + first migration are in place, and the WorldServer queries `creature_spawn` at startup. Other entity types (portals, gameobjects, triggers, player spawns) follow the same writer + loader pattern incrementally.
+**v1 (minimal)** ships once the spawn entity is wired end-to-end: schema migration system in place, `0001_baseline.sql` + `0002_creature_npc_gameobject.sql` applied, editor writes to `creature_spawn`, WorldServer reads from it. Other entity types (portals, gameobjects, triggers, player spawns) follow the same writer + loader pattern incrementally as Tier 2 expands the loop.
 
 A deeper post-MVP solution — running the game **inside the editor's viewport** without spawning separate processes (Unity Play / Unreal PIE style) — is tracked in [editor3d-roadmap.md](editor3d-roadmap.md) Tier 3.
 
@@ -92,7 +92,7 @@ Both Windows and Linux are first-class targets:
       "sha256": "..."
     },
     {
-      "path": "Data/models/tree.omdl",
+      "path": "Data/materials/grass_default/grass_albedo.png",
       "size": 87654,
       "sha256": "..."
     }
@@ -177,7 +177,7 @@ Schema migrations are run **first**, then data migrations.
 
 ### Schema migrations
 
-- Numbered: `0001_initial.sql`, `0002_add_collider_columns.sql`, ...
+- Numbered: `0001_baseline.sql`, `0002_creature_npc_gameobject.sql`, ... (see "Implementation order" below for the actual planned migrations).
 - Tracked on the DB:
   ```sql
   CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -212,7 +212,9 @@ DELETE FROM creature_spawn
 WHERE map_id = 1
   AND guid NOT IN ('<guid_1>', '<guid_2>');
 
--- (same pattern for portal, trigger_volume, player_spawn for this map)
+-- (same pattern for portal, trigger_volume, gameobject_spawn for this map;
+--  player_create_info follows the same UPSERT/DELETE shape but is keyed
+--  by (race, class) — see "Decided: PlayerSpawn ↔ player_create_info" below)
 
 COMMIT;
 ```
@@ -234,15 +236,14 @@ Decided in design discussion 2026-05-03. See [editor3d.md](editor3d.md) for the 
 | Lights | Chunk file (`LGHT` section) | Visual-only, spatial — already there |
 | Sounds / ambient emitters | Chunk file (`SNDS` section) | Visual/audio, spatial — already there |
 | Particle emitters | Chunk file (new section, e.g., `PARS`) | Visual-only, spatial |
-| Mob spawns | DB (`creature_spawn`) | GM-editable; references `creature_template` by ID; live state is colocated |
-| **NPC spawns** (vendors, quest-givers, trainers, flight-masters) | DB (`creature_spawn` + `creature_template.npcflag`) | Same row shape as mob spawns; behavior differentiated by flags + linked tables (vendor stock, gossip, etc.) |
-| **GameObjects / interactables** (doors, chests, mining nodes, herbs, fishing nodes, mailboxes, AH terminals, banks, quest objects) | DB (`gameobject` + `gameobject_template`) | Spatially placed but DB-driven behavior; respawn timers, loot, scripts. WoW/AzerothCore-style split. |
+| **Creature spawns** (mobs + NPCs — vendors, quest-givers, trainers, flight-masters, hostile creatures) | DB (`creature_spawn` referencing `creature_template`; role differentiated by `creature_template.npcflag` bitfield) | Single row shape; behavior differentiated by template flags + linked tables (`npc_vendor`, `npc_gossip`, `npc_trainer`). See "Decided: creature/NPC schema layout" below. |
+| **GameObjects / interactables** (doors, chests, mining nodes, herbs, fishing nodes, mailboxes, AH terminals, banks, quest objects) | DB (`gameobject_spawn` + `gameobject_template`) | Spatially placed but DB-driven behavior; respawn timers, loot, scripts. WoW/AzerothCore-style split. |
 | Portals / instance entrances | DB (`portal`) | Server validates use; tooling-friendly |
 | Trigger volumes / event zones | DB (new `trigger_volume` table) | Carries event hooks; want to modify event logic without re-export |
 | **Player spawns** (race + class → map + position + orientation) | DB (`player_create_info`, keyed by `(race, class)`) | Server queries on character creation; race-bound by design — see [race-class-system-design.md](race-class-system-design.md) |
 | Group objects (editor folders) | Neither — editor-only organizational | Discarded on export |
 
-The chunk format will need new fields in `ChunkObjectData` (collider type/dimensions, animation, lightmap, per-mesh materials) and a new section for particle emitters. The DB will need a new `trigger_volume` table and a `gameobject` / `gameobject_template` pair; `creature_spawn`, `portal`, `player_create_info` already exist.
+The chunk format will need new fields in `ChunkObjectData` (collider type/dimensions, animation, lightmap, per-mesh materials) and a new section for particle emitters. The DB will need a new `trigger_volume` table and a `gameobject_spawn` / `gameobject_template` pair; `creature_spawn`, `portal`, `player_create_info` already exist.
 
 **DB-bound entities flow only through the DB — no JSON intermediates.** The editor generates a single `migration.sql` file per export. In Mode A (Run Locally) it's applied automatically against the designer's local Postgres; in Mode B (Build Release Bundle) it's shipped in the artifact for production import. The WorldServer reads its tables directly at startup (no JSON loader). One source of truth.
 
@@ -444,7 +445,7 @@ Two important properties:
 
 The work is large but breaks into a clear sequence. Rough effort estimates: S = 1 day, M = 2-4 days, L = 1+ week.
 
-DB-only architecture means schema migrations are foundational — they cannot be deferred. The order optimizes for getting the local test loop alive as fast as possible (steps 1-5 give the designer a working iteration loop).
+DB-only architecture means schema migrations are foundational — they cannot be deferred. The order optimizes for getting the local test loop alive as fast as possible (steps 1-6 give the designer a working iteration loop end-to-end with the spawn entity).
 
 1. **(S) Schema migration system.** `MMOGame/Database/migrations/NNNN_*.sql`, `schema_migrations` table, runner integrated into WorldServer + LoginServer startup.
 2. **(S) `0001_baseline.sql`** — move existing `MMOGame/Database/schema.sql` content into the migration system as the baseline.
@@ -475,7 +476,7 @@ When the engineer adds or changes columns on player-state tables (`characters`, 
 - **Backfill cost** — `ALTER TABLE characters ADD COLUMN new_currency BIGINT DEFAULT 0` is cheap; computing a derived value across millions of rows is not. Schema migrations that need backfill should ship as a two-phase change (column added with default → background backfill job → column required).
 - **Operational risk** — a botched player-state migration is harder to roll back than a botched content migration. Take a DB snapshot before applying.
 
-Authored content migrations (`creature_spawn`, `gameobject`, `portal`, `trigger_volume`) are operationally safer because the editor regenerates them deterministically from the source map files; rolling back is "redeploy the previous version".
+Authored content migrations (`creature_spawn`, `gameobject_spawn`, `portal`, `trigger_volume`, `player_create_info`) are operationally safer because the editor regenerates them deterministically from the source map files; rolling back is "redeploy the previous version".
 
 ### Server cluster restart coordination
 
@@ -542,4 +543,4 @@ These do not block the design but should be settled before launch:
 
 (Self-note for future sessions.) As of 2026-05-03 nothing in this doc is implemented. The user is verifying that spawn points and player movement work end-to-end before starting the server-export pipeline.
 
-Natural starting point: **step 1 of "Implementation order"** — schema migration system. That establishes the contract for how DB structure changes flow, then steps 2-4 close the editor → server gap. Tier 2 work (entity placing + property association in the editor) is parallel-tracked but not blocking.
+Natural starting point: **step 1 of "Implementation order"** — schema migration system. Then steps 2-3 land the actual SQL migrations (`0001_baseline.sql`, `0002_creature_npc_gameobject.sql`); steps 4-5 wire the editor `migration.sql` writer + WorldServer DB loader for the spawn entity; step 6 (Run Locally minimal) closes the iteration loop end-to-end. Tier 2 work in [editor3d-roadmap.md](editor3d-roadmap.md) (broader entity types, NPC role, GameObject placement, NavMesh) follows the same writer + loader pattern from step 7 onward.
