@@ -19,8 +19,10 @@ The Editor3D exposes two export buttons. Both produce the **same artifact shape*
 
 Designer's daily iteration loop.
 
+**Why this exists:** today, testing a placed spawn or edit requires manually exporting the runtime data, restarting the WorldServer (because spawns are hardcoded in `MapTemplates.cpp`), and re-launching the client. There is no in-editor playtest mode. "Run Locally" collapses all of that into a single button.
+
 1. Editor produces a release artifact at `dev/`:
-   - `dev/Data/` — chunks, models, materials, json data files
+   - `dev/Data/` — chunks, models, materials, textures (visual + spatial only; no JSON intermediate files for DB-bound entities)
    - `dev/migration.sql` — idempotent UPSERT/DELETE for authored DB rows
    - `dev/manifest.json` — version, file hashes, signature
 2. Editor connects to the designer's **local Postgres** (already installed) and runs `migration.sql`.
@@ -29,6 +31,10 @@ Designer's daily iteration loop.
 5. UI shows a "Stop" button that kills the spawned processes and (optionally) rolls back the local DB to a baseline.
 
 Goal: edit → test in ~5 seconds.
+
+**v1 (minimal)** can ship before the full DB pipeline lands: only the spawn entity is wired through, schema migration system + first migration are in place, and the WorldServer queries `creature_spawn` at startup. Other entity types (portals, gameobjects, triggers, player spawns) follow the same writer + loader pattern incrementally.
+
+A deeper post-MVP solution — running the game **inside the editor's viewport** without spawning separate processes (Unity Play / Unreal PIE style) — is tracked in [editor3d-roadmap.md](editor3d-roadmap.md) Tier 3.
 
 ### Mode B — "Build Release Bundle"
 
@@ -86,8 +92,8 @@ Both Windows and Linux are first-class targets:
       "sha256": "..."
     },
     {
-      "path": "Data/maps/001/spawns.json",
-      "size": 234,
+      "path": "Data/models/tree.omdl",
+      "size": 87654,
       "sha256": "..."
     }
   ],
@@ -233,12 +239,12 @@ Decided in design discussion 2026-05-03. See [editor3d.md](editor3d.md) for the 
 | **GameObjects / interactables** (doors, chests, mining nodes, herbs, fishing nodes, mailboxes, AH terminals, banks, quest objects) | DB (`gameobject` + `gameobject_template`) | Spatially placed but DB-driven behavior; respawn timers, loot, scripts. WoW/AzerothCore-style split. |
 | Portals / instance entrances | DB (`portal`) | Server validates use; tooling-friendly |
 | Trigger volumes / event zones | DB (new `trigger_volume` table) | Carries event hooks; want to modify event logic without re-export |
-| Player spawns | DB (likely extends `player_create_info`) | Small, server-authoritative, tooling-friendly |
+| **Player spawns** (race + class → map + position + orientation) | DB (`player_create_info`, keyed by `(race, class)`) | Server queries on character creation; race-bound by design — see [race-class-system-design.md](race-class-system-design.md) |
 | Group objects (editor folders) | Neither — editor-only organizational | Discarded on export |
 
 The chunk format will need new fields in `ChunkObjectData` (collider type/dimensions, animation, lightmap, per-mesh materials) and a new section for particle emitters. The DB will need a new `trigger_volume` table and a `gameobject` / `gameobject_template` pair; `creature_spawn`, `portal`, `player_create_info` already exist.
 
-For the DB-bound entities, the editor exports JSON intermediate files into the artifact (`Data/maps/001/spawns.json`, `gameobjects.json`, `portals.json`, etc.) **and** a SQL migration. WorldServer reads JSON at startup (no DB import step needed for v1); the SQL exists for the production deploy path. Both are derived from the same authored data.
+**DB-bound entities flow only through the DB — no JSON intermediates.** The editor generates a single `migration.sql` file per export. In Mode A (Run Locally) it's applied automatically against the designer's local Postgres; in Mode B (Build Release Bundle) it's shipped in the artifact for production import. The WorldServer reads its tables directly at startup (no JSON loader). One source of truth.
 
 ### Decided: creature/NPC schema layout (AzerothCore-style)
 
@@ -286,6 +292,48 @@ A creature with `npcflag = 0x0007` is a quest-giver + vendor + has-gossip simult
 **Editor implication:** the `SpawnPoint` placement type stays a single concept. The Inspector is what differentiates a hostile wolf from a quest-giving NPC — through the chosen `creature_template` entry plus its `npcflag`. No new top-level entity type is needed for "NPC vs mob."
 
 **Implementation note:** add this schema as a single migration (`0002_creature_npc_gameobject.sql` or similar) once the schema-migrations system from step 1 of "Implementation order" lands. Existing `creature_spawn` will need to be reconciled with this design.
+
+### Decided: PlayerSpawn ↔ player_create_info layout
+
+PlayerSpawn placements are **race-bound by design**. Each (race, class) pair has exactly one spawn entry (`map_id`, `position_x/y/z`, `orientation`); the server queries this on character creation via the existing `GameDataStore::GetPlayerCreateInfo(race, class)` path. See [race-class-system-design.md](race-class-system-design.md) for the broader design intent.
+
+**Schema** (already exists in repo; editor becomes the new write authority):
+
+```sql
+-- player_create_info: where a (race, class) character spawns into the world
+CREATE TABLE player_create_info (
+    race      SMALLINT NOT NULL,
+    class     SMALLINT NOT NULL,
+    map_id    INTEGER  NOT NULL,
+    position_x REAL    NOT NULL,
+    position_y REAL    NOT NULL,
+    position_z REAL    NOT NULL,
+    orientation REAL   NOT NULL,
+    PRIMARY KEY (race, class)
+);
+```
+
+**Editor model:**
+
+```cpp
+struct PlayerSpawn {
+    glm::vec3 position;
+    float     orientation;
+    std::vector<CharacterRace>  races;   // which races this spawn covers
+    std::vector<CharacterClass> classes; // empty = all classes for the listed races
+    std::string label;                    // editor-only, e.g. "Human starter"
+};
+```
+
+**Export rules:**
+
+- A spawn with `races={Human}, classes={}` emits **one row per class** for Human.
+- A spawn with `races={Human, Orc}, classes={Warrior}` emits **two rows**: (Human, Warrior) and (Orc, Warrior).
+- A spawn with `races={}, classes={DeathKnight}` would emit one row per race for DeathKnight — supported by the data model but treated as an edge case in the Inspector UX, not the default authoring flow.
+- Migration uses `INSERT … ON CONFLICT (race, class) DO UPDATE` so re-export is idempotent.
+- DELETE removes any (race, class) row no longer covered by any authored PlayerSpawn — this is how the editor's "this race no longer has a spawn" state propagates to the DB.
+
+**Editor UX:** Inspector panel for PlayerSpawn shows two checkbox grids — Races (Human / Orc / Elf / …) and Classes (Warrior / Mage / Rogue / …). Empty Classes = "all classes". The map field comes from the chunk the spawn is placed on; the editor warns if multiple PlayerSpawn entities cover the same (race, class) since that's an authoring bug (UPSERT would silently pick one).
 
 ### MMO-specific authoring gaps (not yet in the editor)
 
@@ -396,21 +444,25 @@ Two important properties:
 
 The work is large but breaks into a clear sequence. Rough effort estimates: S = 1 day, M = 2-4 days, L = 1+ week.
 
-1. **(S) Schema migration system.** `MMOGame/Database/migrations/NNNN_*.sql`, `schema_migrations` table, runner integrated into WorldServer + LoginServer startup.
-2. **(M) Editor JSON export.** Extend `ExportForRuntime` to write `spawns.json`, `portals.json`, `triggers.json`, `player_spawns.json` to `Data/maps/{id}/`. Add new section tags or extend existing ones to chunk format for collider/animation/lightmap data on static objects.
-3. **(M) WorldServer JSON loader.** Replace hardcoded `MapTemplates.cpp` with a loader that reads the JSON files at startup and populates the same in-memory `MapTemplate` / spawn structures.
-4. **(M) Editor migration.sql writer.** Per-map UPSERT/DELETE generation against the DB schema.
-5. **(M) "Run Locally" mode.** Subprocess management, local DB connection, log streaming UI panel.
-6. **(M) "Build Release Bundle" mode.** Versioned output folder, manifest generation with file hashes.
-7. **(S) Manifest format finalized.** JSON schema, canonicalization library.
-8. **(S) libsodium integration.** Editor + launcher Ed25519 signing/verification.
-9. **(L) Launcher.** Download + verify + atomic install state machine. Both Windows and Linux builds.
-10. **(M) Production deploy automation.** CI pipeline that takes a tagged release artifact and pushes to CDN + DB + versions endpoint.
-11. **(L, deferred) "Open PR" button.** GitHub API integration in editor.
+DB-only architecture means schema migrations are foundational — they cannot be deferred. The order optimizes for getting the local test loop alive as fast as possible (steps 1-5 give the designer a working iteration loop).
 
-Steps 1-4 close the editor → server gap and unblock encounter design.
-Steps 5-6 enable the designer's iteration + handoff workflow.
-Steps 7-10 enable the player-facing launcher path.
+1. **(S) Schema migration system.** `MMOGame/Database/migrations/NNNN_*.sql`, `schema_migrations` table, runner integrated into WorldServer + LoginServer startup.
+2. **(S) `0001_baseline.sql`** — move existing `MMOGame/Database/schema.sql` content into the migration system as the baseline.
+3. **(S) `0002_creature_npc_gameobject.sql`** — the locked schema design: `creature_template` with `npcflag`, `creature_spawn`, `creature_addon`, `npc_vendor`, `npc_gossip`, `npc_trainer`, `gameobject_template`, `gameobject_spawn`, `gameobject_loot_template`, `trigger_volume`. Reconcile any existing `creature_spawn` shape.
+4. **(M) Editor `migration.sql` writer for spawns.** UPSERT into `creature_spawn` + scoped DELETE for removed spawns. Sourced from `EditorWorld::GetSpawnPoints()`.
+5. **(M) WorldServer DB loader for spawns.** Query `creature_spawn` at startup; replaces hardcoded `MapTemplates.cpp`.
+6. **(M) "Run Locally" minimal mode.** Editor button: export `Data/`, apply `migration.sql` to local Postgres, spawn `MMOLoginServer` + `MMOWorldServer` + `MMOClient`. Designer tests terrain + structures + spawns end-to-end. **First milestone where the editor produces playable content without engineer involvement.**
+7. **(M) Repeat steps 4+5 for the remaining DB-bound entities** — portals, triggers, gameobjects, player spawns. Each is "writer + loader" in lockstep. PlayerSpawn writes to `player_create_info` keyed by `(race, class)`; portal writes to `portal`; etc. WorldServer learns to read each table at startup.
+8. **(M) "Build Release Bundle" mode.** Versioned output folder, manifest generation with file hashes.
+9. **(S) Manifest format finalized.** JSON schema, canonicalization library.
+10. **(S) libsodium integration.** Editor + launcher Ed25519 signing/verification.
+11. **(L) Launcher.** Download + verify + atomic install state machine. Both Windows and Linux builds.
+12. **(M) Production deploy automation.** CI pipeline that takes a tagged release artifact and pushes to CDN + DB + versions endpoint.
+13. **(L, deferred) "Open PR" button.** GitHub API integration in editor.
+
+Steps 1-6 close the editor → server gap for the spawn entity end-to-end and give the designer a working iteration loop.
+Step 7 broadens that loop to all DB-bound entity types.
+Steps 8-12 enable the player-facing launcher path for production.
 
 ## MMO-specific concerns
 
