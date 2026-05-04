@@ -63,7 +63,9 @@ Full conventions in [docs/conventions.md](docs/conventions.md).
 ### Editor3D & runtime data
 - [docs/editor3d.md](docs/editor3d.md) — Editor3D structure, panels, `EditorWorldSystem`, terrain editor, gizmo, shaders.
 - [docs/terrain-and-formats.md](docs/terrain-and-formats.md) — shared terrain library, `.chunk` and `.omdl` file formats, mesh generation.
-- [docs/export-pipeline.md](docs/export-pipeline.md) — Editor3D → runtime `Data/` export flow.
+- [docs/export-pipeline.md](docs/export-pipeline.md) — Editor3D → runtime `Data/` export flow (shipped).
+- [docs/editor3d-roadmap.md](docs/editor3d-roadmap.md) — Phase status + tier-prioritized roadmap to MVP (design).
+- [docs/release-pipeline.md](docs/release-pipeline.md) — Two-mode export, manifest format with Ed25519 signing, DB migration model, launcher state machine, MMO-specific concerns (design — not yet implemented).
 
 ### Reference / design docs
 - [docs/SceneRenderer_AssetManager_Spec.md](docs/SceneRenderer_AssetManager_Spec.md) — **Historical implementation plan (2026-02-17).** Has known drifts; prefer `engine-rendering.md` for current API. Useful for design rationale.
