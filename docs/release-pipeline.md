@@ -240,6 +240,53 @@ The chunk format will need new fields in `ChunkObjectData` (collider type/dimens
 
 For the DB-bound entities, the editor exports JSON intermediate files into the artifact (`Data/maps/001/spawns.json`, `gameobjects.json`, `portals.json`, etc.) **and** a SQL migration. WorldServer reads JSON at startup (no DB import step needed for v1); the SQL exists for the production deploy path. Both are derived from the same authored data.
 
+### Decided: creature/NPC schema layout (AzerothCore-style)
+
+A single `creature_template` table holds **all living things** — hostile mobs, vendors, quest-givers, trainers, flight-masters, auctioneers — and an `npcflag` bitfield drives role behavior. GameObjects (interactables) stay on a separate track.
+
+**Why one table for mobs and NPCs:** they share the same row shape (hp, level, faction, model, AI, etc.); a single creature can hold multiple roles (capital-city NPCs are commonly vendor + quest-giver + flight-master); composability via flags beats separate rows or per-role tables. AzerothCore has shipped this pattern at scale.
+
+**Schema:**
+
+| Table | Role |
+|---|---|
+| `creature_template` | Primary. Stats, model, AI hints, `npcflag` bitfield, `faction`, base loot table ref, scripts. |
+| `creature_spawn` | Per-placement: `guid`, `map_id`, `position_x/y/z`, `orientation`, `respawn_secs`, equipment override, modelid override. References `creature_template` by ID. |
+| `creature_loot_template` | Drop tables (loot table ID is referenced from `creature_template`). |
+| `creature_addon` | Non-combat presentation: mount, idle emote, equipped weapons. |
+| `npc_vendor` | Joins on `creature_template.entry`; vendor stock (item ID, max count, restock time). |
+| `npc_gossip` / `npc_text` | Quest-giver / trainer dialogue. |
+| `npc_trainer` | Trainer's available spells/abilities. |
+
+GameObjects use a parallel but separate track:
+
+| Table | Role |
+|---|---|
+| `gameobject_template` | Primary. Type (door / chest / mining-node / mailbox / etc.), display ID, behavior data per type. |
+| `gameobject_spawn` | Per-placement: `guid`, `map_id`, `position`, `orientation`, `respawn_secs`. |
+| `gameobject_loot_template` | What chests/nodes drop. |
+
+**`npcflag` is a bitfield, not an enum.** Use `BIGINT` (PostgreSQL) and bitwise ops. Reserve bits like:
+
+```
+0x0001  GOSSIP            (has dialogue / right-click menu)
+0x0002  QUEST_GIVER
+0x0004  VENDOR
+0x0008  TRAINER
+0x0010  FLIGHT_MASTER
+0x0020  AUCTIONEER
+0x0040  BANKER
+0x0080  REPAIR
+0x0100  STABLE_MASTER
+... (reserve 64 bits; AzerothCore uses ~25 today)
+```
+
+A creature with `npcflag = 0x0007` is a quest-giver + vendor + has-gossip simultaneously. The editor's Inspector shows checkboxes for each bit; conditional sub-panels (vendor stock list, trainer spell list, gossip text) appear when their bit is set.
+
+**Editor implication:** the `SpawnPoint` placement type stays a single concept. The Inspector is what differentiates a hostile wolf from a quest-giving NPC — through the chosen `creature_template` entry plus its `npcflag`. No new top-level entity type is needed for "NPC vs mob."
+
+**Implementation note:** add this schema as a single migration (`0002_creature_npc_gameobject.sql` or similar) once the schema-migrations system from step 1 of "Implementation order" lands. Existing `creature_spawn` will need to be reconciled with this design.
+
 ### MMO-specific authoring gaps (not yet in the editor)
 
 The editor today places `SpawnPoint` and `InstancePortal` but doesn't distinguish:
