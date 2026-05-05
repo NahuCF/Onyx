@@ -1,10 +1,26 @@
 #include "../../Shared/Source/Data/GameDataStore.h"
 #include "LoginServer.h"
+#include <cerrno>
 #include <csignal>
 #include <cstdlib>
 #include <iostream>
 
 MMO::LoginServer* g_Server = nullptr;
+
+static uint16_t ParsePort(const char* str, uint16_t defaultVal)
+{
+	if (!str)
+		return defaultVal;
+	char* end = nullptr;
+	errno = 0;
+	long val = std::strtol(str, &end, 10);
+	if (errno != 0 || end == str || *end != '\0' || val < 1 || val > 65535)
+	{
+		std::cerr << "Invalid port '" << str << "', using default " << defaultVal << '\n';
+		return defaultVal;
+	}
+	return static_cast<uint16_t>(val);
+}
 
 void SignalHandler(int signal)
 {
@@ -54,7 +70,7 @@ int main(int argc, char* argv[])
 	const char* worldHost = std::getenv("WORLD_HOST");
 	const char* worldPort = std::getenv("WORLD_PORT");
 
-	uint16_t port = serverPort ? static_cast<uint16_t>(std::atoi(serverPort)) : 7000;
+	uint16_t port = ParsePort(serverPort, 7000);
 
 	// Create and initialize server
 	MMO::LoginServer server;
@@ -63,7 +79,7 @@ int main(int argc, char* argv[])
 	// Set world server info
 	server.SetWorldServerInfo(
 		worldHost ? worldHost : "127.0.0.1",
-		worldPort ? static_cast<uint16_t>(std::atoi(worldPort)) : 7001);
+		ParsePort(worldPort, 7001));
 
 	if (!server.Initialize(connectionString, port))
 	{

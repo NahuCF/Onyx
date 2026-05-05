@@ -1,10 +1,26 @@
 #include "WorldServer.h"
+#include <cerrno>
 #include <csignal>
 #include <cstdlib>
 #include <iostream>
 #include <string>
 
 MMO::WorldServer* g_Server = nullptr;
+
+static uint16_t ParsePort(const char* str, uint16_t defaultVal)
+{
+	if (!str)
+		return defaultVal;
+	char* end = nullptr;
+	errno = 0;
+	long val = std::strtol(str, &end, 10);
+	if (errno != 0 || end == str || *end != '\0' || val < 1 || val > 65535)
+	{
+		std::cerr << "Invalid port '" << str << "', using default " << defaultVal << '\n';
+		return defaultVal;
+	}
+	return static_cast<uint16_t>(val);
+}
 
 void SignalHandler(int signal)
 {
@@ -25,7 +41,7 @@ int main(int argc, char* argv[])
 
 	// Get configuration from environment or use defaults
 	const char* serverPort = std::getenv("WORLD_PORT");
-	uint16_t port = serverPort ? static_cast<uint16_t>(std::atoi(serverPort)) : 7001;
+	uint16_t port = ParsePort(serverPort, 7001);
 
 	// Database connection string
 	const char* dbHost = std::getenv("DB_HOST");
