@@ -1,0 +1,41 @@
+---
+# Onyx clang-tidy config — focused on bugs and performance for a real-time game engine.
+# Naming checks are intentionally OFF for now (would be noisy on the existing codebase).
+# Add them later if desired (member m_PascalCase, methods PascalCase, locals camelCase,
+# constants UPPER_SNAKE_CASE — see CLAUDE.md → Coding conventions).
+
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -bugprone-implicit-widening-of-multiplication-result,
+  performance-*,
+  modernize-loop-convert,
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-use-emplace,
+  modernize-use-equals-default,
+  modernize-use-equals-delete,
+  modernize-use-using,
+  modernize-use-bool-literals,
+  modernize-make-unique,
+  modernize-make-shared,
+  modernize-redundant-void-arg,
+  cppcoreguidelines-init-variables,
+  cppcoreguidelines-pro-type-cstyle-cast,
+  cppcoreguidelines-pro-type-member-init,
+  cppcoreguidelines-slicing,
+  readability-misleading-indentation,
+  readability-redundant-smartptr-get,
+  readability-redundant-string-cstr,
+  readability-redundant-member-init,
+  readability-string-compare
+
+# Don't break the build on warnings — let devs review and opt in over time.
+WarningsAsErrors: ''
+
+# Only lint our own headers; skip Onyx/Vendor/** and system headers.
+HeaderFilterRegex: '(Onyx[/\\]Source|MMOGame)[/\\].*'
+
+FormatStyle: file

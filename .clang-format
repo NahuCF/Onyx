@@ -1,0 +1,69 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+# Indentation — tabs (width 4), match Onyx/Source/Graphics/Window.h
+UseTab: Always
+TabWidth: 4
+IndentWidth: 4
+ContinuationIndentWidth: 4
+AccessModifierOffset: -4
+NamespaceIndentation: All
+
+# Braces — Allman for class/function/control, but keep `namespace X {` on one line.
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterEnum: true
+  AfterFunction: true
+  AfterControlStatement: Always
+  AfterCaseLabel: true
+  AfterNamespace: false
+  AfterExternBlock: false
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeLambdaBody: false
+  BeforeWhile: false
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+
+# Don't insert/remove blank lines before public:/private: — leave them as written.
+EmptyLineBeforeAccessModifier: Leave
+
+# Preserve the blank line written after `namespace X {`
+KeepEmptyLinesAtTheStartOfBlocks: true
+MaxEmptyLinesToKeep: 1
+
+# Short inline bodies allowed: `int Width() const { return m_Width; }`
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+
+# Pointer/reference glued to the type: `Type* var`, `Type& var`
+PointerAlignment: Left
+ReferenceAlignment: Left
+DerivePointerAlignment: false
+
+# Includes — sort within a block but preserve block ordering
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+
+# No automatic line wrapping — preserve long single-line getters/ctors as written
+ColumnLimit: 0
+
+# Misc
+Cpp11BracedListStyle: true
+FixNamespaceComments: true
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpaceAfterCStyleCast: false
+AlignAfterOpenBracket: Align
+AlignTrailingComments: true
+SpacesBeforeTrailingComments: 1
