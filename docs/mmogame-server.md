@@ -41,15 +41,17 @@ Patterns are AzerothCore/TrinityCore-inspired (grid visibility, visitor pattern,
 | Folder | Purpose |
 |---|---|
 | `Entity/` | `Entity.h/.cpp`, `Components.h`, `AuraComponent.h` |
-| `Map/` | `Map.h`, `MapDefines.h/.cpp`, `MapInstance.h/.cpp`, `MapManager.h/.cpp` |
+| `Map/` | `MapDefines.h/.cpp`, `MapInstance.h/.cpp`, `MapManager.h/.cpp` |
 | `Grid/` | `Grid.h/.cpp`, `GridCell.h`, `GridDefines.h` |
-| `AI/` | `ScriptedAI.h/.cpp`, `EventMap.h`, `AIDefines.h`, `ConditionEvaluator.h`, `CreatureTemplate.h/.cpp`, `CreatureTemplates.cpp`, `DataDrivenAI.h`, `AICallbacks.h`, `SummonList.h`, `ScriptRegistry.h/.cpp` |
-| `Scripts/` | `ScriptLoader.h`, hand-written boss scripts (e.g., `ShadowLordAI.h`) |
+| `AI/` | `CreatureAI.h/.cpp`, `CreatureScript.h`, `CreatureScripts.cpp`, `BuiltInAI.h`, `InstanceScript.h`, `InstanceScripts.cpp`, `EventMap.h`, `AIDefines.h`, `ConditionEvaluator.h`, `CreatureTemplate.h`, `CreatureTemplates.h/.cpp`, `SummonList.h` |
+| `Scripting/` | `IEntity.h`, `IMapContext.h`, `GameObjectScript.h/.cpp`, `QuestScript.h/.cpp`, `SpellScript.h/.cpp`, `PlayerScript.h/.cpp` |
+| `Scripts/` | Hand-written boss AIs — `ShadowLordAI.h` |
+| `Triggers/` | `TriggerScript.h`, `TriggerScripts.cpp` |
 | top-level | `WorldServer.h/.cpp`, `Main.cpp` |
 
 ## Entity components (`Entity/Components.h`)
 
-All POD-style structs. `Entity` (`Entity.h`) owns optional component pointers via factory methods (`AddHealthComponent`, etc.).
+All POD-style structs. `Entity` (`Entity.h`) owns optional component pointers via factory methods (`AddHealthComponent`, etc.). `Entity` inherits `IEntity` (see Scripting Interfaces below).
 
 | Component | Key state | Primary methods |
 |---|---|---|
@@ -76,24 +78,27 @@ struct MapTemplate {
     Vec2 spawnPoint;
     std::vector<Portal> portals;
     std::vector<MobSpawnPoint> mobSpawns;
+    std::vector<ServerTriggerVolume> triggerVolumes;
+    std::string instanceScriptName;   // maps to map_template.instance_script column
 };
 ```
 
-`MapInstance` (runtime instance):
+`MapInstance` (runtime instance) — also implements `IMapContext`:
 - Constructor: `MapInstance(uint32_t instanceId, const MapTemplate* tmpl)`.
 - Lifecycle: `CreatePlayer`, `CreateMob`, `RemoveEntity`, `Update(dt)`.
 - Queries: `GetEntity`, `GetEntitiesInRadius`, `GetPlayersInRadius`.
 - Loot: `GenerateLoot(mob, killerEntityId)`, `TakeLootMoney`, `TakeLootItem`.
 - Projectiles: `SpawnProjectile`, `UpdateProjectiles`, `GetProjectiles`.
 - Grid hooks: `GetGrid`, `MarkPositionDirty`, dirty-flag set helpers.
+- Scripting: `FireTriggerScript(entity, volume)` dispatches via cached `resolvedScript` pointer.
+- Dungeon: owns `unique_ptr<InstanceState>` if `instanceScriptName` is set; forwards player enter/leave, creature death, and area trigger events to it.
 
 `MapManager` (singleton):
-- `Initialize(Database&)`, `GetMapInstance(templateId)`, `GetInstanceById(instanceId)`, `GetTemplate(templateId)`.
+- `Initialize(Database&)` — loads map templates, portals, creature spawns, and trigger volumes from DB; resolves all script pointers at boot.
+- `GetMapInstance(templateId)`, `GetInstanceById(instanceId)`, `GetTemplate(templateId)`.
 - `TransferPlayer(playerId, destMapId, destPosition)` — inter-map transfer.
-- `GenerateGlobalEntityId()` — globally unique IDs across maps.
 
-Maps are fully DB-driven — `Initialize(Database&)` queries `map_template`, `portal`, and `creature_spawn` at startup. Templates are authored in MMOEditor3D (see [editor3d.md](editor3d.md), [release-pipeline.md](release-pipeline.md)). Default seed (`MMOGame/Database/migrations/0001_baseline.sql` + `0003_seed_races_classes.sql`):
-- **Starting Zone** (ID 1) and **Dark Forest** (ID 2), each 100×100, plus 3 placeholder creature templates (Werewolf, Forest Spider, Shadow Lord). Real spawns are written by the editor on save. The legacy `MapTemplates.cpp` hardcoded factory was deleted on 2026-05-04.
+Maps are fully DB-driven. Templates are authored in MMOEditor3D (see [editor3d.md](editor3d.md), [release-pipeline.md](release-pipeline.md)).
 
 ## Grid system (`Grid/`)
 
@@ -123,21 +128,208 @@ struct DirtyFlags {
 
 `Grid::MarkDirty(...)` / `GetDirtyEntities()` drive delta updates to clients.
 
-## AI system (`AI/`)
+## Scripting system
 
-Data-driven mob AI with a hand-written script layer for bosses.
+The scripting system is split across three locations:
 
-### `ScriptedAI` (base class)
+| Location | Contents |
+|---|---|
+| `Shared/Source/Scripting/` | `ScriptObject`, `ScriptRegistry<T>`, `HookRegistry<T>` — used by all script types |
+| `WorldServer/Source/Scripting/` | `IEntity`, `IMapContext` interfaces; `GameObjectScript`, `QuestScript`, `SpellScript`, `PlayerScript` |
+| `WorldServer/Source/AI/` | `CreatureScript`, `CreatureAI`, `BuiltInAI`, `InstanceScript`/`InstanceState` |
+| `WorldServer/Source/Triggers/` | `TriggerScript` |
 
-Hooks: `OnEnterCombat`, `OnEvade`, `OnDeath`, `OnDamageTaken`, `OnSummonDied`, `OnPhaseTransition`.
+### Base types (`Shared/Source/Scripting/`)
 
-Main update:
+**`ScriptObject`** — base class for all script singletons. Holds a name string; `GetName() → string_view`.
+
+**`ScriptRegistry<T>`** (C++20 concept: `T` must derive `ScriptObject`) — Meyers singleton owning one `unique_ptr<T>` per name:
 ```cpp
-void Update(float dt, Entity* target,
-            CastAbilityFn cast, SummonCreatureFn summon, DespawnCreatureFn despawn);
+template<typename T> requires std::derived_from<T, ScriptObject>
+class ScriptRegistry {
+    T* Register<U>();          // construct U in-place, return raw ptr
+    T* Get(string_view name);
+    void ForEach(auto&& fn);
+    size_t Size();
+};
+```
+One `ScriptRegistry` instance per script type (`CreatureScript`, `TriggerScript`, `InstanceScript`, etc.).
+
+**`HookRegistry<T>`** — non-owning broadcast registry. Used by `PlayerScript` so multiple subscribers can receive the same event:
+```cpp
+void Subscribe(T* script);
+template<auto Method, typename... Args>
+void Dispatch(Args&&... args);   // calls Method on every subscriber
 ```
 
-State accessors: `IsInCombat`, `GetCurrentPhase`, `GetCombatTime`, `GetEvents`, `GetSummons`, `SetPhase`, `CheckPhaseTriggers`, `TransitionToPhase`, `TriggerPhase`.
+### Scripting interfaces (`WorldServer/Source/Scripting/`)
+
+Scripts see only `IEntity&` and `IMapContext&` — never `Entity*` or `MapInstance*`. This decouples scripts from server internals and allows unit testing with stubs.
+
+**`IEntity`** — what scripts can read/mutate on a mob or player:
+```cpp
+EntityId GetId() const;
+const std::string& GetName() const;
+EntityType GetType() const;
+Vec2 GetPosition() const;
+float GetHeight() const;
+float GetHealthPercent() const;  // 0.0–1.0
+float GetManaPercent() const;
+bool IsDead() const;
+uint32_t AddAura(const Aura& aura);
+void RemoveAura(uint32_t auraId);
+void RemoveAurasByType(AuraType);
+bool HasAuraType(AuraType) const;
+```
+
+**`IMapContext`** — what scripts can do at map level:
+```cpp
+std::string_view GetMapName() const;
+float GetTime() const;
+IEntity* GetEntity(EntityId);
+IEntity* SummonCreature(uint32_t templateId, Vec2 position, EntityId summoner);
+void RemoveEntity(EntityId);
+void ProcessAbility(EntityId source, EntityId target, AbilityId);
+```
+
+`Entity` implements `IEntity`; `MapInstance` implements `IMapContext` (covariant `GetEntity` return: `Entity*` overrides `IEntity*`).
+
+### Script types
+
+#### `CreatureScript` + `CreatureAI` (`AI/`)
+
+**`CreatureScript`** — registered singleton factory, one per named script:
+```cpp
+class CreatureScript : public ScriptObject {
+    virtual unique_ptr<CreatureAI> CreateAI(IMapContext& map, IEntity& mob,
+                                             const CreatureTemplate* tmpl) const = 0;
+};
+```
+
+**`CreatureAI`** — per-mob runtime (NOT a ScriptObject). Constructed by `CreateAI`; owned by `MapInstance`:
+```cpp
+class CreatureAI {
+public:
+    CreatureAI(IMapContext& ctx, IEntity& owner, const CreatureTemplate* tmpl);
+
+    virtual void OnEnterCombat(IEntity& target);
+    virtual void OnEvade();
+    virtual void OnDeath(IEntity* killer);
+    virtual void OnDamageTaken(IEntity& attacker, int32_t damage);
+    virtual void OnSummonDied(IEntity& summon);
+    virtual void OnPhaseTransition(uint32_t oldPhase, uint32_t newPhase);
+    virtual void Update(float dt, IEntity* target, IMapContext& ctx);
+
+protected:
+    IMapContext& m_Ctx;
+    IEntity& m_Owner;
+    const CreatureTemplate* m_Template;
+    EventMap m_Events;
+    SummonList m_Summons;
+    bool m_InCombat;
+    float m_CombatTime;
+    uint32_t m_CurrentPhase;
+};
+```
+
+Phase transitions and ability casts call `m_Ctx.ProcessAbility(...)` and `m_Ctx.SummonCreature(...)` directly — no stored callbacks.
+
+**Three-step mob AI resolution** at `MapInstance::CreateMob`:
+1. `tmpl->resolvedScript` set → `resolvedScript->CreateAI(map, mob, tmpl)` (engineer-authored `CreatureScript`)
+2. `tmpl->aiName` set → `BuiltInAIRegistry().Get(aiName)->CreateAI(map, mob, tmpl)` (data-driven archetype)
+3. Fallback → `make_unique<CreatureAI>(map, mob, tmpl)` (default data-driven AI)
+
+#### `BuiltInAI` (`AI/BuiltInAI.h`)
+
+Registry of data-driven AI archetypes keyed by the `ai_name` DB column (e.g. `"aggressor"`, `"passive"`, `"guard"`). Selected as the middle tier of the three-step resolution above. Concrete archetypes TBD.
+
+#### `TriggerScript` (`Triggers/TriggerScript.h`)
+
+Singleton callback for trigger volumes. Multiple volumes may share one script name:
+```cpp
+class TriggerScript : public ScriptObject {
+    virtual void OnEnter(IMapContext&, IEntity&, const ServerTriggerVolume&) {}
+    virtual void OnExit (IMapContext&, IEntity&, const ServerTriggerVolume&) {}
+    virtual void OnStay (IMapContext&, IEntity&, const ServerTriggerVolume&) {}
+};
+```
+
+Dispatch goes through `ServerTriggerVolume::resolvedScript` — a raw pointer cached at boot. No hash lookup per trigger event.
+
+For the full trigger volume system see [trigger-volumes.md](trigger-volumes.md).
+
+#### `InstanceScript` + `InstanceState` (`AI/InstanceScript.h`)
+
+**`InstanceScript`** — factory singleton registered by dungeon map name:
+```cpp
+class InstanceScript : public ScriptObject {
+    virtual unique_ptr<InstanceState> CreateState(IMapContext&) const = 0;
+};
+```
+
+**`InstanceState`** — per-`MapInstance` runtime for dungeon encounter logic:
+```cpp
+class InstanceState {
+    virtual void OnInstanceCreate(IMapContext&);
+    virtual void OnPlayerEnter(IEntity&);
+    virtual void OnPlayerLeave(IEntity&);
+    virtual void OnCreatureCreate(IEntity&);
+    virtual void OnCreatureDeath(IEntity&, IEntity* killer);
+    virtual void OnAreaTrigger(IEntity&, const ServerTriggerVolume&);
+    virtual void Update(float dt);
+};
+```
+
+`MapInstance` constructs the state in its constructor (if `tmpl->instanceScriptName` is set) and forwards events to it each tick.
+
+#### Global hook scripts (`Scripting/`)
+
+`PlayerScript`, `GameObjectScript`, `QuestScript`, `SpellScript` — all inherit `ScriptObject` and use `ScriptRegistry<T>`. `PlayerScript` additionally uses `HookRegistry<PlayerScript>` for multi-subscriber broadcast. All are stub-registered at startup; concrete implementations TBD.
+
+### Script resolution and registration
+
+**Boot-time resolution** (`MapManager::Initialize`, after all templates are loaded):
+- Iterates all `ServerTriggerVolume` entries → caches `TriggerScript*` on `vol.resolvedScript`.
+- Iterates all `CreatureTemplate` entries → caches `CreatureScript*` on `tmpl->resolvedScript`.
+- Logs a warning for any named script that has no registered implementation.
+
+**Registration order** in `WorldServer::Initialize` (before `MapManager::Initialize`):
+```cpp
+RegisterAllCreatureScripts();
+RegisterAllInstanceScripts();
+RegisterAllTriggerScripts();
+RegisterAllGameObjectScripts();
+RegisterAllQuestScripts();
+RegisterAllSpellScripts();
+RegisterAllPlayerScripts();
+```
+
+Each `RegisterAll*` function lives in its corresponding `*Scripts.cpp` file and calls `ScriptRegistry<T>::Instance().Register<ConcreteClass>()`.
+
+### Adding a new creature script
+
+1. Create `WorldServer/Source/Scripts/MyBossAI.h`:
+   ```cpp
+   class MyBossAI : public CreatureAI {
+   public:
+       MyBossAI(IMapContext& ctx, IEntity& owner, const CreatureTemplate* tmpl)
+           : CreatureAI(ctx, owner, tmpl) {}
+       void OnEnterCombat(IEntity& target) override { ... }
+   };
+
+   class MyBossScript : public CreatureScript {
+   public:
+       MyBossScript() : CreatureScript("my_boss") {}
+       unique_ptr<CreatureAI> CreateAI(IMapContext& map, IEntity& mob,
+                                        const CreatureTemplate* tmpl) const override {
+           return make_unique<MyBossAI>(map, mob, tmpl);
+       }
+   };
+   ```
+2. Add `reg.Register<MyBossScript>();` in `CreatureScripts.cpp`.
+3. Set `scripts = 'my_boss'` on the `creature_template` DB row.
+
+## AI data model (`AI/`)
 
 ### `EventMap`
 
@@ -149,6 +341,8 @@ Timer-based scheduler with phase masks.
 
 `ConditionType`: `HEALTH_BELOW`, `HEALTH_ABOVE`, `MANA_BELOW`, `MANA_ABOVE`, `TARGET_HEALTH_BELOW`, `TARGET_HEALTH_ABOVE`, `IN_RANGE`, `OUT_OF_RANGE`, `COMBAT_TIME_ABOVE`, `COMBAT_TIME_BELOW`, `SUMMONS_ALIVE`, `NO_SUMMONS_ALIVE`, `HAS_BUFF`, `NOT_HAS_BUFF`, `RANDOM_CHANCE`.
 
+`ConditionEvaluator::Evaluate(cond, self, target, combatTime, hasSummons)` — all parameters are `IEntity*`.
+
 ### `AbilityRule`
 
 ```cpp
@@ -158,8 +352,6 @@ struct AbilityRule {
     float initialDelay;
     uint32_t phaseMask;
     std::vector<Condition> conditions;
-    AbilityRule& WithCondition(...);
-    AbilityRule& WithInitialDelay(float);
 };
 ```
 
@@ -168,18 +360,57 @@ struct AbilityRule {
 ```cpp
 struct PhaseTrigger {
     int fromPhase, toPhase;
-    PhaseTriggerType type;
+    PhaseTriggerType type;   // HEALTH_BELOW, SUMMON_DIED, etc.
     float value;
     AbilityId castOnTransition;
     uint32_t summonCreatureId;
     int summonCount;
     float summonSpacing;
-    PhaseTrigger& WithCast(AbilityId);
-    PhaseTrigger& WithSummon(uint32_t, int, float);
 };
 ```
 
-`CreatureTemplate` (`AI/CreatureTemplate.h`) bundles base stats + an `AbilityRule` list + `PhaseTrigger` list. Mobs without a hand-written script use the data-driven path; bosses register a `ScriptedAI` subclass via `ScriptRegistry`.
+### `CreatureTemplate` (`AI/CreatureTemplate.h`)
+
+```cpp
+struct CreatureTemplate {
+    uint32_t id;
+    std::string name;
+    uint8_t level;
+    int32_t maxHealth, maxMana;
+    float speed, aggroRadius, leashRadius;
+    uint32_t baseXP, minMoney, maxMoney;
+    CreatureRank rank;
+    float corpseDecayTime, respawnTime;
+    std::vector<AbilityRule> abilities;
+    std::vector<PhaseTrigger> phaseTriggers;
+    uint32_t initialPhase;
+    std::vector<LootTableEntry> lootTable;
+
+    std::string scriptName;         // 'scripts' DB column → CreatureScript
+    std::string aiName;             // 'ai_name' DB column → BuiltInAI archetype
+    CreatureScript* resolvedScript; // cached at boot, null if scriptName empty
+};
+```
+
+## Trigger volumes (`Map/MapDefines.h`)
+
+See [trigger-volumes.md](trigger-volumes.md) for the full system. Summary:
+
+```cpp
+struct ServerTriggerVolume {
+    std::string guid;
+    TriggerShapeKind shape;     // BOX, SPHERE, CAPSULE
+    Vec2 position;
+    float positionZ, orientation;
+    float halfExtentX, halfExtentY, halfExtentZ;
+    float radius;
+    TriggerEventKind triggerEvent;  // ON_ENTER, ON_EXIT, ON_STAY
+    bool triggerOnce, triggerPlayers, triggerCreatures;
+    std::string scriptName;
+    uint32_t eventId;
+    TriggerScript* resolvedScript;  // cached at boot
+};
+```
 
 ## Combat
 
@@ -233,7 +464,6 @@ void ClearAllAuras();
 
 bool HasAuraType(AuraType) const;
 bool IsImmune(DamageType) const;
-bool IsImmuneToSchool(...) const;
 float GetSpeedModifier() const;
 float GetDamageTakenModifier() const;
 bool IsStunned() const;

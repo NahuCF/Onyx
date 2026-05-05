@@ -15,6 +15,7 @@ For terrain and file formats see [terrain-and-formats.md](terrain-and-formats.md
 | `Model/` | `OmdlFormat.h`, `OmdlReader.h/.cpp`, `OmdlWriter.h/.cpp` — `.omdl` model format |
 | `Network/` | `Buffer.h/.cpp` (read/write helpers), `ENetWrapper.h/.cpp` (`NetworkClient`, `NetworkServer`) |
 | `Packets/` | `Packets.h` — every packet type and payload |
+| `Scripting/` | `ScriptObject.h`, `ScriptRegistry<T>.h`, `HookRegistry<T>.h` — base types for all script systems |
 | `Spells/` | `SpellDefines.h`, `AbilityData.h/.cpp` — `AuraType`, `SpellEffect`, `AbilityData` |
 | `Terrain/` | `TerrainData.h`, `ChunkFormat.h`, `ChunkIO.h`, `ChunkFileReader.h/.cpp`, `ChunkFileWriter.h/.cpp`, `TerrainMeshGenerator.h/.cpp` — see [terrain-and-formats.md](terrain-and-formats.md) |
 | `Types/` | `Types.h/.cpp` — `DamageType`, `EquipmentSlot`, `CharacterClass`, primitive type aliases |
