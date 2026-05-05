@@ -18,7 +18,10 @@ namespace Onyx {
 		Int3,
 		Int4,
 		UInt,
-		Bool
+		Bool,
+		SNorm16,    // GL_SHORT, normalized -> [-1, 1] float in shader
+		SNorm16x2,
+		Half2       // GL_HALF_FLOAT x 2
 	};
 
 	// Get size in bytes for each attribute type
@@ -46,6 +49,12 @@ namespace Onyx {
 			return 4;
 		case VertexAttributeType::Bool:
 			return 1;
+		case VertexAttributeType::SNorm16:
+			return 2;
+		case VertexAttributeType::SNorm16x2:
+			return 4;
+		case VertexAttributeType::Half2:
+			return 4;
 		}
 		return 0;
 	}
@@ -75,6 +84,12 @@ namespace Onyx {
 			return 1;
 		case VertexAttributeType::Bool:
 			return 1;
+		case VertexAttributeType::SNorm16:
+			return 1;
+		case VertexAttributeType::SNorm16x2:
+			return 2;
+		case VertexAttributeType::Half2:
+			return 2;
 		}
 		return 0;
 	}

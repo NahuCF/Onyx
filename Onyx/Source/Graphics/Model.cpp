@@ -46,7 +46,8 @@ namespace Onyx {
 		const aiScene* scene = import.ReadFile(path,
 											   aiProcess_Triangulate |
 												   aiProcess_GenSmoothNormals |
-												   aiProcess_CalcTangentSpace);
+												   aiProcess_CalcTangentSpace |
+												   aiProcess_JoinIdenticalVertices);
 		// Note: NOT using aiProcess_PreTransformVertices to preserve separate meshes
 		// Each mesh will need its node transform applied manually
 		// Note: NOT using aiProcess_FlipUVs because Texture class already flips with stbi
@@ -113,7 +114,8 @@ namespace Onyx {
 		const aiScene* scene = import.ReadFile(path,
 											   aiProcess_Triangulate |
 												   aiProcess_GenSmoothNormals |
-												   aiProcess_CalcTangentSpace);
+												   aiProcess_CalcTangentSpace |
+												   aiProcess_JoinIdenticalVertices);
 
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 		{
@@ -148,40 +150,34 @@ namespace Onyx {
 
 					for (unsigned int v = 0; v < mesh->mNumVertices; v++)
 					{
-						MeshVertex vertex;
 						glm::vec3 localPos(mesh->mVertices[v].x, mesh->mVertices[v].y, mesh->mVertices[v].z);
-						glm::vec4 transformedPos = globalTransform * glm::vec4(localPos, 1.0f);
-						vertex.position = glm::vec3(transformedPos);
+						glm::vec3 worldPos = glm::vec3(globalTransform * glm::vec4(localPos, 1.0f));
 
+						glm::vec3 worldNormal(0.0f, 1.0f, 0.0f);
 						if (mesh->HasNormals())
 						{
 							glm::vec3 localNormal(mesh->mNormals[v].x, mesh->mNormals[v].y, mesh->mNormals[v].z);
-							vertex.normal = glm::normalize(normalMatrix * localNormal);
+							worldNormal = glm::normalize(normalMatrix * localNormal);
 						}
 
+						glm::vec2 uv(0.0f);
 						if (mesh->mTextureCoords[0])
 						{
-							vertex.texCoord = glm::vec2(mesh->mTextureCoords[0][v].x, mesh->mTextureCoords[0][v].y);
-						}
-						else
-						{
-							vertex.texCoord = glm::vec2(0.0f);
+							uv = glm::vec2(mesh->mTextureCoords[0][v].x, mesh->mTextureCoords[0][v].y);
 						}
 
+						glm::vec3 worldTangent(1.0f, 0.0f, 0.0f);
+						glm::vec3 worldBitangent(0.0f, 0.0f, 1.0f);
 						if (mesh->HasTangentsAndBitangents())
 						{
 							glm::vec3 localTangent(mesh->mTangents[v].x, mesh->mTangents[v].y, mesh->mTangents[v].z);
 							glm::vec3 localBitangent(mesh->mBitangents[v].x, mesh->mBitangents[v].y, mesh->mBitangents[v].z);
-							vertex.tangent = glm::normalize(normalMatrix * localTangent);
-							vertex.bitangent = glm::normalize(normalMatrix * localBitangent);
-						}
-						else
-						{
-							vertex.tangent = glm::vec3(0.0f);
-							vertex.bitangent = glm::vec3(0.0f);
+							worldTangent = glm::normalize(normalMatrix * localTangent);
+							worldBitangent = glm::normalize(normalMatrix * localBitangent);
 						}
 
-						cpuMesh.vertices.push_back(vertex);
+						cpuMesh.vertices.push_back(
+							MakeMeshVertex(worldPos, worldNormal, uv, worldTangent, worldBitangent));
 					}
 
 					for (unsigned int f = 0; f < mesh->mNumFaces; f++)
@@ -367,50 +363,33 @@ namespace Onyx {
 		// Set vertices and textures coords for the mesh
 		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 		{
-			// Set Vertex vertices position
-			MeshVertex vertex;
 			glm::vec3 localPos(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
-			// Apply transform to position
-			glm::vec4 transformedPos = transform * glm::vec4(localPos, 1.0f);
-			vertex.position = glm::vec3(transformedPos);
+			glm::vec3 worldPos = glm::vec3(transform * glm::vec4(localPos, 1.0f));
 
-			// Set Vertex normals
+			glm::vec3 worldNormal(0.0f, 1.0f, 0.0f);
 			if (mesh->HasNormals())
 			{
 				glm::vec3 localNormal(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z);
-				// Apply normal matrix to normal
-				vertex.normal = glm::normalize(normalMatrix * localNormal);
+				worldNormal = glm::normalize(normalMatrix * localNormal);
 			}
 
-			// Set Vertex texture coords
+			glm::vec2 uv(0.0f);
 			if (mesh->mTextureCoords[0])
 			{
-				glm::vec2 vec;
-				vec.x = mesh->mTextureCoords[0][i].x;
-				vec.y = mesh->mTextureCoords[0][i].y;
-				vertex.texCoord = vec;
-			}
-			else
-			{
-				vertex.texCoord = glm::vec2(0.0f, 0.0f);
+				uv = glm::vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y);
 			}
 
-			// Set Vertex tangent
+			glm::vec3 worldTangent(1.0f, 0.0f, 0.0f);
+			glm::vec3 worldBitangent(0.0f, 0.0f, 1.0f);
 			if (mesh->HasTangentsAndBitangents())
 			{
 				glm::vec3 localTangent(mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z);
 				glm::vec3 localBitangent(mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z);
-				// Apply normal matrix to tangent/bitangent
-				vertex.tangent = glm::normalize(normalMatrix * localTangent);
-				vertex.bitangent = glm::normalize(normalMatrix * localBitangent);
-			}
-			else
-			{
-				vertex.tangent = glm::vec3(0.0f);
-				vertex.bitangent = glm::vec3(0.0f);
+				worldTangent = glm::normalize(normalMatrix * localTangent);
+				worldBitangent = glm::normalize(normalMatrix * localBitangent);
 			}
 
-			vertices.push_back(vertex);
+			vertices.push_back(MakeMeshVertex(worldPos, worldNormal, uv, worldTangent, worldBitangent));
 		}
 
 		// Set indices of mesh

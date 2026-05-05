@@ -57,3 +57,6 @@ add_subdirectory(Editor)
 
 # ========== Editor 3D Project ==========
 add_subdirectory(Editor3D)
+
+# ========== Benchmarks ==========
+add_subdirectory(Benchmarks)

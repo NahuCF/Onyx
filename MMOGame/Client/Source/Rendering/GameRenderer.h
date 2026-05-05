@@ -19,6 +19,8 @@ namespace MMO {
 		std::vector<OmdlMeshInfo> meshes;
 		std::vector<std::unique_ptr<Onyx::Texture>> albedoTextures;
 		uint32_t totalIndices = 0;
+		uint32_t indexType = 0;       // GL_UNSIGNED_INT or GL_UNSIGNED_SHORT
+		uint32_t indexByteSize = 4;   // 4 (u32) or 2 (u16)
 	};
 
 	struct StaticWorldObject

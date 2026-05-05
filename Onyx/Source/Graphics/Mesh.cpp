@@ -99,8 +99,9 @@ namespace Onyx {
 		m_BoundsMax = glm::vec3(std::numeric_limits<float>::lowest());
 		for (const auto& v : m_Vertices)
 		{
-			m_BoundsMin = glm::min(m_BoundsMin, v.position);
-			m_BoundsMax = glm::max(m_BoundsMax, v.position);
+			glm::vec3 p(v.position[0], v.position[1], v.position[2]);
+			m_BoundsMin = glm::min(m_BoundsMin, p);
+			m_BoundsMax = glm::max(m_BoundsMax, p);
 		}
 		m_Center = (m_BoundsMin + m_BoundsMax) * 0.5f;
 	}
@@ -119,21 +120,21 @@ namespace Onyx {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_Indices.size() * sizeof(unsigned int), &m_Indices[0], GL_STATIC_DRAW);
 
-		// Position
+		// Position (location 0): float3
 		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)nullptr);
-		// Normal
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, position));
+		// Normal (location 1): snorm16x2 oct-encoded
 		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, normal));
-		// TexCoord
+		glVertexAttribPointer(1, 2, GL_SHORT, GL_TRUE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, octNormal));
+		// TexCoord (location 2): half2
 		glEnableVertexAttribArray(2);
-		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, texCoord));
-		// Tangent
+		glVertexAttribPointer(2, 2, GL_HALF_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, uvHalf));
+		// Tangent (location 3): snorm16x2 oct-encoded
 		glEnableVertexAttribArray(3);
-		glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, tangent));
-		// Bitangent
+		glVertexAttribPointer(3, 2, GL_SHORT, GL_TRUE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, octTangent));
+		// BitangentSign (location 4): snorm16x2; shader uses .x as sign, .y reserved
 		glEnableVertexAttribArray(4);
-		glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, bitangent));
+		glVertexAttribPointer(4, 2, GL_SHORT, GL_TRUE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, bitangentSign));
 
 		glBindVertexArray(0);
 

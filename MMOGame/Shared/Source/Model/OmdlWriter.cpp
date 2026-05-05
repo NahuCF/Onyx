@@ -21,7 +21,7 @@ namespace MMO {
 			return false;
 		}
 
-		// Header
+		// Header — caller is responsible for setting magic/version/flags/counts/bounds.
 		file.write(reinterpret_cast<const char*>(&data.header), sizeof(OmdlHeader));
 
 		// Per-mesh info
@@ -36,13 +36,13 @@ namespace MMO {
 			WriteStringField(file, mesh.normalPath);
 		}
 
-		// Vertex blob
+		// Vertex blob (already in v2 28-byte layout)
 		if (!data.vertexBlob.empty())
 		{
 			file.write(reinterpret_cast<const char*>(data.vertexBlob.data()), data.vertexBlob.size());
 		}
 
-		// Index blob
+		// Index blob (u16 or u32 — controlled by header.flags)
 		if (!data.indexBlob.empty())
 		{
 			file.write(reinterpret_cast<const char*>(data.indexBlob.data()), data.indexBlob.size());

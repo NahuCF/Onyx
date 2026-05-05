@@ -1272,6 +1272,9 @@ namespace Editor3D {
 			omdl.header.meshCount = static_cast<uint32_t>(meshes.size());
 			omdl.header.totalVertices = totalVertices;
 			omdl.header.totalIndices = totalIndices;
+			// Compact small models with u16 indices — saves half the index blob.
+			const bool useU16Idx = totalVertices < 65536u;
+			omdl.header.flags = useU16Idx ? MMO::OMDL_FLAG_U16_INDICES : 0u;
 
 			// Global bounds
 			glm::vec3 globalMin(std::numeric_limits<float>::max());
@@ -1279,7 +1282,7 @@ namespace Editor3D {
 
 			// Allocate blobs
 			omdl.vertexBlob.resize(totalVertices * sizeof(Onyx::MeshVertex));
-			omdl.indexBlob.resize(totalIndices * sizeof(uint32_t));
+			omdl.indexBlob.resize(totalIndices * (useU16Idx ? 2 : 4));
 
 			uint32_t vertexOffset = 0;
 			uint32_t indexOffset = 0;
@@ -1398,16 +1401,27 @@ namespace Editor3D {
 
 				omdl.meshes.push_back(std::move(info));
 
-				// Copy vertex data
+				// Copy vertex data (already in v2 28-byte layout)
 				size_t vertBytes = mesh.m_Vertices.size() * sizeof(Onyx::MeshVertex);
 				memcpy(omdl.vertexBlob.data() + vertexOffset * sizeof(Onyx::MeshVertex),
 					   mesh.m_Vertices.data(), vertBytes);
 				vertexOffset += static_cast<uint32_t>(mesh.m_Vertices.size());
 
-				// Copy index data
-				size_t idxBytes = mesh.m_Indices.size() * sizeof(uint32_t);
-				memcpy(omdl.indexBlob.data() + indexOffset * sizeof(uint32_t),
-					   mesh.m_Indices.data(), idxBytes);
+				// Copy index data — narrow to u16 when totalVertices < 65k
+				if (useU16Idx)
+				{
+					uint16_t* dst = reinterpret_cast<uint16_t*>(omdl.indexBlob.data()) + indexOffset;
+					for (size_t k = 0; k < mesh.m_Indices.size(); ++k)
+					{
+						dst[k] = static_cast<uint16_t>(mesh.m_Indices[k]);
+					}
+				}
+				else
+				{
+					size_t idxBytes = mesh.m_Indices.size() * sizeof(uint32_t);
+					memcpy(omdl.indexBlob.data() + indexOffset * sizeof(uint32_t),
+						   mesh.m_Indices.data(), idxBytes);
+				}
 				indexOffset += static_cast<uint32_t>(mesh.m_Indices.size());
 			}
 

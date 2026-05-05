@@ -115,8 +115,8 @@ namespace MMO {
 				glDrawElementsBaseVertex(
 					GL_TRIANGLES,
 					static_cast<GLsizei>(mesh.indexCount),
-					GL_UNSIGNED_INT,
-					reinterpret_cast<void*>(static_cast<uintptr_t>(mesh.firstIndex * sizeof(uint32_t))),
+					obj.model->indexType,
+					reinterpret_cast<void*>(static_cast<uintptr_t>(mesh.firstIndex * obj.model->indexByteSize)),
 					mesh.baseVertex);
 			}
 
@@ -170,8 +170,8 @@ namespace MMO {
 			return it->second.get();
 		}
 
-		// Read .omdl file
-		OmdlData data;
+		// Read .omdl file via memory mapping (zero-copy view).
+		OmdlMapped data;
 		if (!ReadOmdl(path, data))
 		{
 			std::cerr << "[GameRenderer] Failed to load .omdl: " << path << '\n';
@@ -181,17 +181,20 @@ namespace MMO {
 		auto model = std::make_unique<RuntimeModel>();
 		model->meshes = std::move(data.meshes);
 		model->totalIndices = data.header.totalIndices;
+		const bool u16 = (data.header.flags & OMDL_FLAG_U16_INDICES) != 0;
+		model->indexType = u16 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+		model->indexByteSize = u16 ? 2 : 4;
 
 		Onyx::RenderCommand::ResetState();
 
-		// Create GPU buffers from raw blobs
+		// Create GPU buffers directly from the mapping. glBufferData copies
+		// straight from the mapped page → VRAM, no std::vector middleman.
 		model->vao = std::make_unique<Onyx::VertexArray>();
 		model->vbo = std::make_unique<Onyx::VertexBuffer>(
-			data.vertexBlob.data(), static_cast<uint32_t>(data.vertexBlob.size()));
+			data.vertexData, static_cast<uint32_t>(data.vertexBytes));
 		model->ebo = std::make_unique<Onyx::IndexBuffer>(
-			data.indexBlob.data(), static_cast<uint32_t>(data.indexBlob.size()));
+			data.indexData, static_cast<uint32_t>(data.indexBytes));
 
-		// MeshVertex layout: pos3 + normal3 + uv2 + tangent3 + bitangent3 = 14 floats = 56 bytes
 		Onyx::VertexLayout layout = Onyx::MeshVertex::GetLayout();
 
 		model->vao->SetVertexBuffer(model->vbo.get());

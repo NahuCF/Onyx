@@ -25,8 +25,8 @@ namespace Onyx {
 	{
 		// Small pool for typical models (< 2MB vertex data)
 		constexpr size_t POOL_SIZE = 32;
-		constexpr size_t DEFAULT_VBO_BYTES = 2 * 1024 * 1024; // 2MB (~35k MeshVertex)
-		constexpr size_t DEFAULT_EBO_BYTES = 1 * 1024 * 1024; // 1MB (~250k indices)
+		constexpr size_t DEFAULT_VBO_BYTES = 2 * 1024 * 1024; // 2MB (~75k MeshVertex @ 28 B)
+		constexpr size_t DEFAULT_EBO_BYTES = 1 * 1024 * 1024; // 1MB (~250k u32 indices)
 
 		for (size_t i = 0; i < POOL_SIZE; i++)
 		{
@@ -49,8 +49,8 @@ namespace Onyx {
 		// Large pool for big models (e.g., high-poly FBX files)
 		// No VAO pre-configured — layout depends on static vs skinned, set at upload time
 		constexpr size_t LARGE_POOL_SIZE = 4;
-		constexpr size_t LARGE_VBO_BYTES = 32 * 1024 * 1024; // 32MB (~571k MeshVertex or ~363k SkinnedVertex)
-		constexpr size_t LARGE_EBO_BYTES = 16 * 1024 * 1024; // 16MB (~4M indices)
+		constexpr size_t LARGE_VBO_BYTES = 32 * 1024 * 1024; // 32MB (~1.2M MeshVertex @ 28 B or ~363k SkinnedVertex)
+		constexpr size_t LARGE_EBO_BYTES = 16 * 1024 * 1024; // 16MB (~4M u32 indices)
 
 		for (size_t i = 0; i < LARGE_POOL_SIZE; i++)
 		{
@@ -750,8 +750,11 @@ namespace Onyx {
 				bounds.boundsMax = glm::vec3(std::numeric_limits<float>::lowest());
 				for (const auto& v : mesh.vertices)
 				{
-					bounds.boundsMin = glm::min(bounds.boundsMin, v.position);
-					bounds.boundsMax = glm::max(bounds.boundsMax, v.position);
+					// v.position is float[3] for MeshVertex (v2), glm::vec3 for SkinnedVertex.
+					// operator[] returns float in both, so this works for both.
+					glm::vec3 p(v.position[0], v.position[1], v.position[2]);
+					bounds.boundsMin = glm::min(bounds.boundsMin, p);
+					bounds.boundsMax = glm::max(bounds.boundsMax, p);
 				}
 				boundsOut->push_back(bounds);
 			}

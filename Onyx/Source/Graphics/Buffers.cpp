@@ -226,6 +226,27 @@ namespace Onyx {
 					layout.GetStride(),
 					(const void*)(uintptr_t)attr.offset);
 				break;
+
+			case VertexAttributeType::SNorm16:
+			case VertexAttributeType::SNorm16x2:
+				glVertexAttribPointer(
+					index,
+					GetAttributeComponentCount(attr.type),
+					GL_SHORT,
+					GL_TRUE, // snorm: -32767..32767 -> -1..1
+					layout.GetStride(),
+					(const void*)(uintptr_t)attr.offset);
+				break;
+
+			case VertexAttributeType::Half2:
+				glVertexAttribPointer(
+					index,
+					2,
+					GL_HALF_FLOAT,
+					GL_FALSE,
+					layout.GetStride(),
+					(const void*)(uintptr_t)attr.offset);
+				break;
 			}
 		}
 
