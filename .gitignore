@@ -6,6 +6,15 @@ build/
 out/
 cmake-build-*/
 
+# Agent / Claude scratch (leading-underscore .bat helpers, run-and-log harnesses,
+# and their .log siblings)
+_*.bat
+_*.log
+editor_*.log
+run_editor.bat
+run_close_editor.ps1
+check_crash.ps1
+
 # Visual Studio
 .vs/
 *.vcxproj.user
