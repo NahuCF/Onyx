@@ -44,6 +44,12 @@ See [docs/mmogame-overview.md](docs/mmogame-overview.md) for full project struct
 
 Full conventions in [docs/conventions.md](docs/conventions.md).
 
+## Commit conventions
+
+- Conventional Commits style: lowercase prefix with optional scope — `feat:`, `fix(scope):`, `chore(tooling):`, `docs:`, `refactor:`, `style:`, `perf:`.
+- **Never add `Co-Authored-By: Claude` (or any other Claude/AI attribution) to commit messages, PR descriptions, or code comments.** Author the work as the human committer.
+- Subject ≤ ~70 chars. Use the body to explain *why*.
+
 ## Documentation index
 
 ### Build
