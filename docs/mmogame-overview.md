@@ -84,7 +84,7 @@ MMOGame/
 | 1 | Starting Zone | 100×100 | Spawn (10,10), portal to Dark Forest at (45,10), 2 Werewolf spawns |
 | 2 | Dark Forest | 100×100 | Spawn (20,10), portal back at (10,10), spiders + werewolf + Shadow Lord |
 
-Map definitions are partly database-driven (`map_template`, `portal`, `creature_spawn`) and partly hard-coded in `WorldServer/Source/Map/MapTemplates.cpp`.
+Map definitions are fully database-driven (`map_template`, `portal`, `creature_spawn`, `player_create_info`). Authored in MMOEditor3D and round-tripped via the editor's `MigrationSqlWriter`; the WorldServer reads them at startup. The legacy `WorldServer/Source/Map/MapTemplates.cpp` was deleted on 2026-05-04.
 
 ## Network protocol
 

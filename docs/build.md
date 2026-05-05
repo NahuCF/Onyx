@@ -49,9 +49,29 @@ The Onyx engine itself builds as `libOnyx.a` in `./build/lib/`.
 ## Sync to Windows (WSL2 → Windows desktop)
 
 ```bash
-rsync -av --delete --exclude='build/' --exclude='.git/' \
+rsync -av --delete \
+  --exclude='build/' --exclude='.git/' --exclude='.vs/' \
+  --exclude='Visual Studio*/' --exclude='cmake-build-*/' --exclude='out/' \
   /home/god/git/Onyx/ /mnt/c/Users/god/Desktop/Onyx/
 ```
+
+(With user editing directly on Windows, this is no longer the canonical path; left here for reference.)
+
+## Windows build via Visual Studio (recommended for IDE work)
+
+The repo is set up for **manifest-mode vcpkg** + **CMake presets**. After cloning:
+
+1. **One-time** — populate the `vcpkg/` directory:
+   ```powershell
+   git clone --depth 1 https://github.com/microsoft/vcpkg.git vcpkg
+   vcpkg\bootstrap-vcpkg.bat
+   ```
+2. **Open the project folder** in Visual Studio: *File → Open → Folder…* → repo root. **Do not open any `.sln`/`.slnx`** — VS reads `CMakePresets.json` directly.
+3. Pick the **`windows-debug`** configuration. First configure auto-installs libpqxx + OpenSSL via vcpkg (~5–10 min). Subsequent configures use the cache.
+4. Pick **`MMOEditor3D.exe`** (or any other target) as the Startup Item.
+5. **F5** = build + launch. Cwd is set to the source root so asset paths resolve.
+
+The Ninja generator is what's wired up — no Visual Studio `.sln` is generated, but Solution Explorer shows the same target tree thanks to VS's CMake integration.
 
 ## Dependencies
 
@@ -68,8 +88,14 @@ Most are vendored under `Onyx/Vendor/` via CMake `FetchContent`:
 | ENet 1.3.18 | FetchContent (MMOGame) | UDP networking |
 | ImGuiFileDialog 0.6.7 | FetchContent (Editor3D) | File browser |
 | nlohmann/json 3.11.3 | FetchContent (Editor3D, Shared) | JSON I/O |
-| libpqxx | system package | PostgreSQL (LoginServer, WorldServer) |
-| OpenSSL | system package | Password hashing (LoginServer) |
+| libpqxx 8.0.1 | vcpkg manifest (Windows) / `apt install libpqxx-dev` (Linux) | PostgreSQL (LoginServer, WorldServer; Editor's Run Locally) |
+| OpenSSL 3.6 | vcpkg manifest (Windows) / `apt install libssl-dev` (Linux) | Password hashing (LoginServer) |
+
+## Triplet choice (Windows)
+
+The Windows presets use `x64-windows-static-md`:
+- **static** — libpqxx is linked into each binary (no DLL). Avoids DLL `std::string_view` template-export collisions that occur with the default `x64-windows` (DLL) triplet under MSVC C++20.
+- **-md** — dynamic CRT (`/MD` debug `/MDd`). Matches the project's MSVC default; avoids CRT-mismatch link errors.
 
 ## Notes
 

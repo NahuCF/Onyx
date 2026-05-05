@@ -65,7 +65,7 @@ Full conventions in [docs/conventions.md](docs/conventions.md).
 - [docs/terrain-and-formats.md](docs/terrain-and-formats.md) — shared terrain library, `.chunk` and `.omdl` file formats, mesh generation.
 - [docs/export-pipeline.md](docs/export-pipeline.md) — Editor3D → runtime `Data/` export flow (shipped).
 - [docs/editor3d-roadmap.md](docs/editor3d-roadmap.md) — Phase status + tier-prioritized roadmap to MVP (design).
-- [docs/release-pipeline.md](docs/release-pipeline.md) — Two-mode export, manifest format with Ed25519 signing, DB migration model, launcher state machine, MMO-specific concerns (design — not yet implemented).
+- [docs/release-pipeline.md](docs/release-pipeline.md) — Two-mode export, manifest format with Ed25519 signing, DB migration model, launcher state machine, MMO-specific concerns. Implementation order steps 1-6 (migrations + editor writer + WorldServer DB loader + Run Locally) shipped 2026-05-04; steps 7-13 (broader DB-bound entities, release bundle, manifest, signing, launcher, deploy) still design.
 
 ### Reference / design docs
 - [docs/SceneRenderer_AssetManager_Spec.md](docs/SceneRenderer_AssetManager_Spec.md) — **Historical implementation plan (2026-02-17).** Has known drifts; prefer `engine-rendering.md` for current API. Useful for design rationale.

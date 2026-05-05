@@ -41,7 +41,7 @@ Patterns are AzerothCore/TrinityCore-inspired (grid visibility, visitor pattern,
 | Folder | Purpose |
 |---|---|
 | `Entity/` | `Entity.h/.cpp`, `Components.h`, `AuraComponent.h` |
-| `Map/` | `Map.h`, `MapDefines.h/.cpp`, `MapInstance.h/.cpp`, `MapManager.h/.cpp`, `MapTemplates.h/.cpp` |
+| `Map/` | `Map.h`, `MapDefines.h/.cpp`, `MapInstance.h/.cpp`, `MapManager.h/.cpp` |
 | `Grid/` | `Grid.h/.cpp`, `GridCell.h`, `GridDefines.h` |
 | `AI/` | `ScriptedAI.h/.cpp`, `EventMap.h`, `AIDefines.h`, `ConditionEvaluator.h`, `CreatureTemplate.h/.cpp`, `CreatureTemplates.cpp`, `DataDrivenAI.h`, `AICallbacks.h`, `SummonList.h`, `ScriptRegistry.h/.cpp` |
 | `Scripts/` | `ScriptLoader.h`, hand-written boss scripts (e.g., `ShadowLordAI.h`) |
@@ -88,13 +88,12 @@ struct MapTemplate {
 - Grid hooks: `GetGrid`, `MarkPositionDirty`, dirty-flag set helpers.
 
 `MapManager` (singleton):
-- `Initialize()`, `GetMapInstance(templateId)`, `GetInstanceById(instanceId)`, `GetTemplate(templateId)`.
+- `Initialize(Database&)`, `GetMapInstance(templateId)`, `GetInstanceById(instanceId)`, `GetTemplate(templateId)`.
 - `TransferPlayer(playerId, destMapId, destPosition)` — inter-map transfer.
 - `GenerateGlobalEntityId()` — globally unique IDs across maps.
 
-`MapTemplates.cpp` defines:
-- **Starting Zone** (ID 1) — 100×100, spawn (10,10), portal to Dark Forest at (45,10), 2 Werewolf spawns.
-- **Dark Forest** (ID 2) — 100×100, spawn (20,10), portal back at (10,10), 2 spiders + 1 werewolf + Shadow Lord boss (ID 50, 300s respawn).
+Maps are fully DB-driven — `Initialize(Database&)` queries `map_template`, `portal`, and `creature_spawn` at startup. Templates are authored in MMOEditor3D (see [editor3d.md](editor3d.md), [release-pipeline.md](release-pipeline.md)). Default seed (`MMOGame/Database/migrations/0001_baseline.sql` + `0003_seed_races_classes.sql`):
+- **Starting Zone** (ID 1) and **Dark Forest** (ID 2), each 100×100, plus 3 placeholder creature templates (Werewolf, Forest Spider, Shadow Lord). Real spawns are written by the editor on save. The legacy `MapTemplates.cpp` hardcoded factory was deleted on 2026-05-04.
 
 ## Grid system (`Grid/`)
 

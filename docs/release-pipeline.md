@@ -1,6 +1,6 @@
 # Release Pipeline (Design)
 
-> **Status: design — not yet implemented.** This document defines the workflow for shipping authored content from the Editor3D to live game servers and player machines, including the launcher that delivers updates. As of 2026-05-03 nothing in this doc is built; it serves as the design contract.
+> **Status (2026-05-05): partially shipped — Tier 1 of the implementation order is live.** Steps 1-6 (schema migration runner + `0001..0004*.sql` + editor `MigrationSqlWriter` + WorldServer DB loader for `creature_spawn` & `player_create_info` + "Run Locally" minimal mode + editor ↔ DB round-trip on load/save) are complete. Steps 7-13 (broader DB-bound entities, release-bundle mode, manifest/signing, launcher, deploy automation, "Open PR") remain design. See [editor3d-roadmap.md](editor3d-roadmap.md) "Where to pick up next" for the current position in the plan; everything below this banner is still the locked design contract for what's not yet built.
 
 ## Goals
 
@@ -19,7 +19,7 @@ The Editor3D exposes two export buttons. Both produce the **same artifact shape*
 
 Designer's daily iteration loop.
 
-**Why this exists:** today, testing a placed spawn or edit requires manually exporting the runtime data, restarting the WorldServer (because spawns are hardcoded in `MapTemplates.cpp`), and re-launching the client. There is no in-editor playtest mode. "Run Locally" collapses all of that into a single button.
+**Why this exists** *(historical motivation — shipped 2026-05-04)*: previously, testing a placed spawn required manually exporting runtime data, restarting the WorldServer (spawns were hardcoded in `MapTemplates.cpp`, since deleted), and re-launching the client. There was no in-editor playtest mode. "Run Locally" now collapses all of that into a single button.
 
 1. Editor produces a release artifact at `dev/`:
    - `dev/Data/` — chunks, models, materials, textures (visual + spatial only; no JSON intermediate files for DB-bound entities)
@@ -32,7 +32,7 @@ Designer's daily iteration loop.
 
 Goal: edit → test in ~5 seconds.
 
-**v1 (minimal)** ships once the spawn entity is wired end-to-end: schema migration system in place, `0001_baseline.sql` + `0002_creature_npc_gameobject.sql` applied, editor writes to `creature_spawn`, WorldServer reads from it. Other entity types (portals, gameobjects, triggers, player spawns) follow the same writer + loader pattern incrementally as Tier 2 expands the loop.
+**v1 (minimal) — shipped 2026-05-04.** Schema migration runner (`MigrationRunner`) wired into both servers; `0001_baseline.sql`, `0002_creature_npc_gameobject.sql`, `0003_seed_races_classes.sql`, `0004_character_position_z_orientation.sql` applied; editor writes `creature_spawn` + `player_create_info` via `MigrationSqlWriter`; WorldServer reads both at startup. Other entity types (portals, gameobjects, triggers) follow the same writer + loader pattern in Tier 2 — see [editor3d-roadmap.md](editor3d-roadmap.md).
 
 A deeper post-MVP solution — running the game **inside the editor's viewport** without spawning separate processes (Unity Play / Unreal PIE style) — is tracked in [editor3d-roadmap.md](editor3d-roadmap.md) Tier 3.
 
@@ -447,13 +447,15 @@ The work is large but breaks into a clear sequence. Rough effort estimates: S = 
 
 DB-only architecture means schema migrations are foundational — they cannot be deferred. The order optimizes for getting the local test loop alive as fast as possible (steps 1-6 give the designer a working iteration loop end-to-end with the spawn entity).
 
-1. **(S) Schema migration system.** `MMOGame/Database/migrations/NNNN_*.sql`, `schema_migrations` table, runner integrated into WorldServer + LoginServer startup.
-2. **(S) `0001_baseline.sql`** — move existing `MMOGame/Database/schema.sql` content into the migration system as the baseline.
-3. **(S) `0002_creature_npc_gameobject.sql`** — the locked schema design: `creature_template` with `npcflag`, `creature_spawn`, `creature_addon`, `npc_vendor`, `npc_gossip`, `npc_trainer`, `gameobject_template`, `gameobject_spawn`, `gameobject_loot_template`, `trigger_volume`. Reconcile any existing `creature_spawn` shape.
-4. **(M) Editor `migration.sql` writer for spawns.** UPSERT into `creature_spawn` + scoped DELETE for removed spawns. Sourced from `EditorWorld::GetSpawnPoints()`.
-5. **(M) WorldServer DB loader for spawns.** Query `creature_spawn` at startup; replaces hardcoded `MapTemplates.cpp`.
-6. **(M) "Run Locally" minimal mode.** Editor button: export `Data/`, apply `migration.sql` to local Postgres, spawn `MMOLoginServer` + `MMOWorldServer` + `MMOClient`. Designer tests terrain + structures + spawns end-to-end. **First milestone where the editor produces playable content without engineer involvement.**
-7. **(M) Repeat steps 4+5 for the remaining DB-bound entities** — portals, triggers, gameobjects, player spawns. Each is "writer + loader" in lockstep. PlayerSpawn writes to `player_create_info` keyed by `(race, class)`; portal writes to `portal`; etc. WorldServer learns to read each table at startup.
+1. ✅ **(S) Schema migration system** — *shipped 2026-05-04.* `MMOGame/Database/migrations/NNNN_*.sql`, `schema_migrations` table, `MigrationRunner` (`MMOGame/Shared/Source/Database/MigrationRunner.{h,cpp}`) wired into WorldServer + LoginServer startup with a `pg_advisory_lock` to serialize concurrent runners.
+2. ✅ **(S) `0001_baseline.sql`** — *shipped 2026-05-04.* Baseline tables (accounts, characters, sessions, characters, cooldowns, inventory/equipment, map_template, portal, the legacy creature_spawn shape, race/class templates, player_create_info) plus seed data.
+3. ✅ **(S) `0002_creature_npc_gameobject.sql`** — *shipped 2026-05-04.* The locked schema: `creature_template` with `npcflag`, new `creature_spawn` shape (`guid TEXT` PK, `entry` FK, `position_z`, `orientation`, `wander_radius`, `max_count`, equipment/model overrides), `creature_addon`, `npc_vendor`, `npc_gossip`, `npc_trainer`, `creature_loot_template`, `gameobject_template`, `gameobject_spawn`, `gameobject_loot_template`, `trigger_volume`.
+   - **Plus `0003_seed_races_classes.sql`** — adds Elf race + Mage/Rogue classes, updates Human/Orc class_masks, seeds 3 placeholder creature_template rows.
+   - **Plus `0004_character_position_z_orientation.sql`** — adds `position_z` + `orientation` columns to `characters` so 3D player placement actually persists.
+4. ✅ **(M) Editor `migration.sql` writer** — *shipped 2026-05-04.* `MigrationSqlWriter` (`MMOGame/Editor3D/Source/Export/MigrationSqlWriter.{h,cpp}`) emits idempotent UPSERT/DELETE keyed by stable guid for `creature_spawn` and `player_create_info`. Applied via `pqxx::nontransaction` against the editor's DB connection on save.
+5. ✅ **(M) WorldServer DB loader** — *shipped 2026-05-04.* Hardcoded `MapTemplates.cpp` deleted. `MapManager` queries `creature_spawn` (new shape, including position_z + orientation) and `player_create_info` directly at startup. Editor also re-reads on map open via `LoadWorldFromDatabase` to round-trip placements.
+6. ✅ **(M) "Run Locally" minimal mode** — *shipped 2026-05-04.* `LocalRunSession` + `Subprocess` (`MMOGame/Editor3D/Source/Runtime/`) export `Data/`, apply migrations + the in-memory data SQL, then spawn `MMOLoginServer` + `MMOWorldServer` + `MMOClient` using `Onyx::Platform::GetExecutableDir()`. **First milestone where the editor produces playable content without engineer involvement — done.**
+7. **(M) Repeat steps 4+5 for the remaining DB-bound entities** — portals, triggers, gameobjects. Each is "writer + loader" in lockstep. WorldServer learns to read each table at startup. *(PlayerSpawn shipped in step 5; this step is now portal/trigger/gameobject only.)*
 8. **(M) "Build Release Bundle" mode.** Versioned output folder, manifest generation with file hashes.
 9. **(S) Manifest format finalized.** JSON schema, canonicalization library.
 10. **(S) libsodium integration.** Editor + launcher Ed25519 signing/verification.
@@ -461,8 +463,8 @@ DB-only architecture means schema migrations are foundational — they cannot be
 12. **(M) Production deploy automation.** CI pipeline that takes a tagged release artifact and pushes to CDN + DB + versions endpoint.
 13. **(L, deferred) "Open PR" button.** GitHub API integration in editor.
 
-Steps 1-6 close the editor → server gap for the spawn entity end-to-end and give the designer a working iteration loop.
-Step 7 broadens that loop to all DB-bound entity types.
+Steps 1-6 closed the editor → server gap for `creature_spawn` + `player_create_info` end-to-end (shipped 2026-05-04 / 2026-05-05).
+Step 7 broadens that loop to the remaining DB-bound entity types.
 Steps 8-12 enable the player-facing launcher path for production.
 
 ## MMO-specific concerns
@@ -541,6 +543,6 @@ These do not block the design but should be settled before launch:
 
 ## Where to pick up next
 
-(Self-note for future sessions.) As of 2026-05-03 nothing in this doc is implemented. The user is verifying that spawn points and player movement work end-to-end before starting the server-export pipeline.
+(Self-note for future sessions.) As of 2026-05-05, **steps 1-6 of "Implementation order" are shipped** — the editor's iteration loop is alive end-to-end for `creature_spawn` and `player_create_info`. The character-creation 3D position/orientation flow through every layer of the stack (DB → LoginServer → WorldServer → network → client renderer), and editor placements round-trip through the DB on save/load with no JSON sidecar. See [editor3d-roadmap.md](editor3d-roadmap.md) "Where to pick up next" for the full session-by-session log.
 
-Natural starting point: **step 1 of "Implementation order"** — schema migration system. Then steps 2-3 land the actual SQL migrations (`0001_baseline.sql`, `0002_creature_npc_gameobject.sql`); steps 4-5 wire the editor `migration.sql` writer + WorldServer DB loader for the spawn entity; step 6 (Run Locally minimal) closes the iteration loop end-to-end. Tier 2 work in [editor3d-roadmap.md](editor3d-roadmap.md) (broader entity types, NPC role, GameObject placement, NavMesh) follows the same writer + loader pattern from step 7 onward.
+**Natural next step: step 7** — broaden the writer + loader pattern to the remaining DB-bound entity types (`portal`, `trigger_volume`, `gameobject_spawn`). Each follows the same shape: extend `MigrationSqlWriter` with an `Emit*` method, extend `Database::Load*` with a query, wire it into `Editor3DLayer::SyncWorldToDatabase` + `LoadWorldFromDatabase` and `MapManager::Initialize`. The migration-runner foundation, idempotent SQL pattern, and "Run Locally" subprocess plumbing are all reusable. After step 7, steps 8-12 (release-bundle mode, manifest, libsodium signing, launcher, deploy automation) are still design.
