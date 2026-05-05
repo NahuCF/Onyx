@@ -250,19 +250,19 @@ namespace Onyx {
 				radius + position.x,  height* aspectRatio + position.y, position.z,			color.x, color.y, color.z, color.w,		0.0f, 0.0f,		-1.0f,
 			};*/
 
-			float point1Angle = (90 / subdivision) * 2;
+			float point1Angle = (90.0f / subdivision) * 2.0f;
 			Onyx::Vector2D point1 = Onyx::Vector2D(
 										std::cos(point1Angle) * radius,
 										std::sin(point1Angle) * radius)
 										.Rotate(-angle);
 
-			float point2Angle = (90 / subdivision);
+			float point2Angle = 90.0f / subdivision;
 			Onyx::Vector2D point2 = Onyx::Vector2D(
 										std::sin(point2Angle) * radius,
 										std::cos(point2Angle) * radius)
 										.Rotate(-angle);
 
-			float point3Angle = (90 / subdivision);
+			float point3Angle = 90.0f / subdivision;
 			Onyx::Vector2D point3 = Onyx::Vector2D(
 										radius / std::cos(point3Angle),
 										std::tan(point3Angle) * radius)
