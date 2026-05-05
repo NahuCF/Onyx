@@ -460,9 +460,8 @@ public:
 	}
 };
 
-static Onyx::ApplicationSpec s_AppSpec = {1280, 720, "MMO Client"};
-
 Onyx::Application* Onyx::CreateApplication()
 {
+	static Onyx::ApplicationSpec s_AppSpec{1280, 720, "MMO Client"};
 	return new MMOClientApp(s_AppSpec);
 }

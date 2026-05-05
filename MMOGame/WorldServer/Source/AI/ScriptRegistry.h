@@ -44,7 +44,7 @@ namespace MMO {
 
 #define REGISTER_CREATURE_SCRIPT(scriptName, AIClass)                                                    \
 	namespace {                                                                                          \
-		static bool _registered_##AIClass = []() {                                                       \
+		static bool _registered_##AIClass = []() noexcept {                                              \
 			ScriptRegistry::Instance().RegisterScript(scriptName,                                        \
 													  [](Entity* owner, const CreatureTemplate* tmpl) {  \
 														  return std::make_unique<AIClass>(owner, tmpl); \
