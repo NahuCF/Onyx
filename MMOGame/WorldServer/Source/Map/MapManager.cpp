@@ -21,7 +21,7 @@ namespace MMO {
 		if (dbTemplates.empty())
 		{
 			std::cerr << "[MapManager] WARNING: No maps found in database! "
-					  << "Apply schema migrations and seed map_template rows." << std::endl;
+					  << "Apply schema migrations and seed map_template rows." << '\n';
 		}
 
 		for (auto& t : dbTemplates)
@@ -68,7 +68,7 @@ namespace MMO {
 			m_Templates[tmpl.id] = std::move(tmpl);
 		}
 
-		std::cout << "[MapManager] Initialized with " << m_Templates.size() << " map templates from database" << std::endl;
+		std::cout << "[MapManager] Initialized with " << m_Templates.size() << " map templates from database" << '\n';
 	}
 
 	MapInstance* MapManager::GetMapInstance(uint32_t templateId)
@@ -86,7 +86,7 @@ namespace MMO {
 		const MapTemplate* tmpl = GetTemplate(templateId);
 		if (!tmpl)
 		{
-			std::cout << "[MapManager] Unknown template: " << templateId << std::endl;
+			std::cout << "[MapManager] Unknown template: " << templateId << '\n';
 			return nullptr;
 		}
 
@@ -97,7 +97,7 @@ namespace MMO {
 		MapInstance* ptr = instance.get();
 		m_Instances[instanceId] = std::move(instance);
 
-		std::cout << "[MapManager] Created instance " << instanceId << " for map '" << tmpl->name << "'" << std::endl;
+		std::cout << "[MapManager] Created instance " << instanceId << " for map '" << tmpl->name << "'" << '\n';
 		return ptr;
 	}
 
@@ -170,7 +170,7 @@ namespace MMO {
 		toInstance->RegisterPlayer(newEntityId, peerId, characterId, accountId);
 
 		std::cout << "[MapManager] Transferred player " << name << " from instance " << fromInstanceId
-				  << " to " << toInstance->GetInstanceId() << std::endl;
+				  << " to " << toInstance->GetInstanceId() << '\n';
 
 		return newEntityId;
 	}

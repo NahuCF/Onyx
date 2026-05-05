@@ -16,7 +16,7 @@ namespace Onyx {
 		if (!Init())
 			glfwTerminate();
 
-		SetVSync(1);
+		SetVSync(true);
 
 		for (int i = 0; i < 1024; i++)
 			m_Keys[i] = false;
@@ -43,7 +43,7 @@ namespace Onyx {
 	{
 		if (!glfwInit())
 		{
-			std::cout << "Failed to load GLFW :c" << std::endl;
+			std::cout << "Failed to load GLFW :c" << '\n';
 			return false;
 		}
 
@@ -58,7 +58,7 @@ namespace Onyx {
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-		m_Window = glfwCreateWindow(m_Width, m_Height, m_Title, NULL, NULL);
+		m_Window = glfwCreateWindow(m_Width, m_Height, m_Title, nullptr, nullptr);
 
 		m_Monitor = glfwGetPrimaryMonitor();
 		const GLFWvidmode* mode = glfwGetVideoMode(m_Monitor);
@@ -81,7 +81,7 @@ namespace Onyx {
 		if (!m_Window)
 		{
 			glfwTerminate();
-			std::cout << "Fail to create GLFW window :c" << std::endl;
+			std::cout << "Fail to create GLFW window :c" << '\n';
 			return false;
 		}
 
@@ -96,7 +96,7 @@ namespace Onyx {
 		glewExperimental = GL_TRUE;
 		if (glewInit() != GLEW_OK)
 		{
-			std::cout << "Error to initializate GLEW :c" << std::endl;
+			std::cout << "Error to initializate GLEW :c" << '\n';
 			return false;
 		}
 

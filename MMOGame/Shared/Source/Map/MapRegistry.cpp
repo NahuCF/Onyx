@@ -113,7 +113,7 @@ namespace MMO {
 		std::ifstream file(path);
 		if (!file.is_open())
 		{
-			std::cerr << "Failed to open map registry: " << path << std::endl;
+			std::cerr << "Failed to open map registry: " << path << '\n';
 			return false;
 		}
 
@@ -167,7 +167,7 @@ namespace MMO {
 		}
 
 		RebuildIndices();
-		std::cout << "Loaded " << m_Entries.size() << " maps from registry" << std::endl;
+		std::cout << "Loaded " << m_Entries.size() << " maps from registry" << '\n';
 		return true;
 	}
 
@@ -176,7 +176,7 @@ namespace MMO {
 		std::ofstream file(path);
 		if (!file.is_open())
 		{
-			std::cerr << "Failed to save map registry: " << path << std::endl;
+			std::cerr << "Failed to save map registry: " << path << '\n';
 			return false;
 		}
 

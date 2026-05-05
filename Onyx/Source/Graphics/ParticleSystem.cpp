@@ -10,8 +10,7 @@ namespace Onyx {
 	}
 
 	ParticleSystem::~ParticleSystem()
-	{
-	}
+	= default;
 
 	void ParticleSystem::Update(float timestamp)
 	{

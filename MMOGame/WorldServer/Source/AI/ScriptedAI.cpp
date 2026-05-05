@@ -68,7 +68,7 @@ namespace MMO {
 	{
 		// Override for custom phase transition behavior
 		std::cout << "[AI] " << m_Owner->GetName() << " transitioned from phase "
-				  << oldPhase << " to phase " << newPhase << std::endl;
+				  << oldPhase << " to phase " << newPhase << '\n';
 	}
 
 	// ============================================================

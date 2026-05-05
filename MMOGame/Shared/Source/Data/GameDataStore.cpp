@@ -44,7 +44,7 @@ namespace MMO {
 		std::cout << "[GameDataStore] Loaded " << m_Races.size() << " races, "
 				  << m_Classes.size() << " classes, "
 				  << m_CreateInfo.size() << " create infos, "
-				  << m_MapNames.size() << " map names" << std::endl;
+				  << m_MapNames.size() << " map names" << '\n';
 	}
 #endif
 

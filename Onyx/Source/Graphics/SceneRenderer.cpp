@@ -165,9 +165,9 @@ namespace Onyx {
 		for (int i = 0; i < pointCount; i++)
 		{
 			std::string idx = std::to_string(i);
-			shader->SetVec3(("u_PointLightPos[" + idx + "]").c_str(), m_PointLights[i].position);
-			shader->SetVec3(("u_PointLightColor[" + idx + "]").c_str(), m_PointLights[i].color);
-			shader->SetFloat(("u_PointLightRange[" + idx + "]").c_str(), m_PointLights[i].range);
+			shader->SetVec3("u_PointLightPos[" + idx + "]", m_PointLights[i].position);
+			shader->SetVec3("u_PointLightColor[" + idx + "]", m_PointLights[i].color);
+			shader->SetFloat("u_PointLightRange[" + idx + "]", m_PointLights[i].range);
 		}
 
 		int spotCount = static_cast<int>(std::min(m_SpotLights.size(), size_t(8)));
@@ -175,12 +175,12 @@ namespace Onyx {
 		for (int i = 0; i < spotCount; i++)
 		{
 			std::string idx = std::to_string(i);
-			shader->SetVec3(("u_SpotLightPos[" + idx + "]").c_str(), m_SpotLights[i].position);
-			shader->SetVec3(("u_SpotLightDir[" + idx + "]").c_str(), m_SpotLights[i].direction);
-			shader->SetVec3(("u_SpotLightColor[" + idx + "]").c_str(), m_SpotLights[i].color);
-			shader->SetFloat(("u_SpotLightRange[" + idx + "]").c_str(), m_SpotLights[i].range);
-			shader->SetFloat(("u_SpotLightInnerCos[" + idx + "]").c_str(), m_SpotLights[i].innerCos);
-			shader->SetFloat(("u_SpotLightOuterCos[" + idx + "]").c_str(), m_SpotLights[i].outerCos);
+			shader->SetVec3("u_SpotLightPos[" + idx + "]", m_SpotLights[i].position);
+			shader->SetVec3("u_SpotLightDir[" + idx + "]", m_SpotLights[i].direction);
+			shader->SetVec3("u_SpotLightColor[" + idx + "]", m_SpotLights[i].color);
+			shader->SetFloat("u_SpotLightRange[" + idx + "]", m_SpotLights[i].range);
+			shader->SetFloat("u_SpotLightInnerCos[" + idx + "]", m_SpotLights[i].innerCos);
+			shader->SetFloat("u_SpotLightOuterCos[" + idx + "]", m_SpotLights[i].outerCos);
 		}
 	}
 
@@ -196,8 +196,8 @@ namespace Onyx {
 			auto& splits = m_CSM->GetCascadeSplits();
 			for (uint32_t i = 0; i < NUM_SHADOW_CASCADES; i++)
 			{
-				shader->SetMat4(("u_LightSpaceMatrices[" + std::to_string(i) + "]").c_str(), matrices[i]);
-				shader->SetFloat(("u_CascadeSplits[" + std::to_string(i) + "]").c_str(), splits[i]);
+				shader->SetMat4("u_LightSpaceMatrices[" + std::to_string(i) + "]", matrices[i]);
+				shader->SetFloat("u_CascadeSplits[" + std::to_string(i) + "]", splits[i]);
 			}
 			RenderCommand::BindTextureArray(shadowTextureSlot, m_CSM->GetDepthTextureArray());
 		}

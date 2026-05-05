@@ -32,14 +32,14 @@ namespace MMO {
 		// Connect to database
 		if (!m_Database.Connect(dbConnectionString))
 		{
-			std::cerr << "Failed to connect to database" << std::endl;
+			std::cerr << "Failed to connect to database" << '\n';
 			return false;
 		}
 
 		// Apply schema migrations before reading any tables.
 		if (!MigrationRunner::ApplyAll(m_Database))
 		{
-			std::cerr << "Schema migrations failed; aborting startup" << std::endl;
+			std::cerr << "Schema migrations failed; aborting startup" << '\n';
 			return false;
 		}
 
@@ -49,11 +49,11 @@ namespace MMO {
 		// Start network server
 		if (!m_Network.Start(port))
 		{
-			std::cerr << "Failed to start network server on port " << port << std::endl;
+			std::cerr << "Failed to start network server on port " << port << '\n';
 			return false;
 		}
 
-		std::cout << "Login Server initialized on port " << port << std::endl;
+		std::cout << "Login Server initialized on port " << port << '\n';
 		return true;
 	}
 
@@ -70,7 +70,7 @@ namespace MMO {
 	void LoginServer::Run()
 	{
 		m_Running = true;
-		std::cout << "Login Server running..." << std::endl;
+		std::cout << "Login Server running..." << '\n';
 
 		auto lastCleanup = std::chrono::steady_clock::now();
 
@@ -152,7 +152,7 @@ namespace MMO {
 			HandleSelectCharacter(peerId, buf);
 			break;
 		default:
-			std::cerr << "Unknown packet type: " << static_cast<int>(packetType) << std::endl;
+			std::cerr << "Unknown packet type: " << static_cast<int>(packetType) << '\n';
 			break;
 		}
 	}
@@ -166,7 +166,7 @@ namespace MMO {
 		C_RegisterRequest request;
 		request.Deserialize(buf);
 
-		std::cout << "Register request from " << request.username << std::endl;
+		std::cout << "Register request from " << request.username << '\n';
 
 		// Validate username
 		if (!ValidateUsername(request.username))
@@ -212,7 +212,7 @@ namespace MMO {
 		resp.Serialize(response);
 		m_Network.Send(peerId, response);
 
-		std::cout << "Account created: " << request.username << std::endl;
+		std::cout << "Account created: " << request.username << '\n';
 	}
 
 	void LoginServer::HandleLoginRequest(uint32_t peerId, ReadBuffer& buf)
@@ -220,7 +220,7 @@ namespace MMO {
 		C_LoginRequest request;
 		request.Deserialize(buf);
 
-		std::cout << "Login request from " << request.username << std::endl;
+		std::cout << "Login request from " << request.username << '\n';
 
 		// Get account
 		auto account = m_Database.GetAccountByUsername(request.username);
@@ -273,7 +273,7 @@ namespace MMO {
 		// Send character list
 		SendCharacterList(peerId);
 
-		std::cout << "Login successful: " << request.username << std::endl;
+		std::cout << "Login successful: " << request.username << '\n';
 	}
 
 	void LoginServer::HandleCreateCharacter(uint32_t peerId, ReadBuffer& buf)
@@ -290,7 +290,7 @@ namespace MMO {
 
 		std::cout << "Create character: " << request.name
 				  << " race=" << static_cast<int>(request.characterRace)
-				  << " class=" << static_cast<int>(request.characterClass) << std::endl;
+				  << " class=" << static_cast<int>(request.characterClass) << '\n';
 
 		// Validate name
 		if (!ValidateCharacterName(request.name))
@@ -365,7 +365,7 @@ namespace MMO {
 		// Send updated character list
 		SendCharacterList(peerId);
 
-		std::cout << "Character created: " << request.name << std::endl;
+		std::cout << "Character created: " << request.name << '\n';
 	}
 
 	void LoginServer::HandleDeleteCharacter(uint32_t peerId, ReadBuffer& buf)
@@ -394,7 +394,7 @@ namespace MMO {
 		// Send updated character list
 		SendCharacterList(peerId);
 
-		std::cout << "Character deleted: " << character->name << std::endl;
+		std::cout << "Character deleted: " << character->name << '\n';
 	}
 
 	void LoginServer::HandleSelectCharacter(uint32_t peerId, ReadBuffer& buf)
@@ -431,7 +431,7 @@ namespace MMO {
 		info.Serialize(response);
 		m_Network.Send(peerId, response);
 
-		std::cout << "Character selected: " << character->name << " -> World Server" << std::endl;
+		std::cout << "Character selected: " << character->name << " -> World Server" << '\n';
 	}
 
 	// ============================================================

@@ -22,7 +22,7 @@ namespace Editor3D {
 		std::ofstream file(path);
 		if (!file.is_open())
 		{
-			std::cerr << "[Material] Failed to save: " << path << std::endl;
+			std::cerr << "[Material] Failed to save: " << path << '\n';
 			return false;
 		}
 
@@ -35,7 +35,7 @@ namespace Editor3D {
 		std::ifstream file(path);
 		if (!file.is_open())
 		{
-			std::cerr << "[Material] Failed to load: " << path << std::endl;
+			std::cerr << "[Material] Failed to load: " << path << '\n';
 			return false;
 		}
 
@@ -46,7 +46,7 @@ namespace Editor3D {
 		}
 		catch (const nlohmann::json::parse_error& e)
 		{
-			std::cerr << "[Material] Parse error in " << path << ": " << e.what() << std::endl;
+			std::cerr << "[Material] Parse error in " << path << ": " << e.what() << '\n';
 			return false;
 		}
 

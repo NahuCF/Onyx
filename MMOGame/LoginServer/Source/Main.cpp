@@ -8,7 +8,7 @@ MMO::LoginServer* g_Server = nullptr;
 
 void SignalHandler(int signal)
 {
-	std::cout << "\nShutting down Login Server..." << std::endl;
+	std::cout << "\nShutting down Login Server..." << '\n';
 	if (g_Server)
 	{
 		g_Server->Stop();
@@ -17,7 +17,7 @@ void SignalHandler(int signal)
 
 int main(int argc, char* argv[])
 {
-	std::cout << "=== MMO Login Server ===" << std::endl;
+	std::cout << "=== MMO Login Server ===" << '\n';
 
 	// Setup signal handler
 	std::signal(SIGINT, SignalHandler);
@@ -67,13 +67,13 @@ int main(int argc, char* argv[])
 
 	if (!server.Initialize(connectionString, port))
 	{
-		std::cerr << "Failed to initialize Login Server" << std::endl;
+		std::cerr << "Failed to initialize Login Server" << '\n';
 		return 1;
 	}
 
 	// Run server
 	server.Run();
 
-	std::cout << "Login Server stopped." << std::endl;
+	std::cout << "Login Server stopped." << '\n';
 	return 0;
 }

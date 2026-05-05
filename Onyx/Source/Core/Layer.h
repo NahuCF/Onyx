@@ -5,7 +5,7 @@ namespace Onyx {
 	class Layer
 	{
 	public:
-		Layer() {}
+		Layer() = default;
 		virtual ~Layer() = default;
 
 		virtual void OnUpdate() = 0;

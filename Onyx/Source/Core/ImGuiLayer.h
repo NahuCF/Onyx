@@ -8,7 +8,7 @@ namespace Onyx {
 	{
 	public:
 		void OnAttach() override;
-		void OnUpdate() {}
+		void OnUpdate() override {}
 		void OnImGui() override;
 
 		void Begin();

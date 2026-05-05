@@ -114,7 +114,7 @@ namespace MMO {
 
 		if (!ok)
 		{
-			std::cerr << "[Subprocess] CreateProcessW failed: " << GetLastError() << std::endl;
+			std::cerr << "[Subprocess] CreateProcessW failed: " << GetLastError() << '\n';
 			return false;
 		}
 		m_Started = true;

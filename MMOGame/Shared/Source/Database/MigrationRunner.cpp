@@ -38,7 +38,7 @@ namespace MMO {
 			std::vector<MigrationFile> files;
 			if (!std::filesystem::exists(dir) || !std::filesystem::is_directory(dir))
 			{
-				std::cerr << "[MigrationRunner] migrations directory not found: " << dir << std::endl;
+				std::cerr << "[MigrationRunner] migrations directory not found: " << dir << '\n';
 				return files;
 			}
 
@@ -50,7 +50,7 @@ namespace MMO {
 				int id = 0;
 				if (!ParseMigrationId(fname, id))
 				{
-					std::cerr << "[MigrationRunner] skipping unrecognized file: " << fname << std::endl;
+					std::cerr << "[MigrationRunner] skipping unrecognized file: " << fname << '\n';
 					continue;
 				}
 				files.push_back({id, entry.path()});
@@ -66,7 +66,7 @@ namespace MMO {
 				{
 					std::cerr << "[MigrationRunner] duplicate migration id "
 							  << files[i].id << " in " << files[i - 1].path.filename()
-							  << " and " << files[i].path.filename() << std::endl;
+							  << " and " << files[i].path.filename() << '\n';
 				}
 			}
 			return files;
@@ -99,7 +99,7 @@ namespace MMO {
 	{
 		if (!db.IsConnected())
 		{
-			std::cerr << "[MigrationRunner] database not connected — skipping migrations" << std::endl;
+			std::cerr << "[MigrationRunner] database not connected — skipping migrations" << '\n';
 			return false;
 		}
 
@@ -144,7 +144,7 @@ namespace MMO {
 			const auto migrations = CollectMigrations(dir);
 			std::cout << "[MigrationRunner] found " << migrations.size()
 					  << " migrations in " << dir.string()
-					  << " (" << applied.size() << " already applied)" << std::endl;
+					  << " (" << applied.size() << " already applied)" << '\n';
 
 			bool ok = true;
 			for (const auto& mig : migrations)
@@ -167,12 +167,12 @@ namespace MMO {
 										std::chrono::steady_clock::now() - t0)
 										.count();
 					std::cout << "[MigrationRunner] applied " << mig.path.filename().string()
-							  << " (" << ms << " ms)" << std::endl;
+							  << " (" << ms << " ms)" << '\n';
 				}
 				catch (const std::exception& e)
 				{
 					std::cerr << "[MigrationRunner] failed migration "
-							  << mig.path.filename().string() << ": " << e.what() << std::endl;
+							  << mig.path.filename().string() << ": " << e.what() << '\n';
 					ok = false;
 					break;
 				}
@@ -186,14 +186,14 @@ namespace MMO {
 			}
 			catch (const std::exception& e)
 			{
-				std::cerr << "[MigrationRunner] advisory unlock failed: " << e.what() << std::endl;
+				std::cerr << "[MigrationRunner] advisory unlock failed: " << e.what() << '\n';
 			}
 
 			return ok;
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "[MigrationRunner] fatal: " << e.what() << std::endl;
+			std::cerr << "[MigrationRunner] fatal: " << e.what() << '\n';
 			return false;
 		}
 	}

@@ -15,7 +15,7 @@ namespace MMO {
 
 		if (!std::filesystem::exists(chunksDir))
 		{
-			std::cout << "[ClientTerrain] No chunks directory: " << chunksDir << std::endl;
+			std::cout << "[ClientTerrain] No chunks directory: " << chunksDir << '\n';
 			return;
 		}
 
@@ -28,7 +28,7 @@ namespace MMO {
 			ChunkFileData fileData;
 			if (!LoadChunkFile(entry.path().string(), fileData))
 			{
-				std::cout << "[ClientTerrain] Failed to load: " << entry.path() << std::endl;
+				std::cout << "[ClientTerrain] Failed to load: " << entry.path() << '\n';
 				continue;
 			}
 
@@ -55,7 +55,7 @@ namespace MMO {
 		}
 
 		std::cout << "[ClientTerrain] Loaded " << loadedCount << " chunks, "
-				  << m_AllObjects.size() << " objects for map " << mapId << std::endl;
+				  << m_AllObjects.size() << " objects for map " << mapId << '\n';
 	}
 
 	void ClientTerrainSystem::UnloadZone()

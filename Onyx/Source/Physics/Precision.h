@@ -2,6 +2,6 @@
 
 namespace Onyx {
 
-	typedef float real;
+	using real = float;
 
 }

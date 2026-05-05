@@ -37,7 +37,7 @@ namespace MMO {
 			m_Grid.RegisterSpawnPoint(spawn.id, spawn.position);
 		}
 		std::cout << "[Map:" << m_Template->name << "] Registered " << m_Template->mobSpawns.size()
-				  << " spawn points for grid-based loading" << std::endl;
+				  << " spawn points for grid-based loading" << '\n';
 	}
 
 	Entity* MapInstance::CreatePlayer(CharacterId characterId, const std::string& name,
@@ -116,7 +116,7 @@ namespace MMO {
 		// Add to grid (isPlayer = true)
 		m_Grid.AddEntity(id, pos, true);
 
-		std::cout << "[Map:" << m_Template->name << "] Player created: " << name << " (ID: " << id << ")" << std::endl;
+		std::cout << "[Map:" << m_Template->name << "] Player created: " << name << " (ID: " << id << ")" << '\n';
 		return ptr;
 	}
 
@@ -125,7 +125,7 @@ namespace MMO {
 		const CreatureTemplate* tmpl = CreatureTemplates::GetTemplate(creatureTemplateId);
 		if (!tmpl)
 		{
-			std::cout << "[Map:" << m_Template->name << "] Unknown creature template: " << creatureTemplateId << std::endl;
+			std::cout << "[Map:" << m_Template->name << "] Unknown creature template: " << creatureTemplateId << '\n';
 			return nullptr;
 		}
 
@@ -168,7 +168,7 @@ namespace MMO {
 		// Add to grid (isPlayer = false)
 		m_Grid.AddEntity(id, position, false);
 
-		std::cout << "[Map:" << m_Template->name << "] Mob created: " << tmpl->name << " (ID: " << id << ")" << std::endl;
+		std::cout << "[Map:" << m_Template->name << "] Mob created: " << tmpl->name << " (ID: " << id << ")" << '\n';
 		return ptr;
 	}
 
@@ -178,7 +178,7 @@ namespace MMO {
 		if (creature)
 		{
 			creature->SetSummoner(summonerId);
-			std::cout << "[Map:" << m_Template->name << "] Creature summoned by entity " << summonerId << std::endl;
+			std::cout << "[Map:" << m_Template->name << "] Creature summoned by entity " << summonerId << '\n';
 		}
 		return creature;
 	}
@@ -212,10 +212,10 @@ namespace MMO {
 		if (it == m_Entities.end())
 		{
 			std::cerr << "[Map:" << m_Template->name << "] ReleaseEntity failed: entity " << id
-					  << " not found. Entities in map: " << m_Entities.size() << std::endl;
+					  << " not found. Entities in map: " << m_Entities.size() << '\n';
 			for (const auto& [eid, ent] : m_Entities)
 			{
-				std::cerr << "  - Entity " << eid << ": " << ent->GetName() << std::endl;
+				std::cerr << "  - Entity " << eid << ": " << ent->GetName() << '\n';
 			}
 			return nullptr;
 		}
@@ -240,7 +240,7 @@ namespace MMO {
 		m_EntityToSpawnPoint.erase(id);
 
 		std::cout << "[Map:" << m_Template->name << "] Released entity: " << entity->GetName()
-				  << " (ID: " << id << ")" << std::endl;
+				  << " (ID: " << id << ")" << '\n';
 
 		return entity;
 	}
@@ -261,7 +261,7 @@ namespace MMO {
 		m_Grid.AddEntity(id, pos, isPlayer);
 
 		std::cout << "[Map:" << m_Template->name << "] Adopted entity: " << ptr->GetName()
-				  << " (ID: " << id << ")" << std::endl;
+				  << " (ID: " << id << ")" << '\n';
 
 		return ptr;
 	}
@@ -719,14 +719,14 @@ namespace MMO {
 								// Register with grid (visibility system handles network broadcast)
 								m_Grid.RegisterSpawnedMob(cellCoord, newMob->GetId());
 								std::cout << "[Respawn] " << newMob->GetName() << " spawned in active cell"
-										  << std::endl;
+										  << '\n';
 							}
 						}
 						else
 						{
 							// Cell is inactive - mob will spawn when cell reactivates
 							std::cout << "[Respawn] Skipping spawn in inactive cell ("
-									  << cellCoord.x << ", " << cellCoord.y << ")" << std::endl;
+									  << cellCoord.x << ", " << cellCoord.y << ")" << '\n';
 						}
 						break;
 					}
@@ -1077,7 +1077,7 @@ namespace MMO {
 		{
 			if (auras->IsImmune() || auras->IsImmuneToSchool(damageType))
 			{
-				std::cout << "[Combat] " << target->GetName() << " is immune to damage" << std::endl;
+				std::cout << "[Combat] " << target->GetName() << " is immune to damage" << '\n';
 				return;
 			}
 
@@ -1233,7 +1233,7 @@ namespace MMO {
 
 		std::cout << "[Aura] Applied " << static_cast<int>(effect.auraType)
 				  << " to " << target->GetName() << " (ID: " << auraId
-				  << ", duration: " << effect.auraDuration << "s)" << std::endl;
+				  << ", duration: " << effect.auraDuration << "s)" << '\n';
 
 		// Broadcast to nearby players
 		BroadcastAuraUpdate(target->GetId(), aura, AuraUpdateType::ADD);
@@ -1286,7 +1286,7 @@ namespace MMO {
 
 		// This would be sent via WorldServer - for now just log
 		std::cout << "[Aura] Sending " << packet.auras.size() << " auras for entity "
-				  << targetId << " to peer " << peerId << std::endl;
+				  << targetId << " to peer " << peerId << '\n';
 	}
 
 	void MapInstance::BroadcastEvent(const GameEvent& event)
@@ -1442,7 +1442,7 @@ namespace MMO {
 					const ItemTemplate* itemTmpl = ItemTemplateManager::Instance().GetTemplate(entry.itemId);
 					std::cout << "[Loot] Dropped item: " << (itemTmpl ? itemTmpl->name : "Unknown")
 							  << " (ID: " << entry.itemId << ") slot=" << (int)item.slotId
-							  << " x" << item.stackCount << std::endl;
+							  << " x" << item.stackCount << '\n';
 				}
 			}
 		}
@@ -1450,7 +1450,7 @@ namespace MMO {
 		m_Lootables[mob->GetId()] = loot;
 		std::cout << "[Loot] Generated " << loot.money << " copper, " << loot.items.size()
 				  << " items from " << mob->GetName()
-				  << " (corpse decay: " << loot.despawnTimer << "s)" << std::endl;
+				  << " (corpse decay: " << loot.despawnTimer << "s)" << '\n';
 	}
 
 	void MapInstance::AwardXP(Entity* player, Entity* mob)
@@ -1476,7 +1476,7 @@ namespace MMO {
 
 		if (!tmpl)
 		{
-			std::cout << "[XP] Could not find creature template for mob" << std::endl;
+			std::cout << "[XP] Could not find creature template for mob" << '\n';
 			return;
 		}
 
@@ -1492,7 +1492,7 @@ namespace MMO {
 		if (xpGained == 0)
 		{
 			std::cout << "[XP] " << player->GetName() << " killed grey mob " << mob->GetName()
-					  << " (no XP)" << std::endl;
+					  << " (no XP)" << '\n';
 			return;
 		}
 
@@ -1502,7 +1502,7 @@ namespace MMO {
 		std::cout << "[XP] " << player->GetName() << " gained " << xpGained << " XP from "
 				  << mob->GetName() << " (level " << (int)tmpl->level << ")"
 				  << " - now " << player->GetExperience()->current << "/"
-				  << player->GetXPForNextLevel() << std::endl;
+				  << player->GetXPForNextLevel() << '\n';
 
 		// Queue XP gain event for network broadcast
 		GameEvent xpEvent;
@@ -1565,7 +1565,7 @@ namespace MMO {
 
 		// Give money to player
 		player->GetWallet()->AddMoney(loot->money);
-		std::cout << "[Loot] Player " << player->GetName() << " looted " << loot->money << " copper" << std::endl;
+		std::cout << "[Loot] Player " << player->GetName() << " looted " << loot->money << " copper" << '\n';
 
 		loot->money = 0;
 		loot->moneyLooted = true;
@@ -1592,7 +1592,7 @@ namespace MMO {
 		LootItem* lootItem = loot->GetItemBySlot(lootSlot);
 		if (!lootItem)
 		{
-			std::cout << "[Loot] Invalid slot ID: " << (int)lootSlot << std::endl;
+			std::cout << "[Loot] Invalid slot ID: " << (int)lootSlot << '\n';
 			return false;
 		}
 
@@ -1606,7 +1606,7 @@ namespace MMO {
 		// Check if player has inventory space
 		if (player->GetInventory()->IsFull())
 		{
-			std::cout << "[Loot] Player " << player->GetName() << " inventory full, cannot loot item" << std::endl;
+			std::cout << "[Loot] Player " << player->GetName() << " inventory full, cannot loot item" << '\n';
 			return false;
 		}
 
@@ -1635,7 +1635,7 @@ namespace MMO {
 		const ItemTemplate* tmpl = ItemTemplateManager::Instance().GetTemplate(lootItem->templateId);
 		std::cout << "[Loot] Player " << player->GetName() << " looted "
 				  << (tmpl ? tmpl->name : "Unknown Item") << " (slot=" << (int)lootSlot
-				  << ") to inventory slot " << (int)inventorySlot << std::endl;
+				  << ") to inventory slot " << (int)inventorySlot << '\n';
 
 		return true;
 	}
@@ -1671,7 +1671,7 @@ namespace MMO {
 							m_PendingRespawns.push_back(respawn);
 
 							std::cout << "[Respawn] Corpse decayed, scheduling " << (tmpl ? tmpl->name : "mob")
-									  << " respawn in " << respawnTime << "s" << std::endl;
+									  << " respawn in " << respawnTime << "s" << '\n';
 							break;
 						}
 					}
@@ -1848,7 +1848,7 @@ namespace MMO {
 				expiredAura.casterId = INVALID_ENTITY_ID;
 
 				auras->RemoveAura(auraId);
-				std::cout << "[Aura] Expired aura " << auraId << " on " << entity->GetName() << std::endl;
+				std::cout << "[Aura] Expired aura " << auraId << " on " << entity->GetName() << '\n';
 
 				// Broadcast removal
 				BroadcastAuraUpdate(id, expiredAura, AuraUpdateType::REMOVE);
@@ -1887,7 +1887,7 @@ namespace MMO {
 			return;
 
 		std::cout << "[Grid] Loading cell (" << coord.x << ", " << coord.y
-				  << ") with " << spawnPoints->size() << " spawn points" << std::endl;
+				  << ") with " << spawnPoints->size() << " spawn points" << '\n';
 
 		for (uint32_t spawnPointId : *spawnPoints)
 		{
@@ -1925,7 +1925,7 @@ namespace MMO {
 							// Register with grid (visibility system handles network broadcast)
 							m_Grid.RegisterSpawnedMob(coord, mob->GetId());
 							std::cout << "[Grid] Spawned " << mob->GetName() << " (spawn point "
-									  << spawnPointId << ")" << std::endl;
+									  << spawnPointId << ")" << '\n';
 						}
 					}
 					break;
@@ -1942,7 +1942,7 @@ namespace MMO {
 		std::vector<EntityId> mobsToDespawn = m_Grid.GetCellSpawnedMobs(coord);
 
 		std::cout << "[Grid] Unloading cell (" << coord.x << ", " << coord.y
-				  << ") with " << mobsToDespawn.size() << " mobs" << std::endl;
+				  << ") with " << mobsToDespawn.size() << " mobs" << '\n';
 
 		for (EntityId mobId : mobsToDespawn)
 		{
@@ -1953,7 +1953,7 @@ namespace MMO {
 			// If mob is dead (corpse), let the loot system handle it
 			if (mob->GetHealth() && mob->GetHealth()->IsDead())
 			{
-				std::cout << "[Grid] Skipping dead mob " << mobId << " (corpse)" << std::endl;
+				std::cout << "[Grid] Skipping dead mob " << mobId << " (corpse)" << '\n';
 				continue;
 			}
 
@@ -1971,7 +1971,7 @@ namespace MMO {
 			// Remove entity (visibility system handles network broadcast)
 			RemoveEntity(mobId);
 
-			std::cout << "[Grid] Despawned mob " << mobId << std::endl;
+			std::cout << "[Grid] Despawned mob " << mobId << '\n';
 		}
 
 		// Deactivate cell

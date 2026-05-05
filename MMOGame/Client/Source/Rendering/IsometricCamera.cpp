@@ -5,7 +5,7 @@
 
 namespace MMO {
 
-	IsometricCamera::IsometricCamera() {}
+	IsometricCamera::IsometricCamera() = default;
 
 	void IsometricCamera::SetTarget(const glm::vec3& target)
 	{

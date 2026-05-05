@@ -81,7 +81,7 @@ namespace Onyx {
 
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 		{
-			std::cerr << "Assimp error loading " << path << ": " << importer.GetErrorString() << std::endl;
+			std::cerr << "Assimp error loading " << path << ": " << importer.GetErrorString() << '\n';
 			return false;
 		}
 
@@ -141,7 +141,7 @@ namespace Onyx {
 
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 		{
-			std::cerr << "Assimp error (ParseFromFile) " << path << ": " << importer.GetErrorString() << std::endl;
+			std::cerr << "Assimp error (ParseFromFile) " << path << ": " << importer.GetErrorString() << '\n';
 			return nullptr;
 		}
 
@@ -288,7 +288,7 @@ namespace Onyx {
 #ifdef ONYX_USE_ASSIMP
 		if (m_Skeleton.GetBoneCount() == 0)
 		{
-			std::cerr << "AnimatedModel::LoadAnimation: Must load a model with skeleton first" << std::endl;
+			std::cerr << "AnimatedModel::LoadAnimation: Must load a model with skeleton first" << '\n';
 			return false;
 		}
 
@@ -301,13 +301,13 @@ namespace Onyx {
 
 		if (!scene || !scene->mRootNode)
 		{
-			std::cerr << "Assimp error loading animation " << path << ": " << importer.GetErrorString() << std::endl;
+			std::cerr << "Assimp error loading animation " << path << ": " << importer.GetErrorString() << '\n';
 			return false;
 		}
 
 		if (scene->mNumAnimations == 0)
 		{
-			std::cerr << "No animations found in " << path << std::endl;
+			std::cerr << "No animations found in " << path << '\n';
 			return false;
 		}
 
@@ -326,7 +326,7 @@ namespace Onyx {
 
 			if (m_AnimationMap.find(animName) != m_AnimationMap.end())
 			{
-				std::cerr << "Animation '" << animName << "' already exists, skipping" << std::endl;
+				std::cerr << "Animation '" << animName << "' already exists, skipping" << '\n';
 				continue;
 			}
 
@@ -393,7 +393,7 @@ namespace Onyx {
 
 			if (matchingBones == 0)
 			{
-				std::cerr << "Warning: Animation '" << animName << "' has no bones matching skeleton" << std::endl;
+				std::cerr << "Warning: Animation '" << animName << "' has no bones matching skeleton" << '\n';
 				continue;
 			}
 
@@ -546,7 +546,7 @@ namespace Onyx {
 
 		if (skinnedMesh.vao->GetBufferID() == 0)
 		{
-			std::cerr << "Failed to create VAO for mesh: " << mesh->mName.C_Str() << std::endl;
+			std::cerr << "Failed to create VAO for mesh: " << mesh->mName.C_Str() << '\n';
 			return;
 		}
 

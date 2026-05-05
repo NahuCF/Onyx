@@ -328,7 +328,7 @@ namespace MMO {
 		m_CellsWithSpawns.insert(coord);
 
 		std::cout << "[Grid] Registered spawn point " << spawnPointId
-				  << " at cell (" << coord.x << ", " << coord.y << ")" << std::endl;
+				  << " at cell (" << coord.x << ", " << coord.y << ")" << '\n';
 	}
 
 	void Grid::UpdateGridActivation(float dt,
@@ -440,7 +440,7 @@ namespace MMO {
 		if (cell)
 		{
 			cell->SetState(GridCellState::ACTIVE);
-			std::cout << "[Grid] Activated cell (" << coord.x << ", " << coord.y << ")" << std::endl;
+			std::cout << "[Grid] Activated cell (" << coord.x << ", " << coord.y << ")" << '\n';
 		}
 	}
 
@@ -451,7 +451,7 @@ namespace MMO {
 		{
 			cell->SetState(GridCellState::UNLOADED);
 			cell->ClearSpawnedMobs();
-			std::cout << "[Grid] Deactivated cell (" << coord.x << ", " << coord.y << ")" << std::endl;
+			std::cout << "[Grid] Deactivated cell (" << coord.x << ", " << coord.y << ")" << '\n';
 		}
 	}
 

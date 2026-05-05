@@ -52,14 +52,14 @@ namespace Onyx {
 			else if (name == "specular")
 				number = std::to_string(specularNr++);
 
-			shader.SetInt(("material." + name + number).c_str(), i);
+			shader.SetInt("material." + name + number, i);
 			glBindTexture(GL_TEXTURE_2D, m_Textures[i].id);
 		}
 
 		glActiveTexture(GL_TEXTURE0);
 
 		glBindVertexArray(m_VAO);
-		glDrawElements(GL_TRIANGLES, m_Indices.size(), GL_UNSIGNED_INT, 0);
+		glDrawElements(GL_TRIANGLES, m_Indices.size(), GL_UNSIGNED_INT, nullptr);
 		glBindVertexArray(0);
 	}
 
@@ -68,7 +68,7 @@ namespace Onyx {
 		EnsureGPU();
 
 		glBindVertexArray(m_VAO);
-		glDrawElements(GL_TRIANGLES, m_Indices.size(), GL_UNSIGNED_INT, 0);
+		glDrawElements(GL_TRIANGLES, m_Indices.size(), GL_UNSIGNED_INT, nullptr);
 		glBindVertexArray(0);
 	}
 
@@ -121,7 +121,7 @@ namespace Onyx {
 
 		// Position
 		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)nullptr);
 		// Normal
 		glEnableVertexAttribArray(1);
 		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void*)offsetof(MeshVertex, normal));

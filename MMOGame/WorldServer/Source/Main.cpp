@@ -8,7 +8,7 @@ MMO::WorldServer* g_Server = nullptr;
 
 void SignalHandler(int signal)
 {
-	std::cout << "\nShutting down World Server..." << std::endl;
+	std::cout << "\nShutting down World Server..." << '\n';
 	if (g_Server)
 	{
 		g_Server->Stop();
@@ -17,7 +17,7 @@ void SignalHandler(int signal)
 
 int main(int argc, char* argv[])
 {
-	std::cout << "=== MMO World Server ===" << std::endl;
+	std::cout << "=== MMO World Server ===" << '\n';
 
 	// Setup signal handler
 	std::signal(SIGINT, SignalHandler);
@@ -44,13 +44,13 @@ int main(int argc, char* argv[])
 
 	if (!server.Initialize(port, dbConnStr))
 	{
-		std::cerr << "Failed to initialize World Server" << std::endl;
+		std::cerr << "Failed to initialize World Server" << '\n';
 		return 1;
 	}
 
 	// Run server
 	server.Run();
 
-	std::cout << "World Server stopped." << std::endl;
+	std::cout << "World Server stopped." << '\n';
 	return 0;
 }

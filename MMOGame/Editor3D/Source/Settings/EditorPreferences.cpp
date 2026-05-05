@@ -76,7 +76,7 @@ namespace MMO {
 		catch (const std::exception& e)
 		{
 			std::cerr << "[EditorPreferences] failed to parse "
-					  << path.string() << ": " << e.what() << std::endl;
+					  << path.string() << ": " << e.what() << '\n';
 		}
 	}
 
@@ -95,7 +95,7 @@ namespace MMO {
 		if (!out.is_open())
 		{
 			std::cerr << "[EditorPreferences] failed to open "
-					  << path.string() << " for writing" << std::endl;
+					  << path.string() << " for writing" << '\n';
 			return;
 		}
 		out << j.dump(2);

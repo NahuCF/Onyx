@@ -7,15 +7,15 @@
 class EditorLayer : public Onyx::Layer
 {
 public:
-	EditorLayer() {}
-	~EditorLayer() {}
+	EditorLayer() = default;
+	~EditorLayer() override = default;
 
-	virtual void OnUpdate() override
+	void OnUpdate() override
 	{
 		// Editor update logic here
 	}
 
-	virtual void OnImGui() override
+	void OnImGui() override
 	{
 		// ImGui UI rendering
 		ImGui::Begin("Onyx Editor");
@@ -54,9 +54,8 @@ public:
 		PushLayer(new EditorLayer());
 	}
 
-	~EditorApplication()
-	{
-	}
+	~EditorApplication() override
+	= default;
 
 private:
 	Onyx::ApplicationSpec m_Spec;

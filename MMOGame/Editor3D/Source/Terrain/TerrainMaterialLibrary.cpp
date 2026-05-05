@@ -155,7 +155,7 @@ namespace Editor3D {
 
 		if (!std::filesystem::exists(fullPath))
 		{
-			std::cerr << "[TerrainMaterialLibrary] Texture not found: " << path << std::endl;
+			std::cerr << "[TerrainMaterialLibrary] Texture not found: " << path << '\n';
 			m_TextureCache[path] = nullptr;
 			return nullptr;
 		}
@@ -169,7 +169,7 @@ namespace Editor3D {
 		}
 		catch (...)
 		{
-			std::cerr << "[TerrainMaterialLibrary] Failed to load texture: " << fullPath << std::endl;
+			std::cerr << "[TerrainMaterialLibrary] Failed to load texture: " << fullPath << '\n';
 			m_TextureCache[path] = nullptr;
 			return nullptr;
 		}

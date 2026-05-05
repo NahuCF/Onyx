@@ -6,9 +6,9 @@
 
 namespace MMO {
 
-	GameRenderer::GameRenderer() {}
+	GameRenderer::GameRenderer() = default;
 
-	GameRenderer::~GameRenderer() {}
+	GameRenderer::~GameRenderer() = default;
 
 	void GameRenderer::Init()
 	{
@@ -32,7 +32,7 @@ namespace MMO {
 		InitCubeMesh();
 
 		m_Initialized = true;
-		std::cout << "[GameRenderer] Initialized (direct backbuffer)" << std::endl;
+		std::cout << "[GameRenderer] Initialized (direct backbuffer)" << '\n';
 	}
 
 	void GameRenderer::BeginFrame(const glm::vec3& playerPos, float dt,
@@ -131,7 +131,7 @@ namespace MMO {
 		m_StaticObjects.clear();
 
 		const auto& objects = terrain.GetAllObjects();
-		std::cout << "[GameRenderer] Loading " << objects.size() << " static objects..." << std::endl;
+		std::cout << "[GameRenderer] Loading " << objects.size() << " static objects..." << '\n';
 
 		for (const auto& obj : objects)
 		{
@@ -158,7 +158,7 @@ namespace MMO {
 		}
 
 		std::cout << "[GameRenderer] Loaded " << m_StaticObjects.size() << " static objects, "
-				  << m_ModelCache.size() << " unique models" << std::endl;
+				  << m_ModelCache.size() << " unique models" << '\n';
 	}
 
 	RuntimeModel* GameRenderer::LoadRuntimeModel(const std::string& path)
@@ -174,7 +174,7 @@ namespace MMO {
 		OmdlData data;
 		if (!ReadOmdl(path, data))
 		{
-			std::cerr << "[GameRenderer] Failed to load .omdl: " << path << std::endl;
+			std::cerr << "[GameRenderer] Failed to load .omdl: " << path << '\n';
 			return nullptr;
 		}
 
@@ -231,7 +231,7 @@ namespace MMO {
 
 		std::cout << "[GameRenderer] Loaded .omdl: " << path
 				  << " (" << data.header.meshCount << " meshes, "
-				  << data.header.totalVertices << " verts)" << std::endl;
+				  << data.header.totalVertices << " verts)" << '\n';
 
 		return ptr;
 	}

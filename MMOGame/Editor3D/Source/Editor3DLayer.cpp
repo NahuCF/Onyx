@@ -628,9 +628,9 @@ namespace MMO {
 		auto result = m_ViewportPanel->GetWorldSystem().ExportForRuntime("Data", m_CurrentMapId);
 		if (!result.success)
 		{
-			std::cerr << "[Run Locally] export failed; not starting servers" << std::endl;
+			std::cerr << "[Run Locally] export failed; not starting servers" << '\n';
 			for (const auto& err : result.errors)
-				std::cerr << "  " << err << std::endl;
+				std::cerr << "  " << err << '\n';
 			return;
 		}
 
@@ -650,7 +650,7 @@ namespace MMO {
 		m_RunSession = std::make_unique<LocalRunSession>();
 		if (!m_RunSession->Start(binDir, std::filesystem::absolute("Data"), m_CurrentMapId))
 		{
-			std::cerr << "[Run Locally] failed: " << m_RunSession->LastError() << std::endl;
+			std::cerr << "[Run Locally] failed: " << m_RunSession->LastError() << '\n';
 		}
 	}
 
@@ -700,7 +700,7 @@ namespace MMO {
 			std::cerr << "[Editor] Could not connect to Postgres — spawn entities "
 						 "will not persist across editor restarts. Check DB_HOST/"
 						 "DB_USER/DB_PASS/DB_NAME env vars."
-					  << std::endl;
+					  << '\n';
 			return false;
 		}
 		// Schema migrations are owned by the LoginServer/WorldServer at boot, but
@@ -708,11 +708,11 @@ namespace MMO {
 		// database without needing the servers to have ever run.
 		if (!MigrationRunner::ApplyAll(m_Database))
 		{
-			std::cerr << "[Editor] Schema migrations failed; spawn load/save will be skipped." << std::endl;
+			std::cerr << "[Editor] Schema migrations failed; spawn load/save will be skipped." << '\n';
 			m_Database.Disconnect();
 			return false;
 		}
-		std::cout << "[Editor] Connected to Postgres for spawn round-trip." << std::endl;
+		std::cout << "[Editor] Connected to Postgres for spawn round-trip." << '\n';
 		return true;
 	}
 
@@ -773,7 +773,7 @@ namespace MMO {
 		{
 			std::cout << "[Editor] Loaded " << creatures.size()
 					  << " creature spawns and " << grouped.size()
-					  << " player spawns from DB for map " << mapId << "." << std::endl;
+					  << " player spawns from DB for map " << mapId << "." << '\n';
 		}
 	}
 
@@ -810,7 +810,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "[Editor] Failed to sync spawns to DB: " << e.what() << std::endl;
+			std::cerr << "[Editor] Failed to sync spawns to DB: " << e.what() << '\n';
 		}
 	}
 

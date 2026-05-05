@@ -175,7 +175,7 @@ namespace Onyx {
 
 		if (!m_TextureData)
 		{
-			std::cout << "ERROR::TEXTURE::FILE_NOT_FOUND: " << texturePath << std::endl;
+			std::cout << "ERROR::TEXTURE::FILE_NOT_FOUND: " << texturePath << '\n';
 			UnBind();
 			return;
 		}

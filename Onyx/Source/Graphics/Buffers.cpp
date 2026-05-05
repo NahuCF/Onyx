@@ -146,7 +146,7 @@ namespace Onyx {
 		buffer->Bind();
 
 		glEnableVertexAttribArray(attribIndex);
-		glVertexAttribPointer(attribIndex, buffer->GetComponentCount(), GL_FLOAT, GL_FALSE, 0, 0);
+		glVertexAttribPointer(attribIndex, buffer->GetComponentCount(), GL_FLOAT, GL_FALSE, 0, nullptr);
 
 		buffer->UnBind();
 		UnBind();

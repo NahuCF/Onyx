@@ -53,14 +53,14 @@ namespace Onyx {
 
 		if (!scene)
 		{
-			std::cout << "ERROR::ASSIMP:: Failed to load: " << path << std::endl;
-			std::cout << "  Reason: " << import.GetErrorString() << std::endl;
+			std::cout << "ERROR::ASSIMP:: Failed to load: " << path << '\n';
+			std::cout << "  Reason: " << import.GetErrorString() << '\n';
 			return;
 		}
 
 		if (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 		{
-			std::cout << "ERROR::ASSIMP:: Scene is incomplete or has no root node" << std::endl;
+			std::cout << "ERROR::ASSIMP:: Scene is incomplete or has no root node" << '\n';
 			return;
 		}
 
@@ -117,9 +117,9 @@ namespace Onyx {
 
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 		{
-			std::cout << "ERROR::ASSIMP::ParseFromFile: Failed to load: " << path << std::endl;
+			std::cout << "ERROR::ASSIMP::ParseFromFile: Failed to load: " << path << '\n';
 			if (scene)
-				std::cout << "  Reason: " << import.GetErrorString() << std::endl;
+				std::cout << "  Reason: " << import.GetErrorString() << '\n';
 			return result;
 		}
 
@@ -516,7 +516,7 @@ namespace Onyx {
 		}
 		else
 		{
-			std::cout << "Texture failed to load at path: " << path << std::endl;
+			std::cout << "Texture failed to load at path: " << path << '\n';
 			stbi_image_free(data);
 			glDeleteTextures(1, &textureID);
 			return 0;

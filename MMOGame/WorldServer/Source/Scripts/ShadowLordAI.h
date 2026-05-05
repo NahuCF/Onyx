@@ -39,7 +39,7 @@ namespace MMO {
 			// Clear any leftover immunity from previous attempts
 			RemoveInvulnerabilityAura();
 
-			std::cout << "[ShadowLord] Entering combat!" << std::endl;
+			std::cout << "[ShadowLord] Entering combat!" << '\n';
 		}
 
 		void OnPhaseTransition(uint32_t oldPhase, uint32_t newPhase) override
@@ -51,7 +51,7 @@ namespace MMO {
 				// Phase 2: Apply DAMAGE_IMMUNITY aura (AzerothCore style)
 				// The aura system handles all immunity checks automatically
 				ApplyInvulnerabilityAura();
-				std::cout << "[ShadowLord] Phase 2: INVULNERABLE until adds die!" << std::endl;
+				std::cout << "[ShadowLord] Phase 2: INVULNERABLE until adds die!" << '\n';
 			}
 			else if (newPhase == 3)
 			{
@@ -60,14 +60,14 @@ namespace MMO {
 
 				// Could also apply an enrage aura here:
 				// ApplyEnrageAura();  // e.g., +50% damage dealt
-				std::cout << "[ShadowLord] Phase 3: ENRAGED! Attacks faster!" << std::endl;
+				std::cout << "[ShadowLord] Phase 3: ENRAGED! Attacks faster!" << '\n';
 			}
 		}
 
 		void OnSummonDied(Entity* summon) override
 		{
 			std::cout << "[ShadowLord] A Shadow Servant has fallen! ("
-					  << m_Summons.Count() - 1 << " remaining)" << std::endl;
+					  << m_Summons.Count() - 1 << " remaining)" << '\n';
 
 			ScriptedAI::OnSummonDied(summon);
 
@@ -75,7 +75,7 @@ namespace MMO {
 			// If so, remove invulnerability and transition phase
 			if (m_Summons.Count() == 0)
 			{
-				std::cout << "[ShadowLord] All adds defeated! Removing invulnerability!" << std::endl;
+				std::cout << "[ShadowLord] All adds defeated! Removing invulnerability!" << '\n';
 				RemoveInvulnerabilityAura();
 
 				// Could trigger phase 3 here:
@@ -128,7 +128,7 @@ namespace MMO {
 			immunityAura.tickInterval = 0.0f; // No periodic effect
 
 			m_InvulnerabilityAuraId = auras->AddAura(immunityAura);
-			std::cout << "[ShadowLord] Applied DAMAGE_IMMUNITY aura (ID: " << m_InvulnerabilityAuraId << ")" << std::endl;
+			std::cout << "[ShadowLord] Applied DAMAGE_IMMUNITY aura (ID: " << m_InvulnerabilityAuraId << ")" << '\n';
 		}
 
 		// Remove DAMAGE_IMMUNITY aura
@@ -141,7 +141,7 @@ namespace MMO {
 			if (m_InvulnerabilityAuraId != 0)
 			{
 				auras->RemoveAura(m_InvulnerabilityAuraId);
-				std::cout << "[ShadowLord] Removed DAMAGE_IMMUNITY aura" << std::endl;
+				std::cout << "[ShadowLord] Removed DAMAGE_IMMUNITY aura" << '\n';
 				m_InvulnerabilityAuraId = 0;
 			}
 			else

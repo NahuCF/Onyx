@@ -199,7 +199,7 @@ namespace Onyx {
 		m_VAO->Bind();
 		m_EBO->Bind();
 
-		glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+		glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, nullptr);
 
 		m_VAO->UnBind();
 		m_EBO->UnBind();
@@ -409,7 +409,7 @@ namespace Onyx {
 		m_VAO->AddBuffer(1, sizeof(BufferDisposition) / sizeof(float), offsetof(BufferDisposition, texIndex), 3);
 
 		glBufferSubData(GL_ARRAY_BUFFER, 0, m_VertexCount * sizeof(BufferDisposition), m_VertexBufferData);
-		glDrawElements(GL_TRIANGLES, m_IndexCount, GL_UNSIGNED_INT, 0);
+		glDrawElements(GL_TRIANGLES, m_IndexCount, GL_UNSIGNED_INT, nullptr);
 
 		if (m_Shader != nullptr)
 			m_Shader->UnBind();

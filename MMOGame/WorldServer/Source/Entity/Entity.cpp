@@ -370,7 +370,7 @@ namespace MMO {
 			}
 
 			xpNeeded = GetXPForNextLevel();
-			std::cout << "[XP] " << m_Name << " leveled up to " << m_Level << "!" << std::endl;
+			std::cout << "[XP] " << m_Name << " leveled up to " << m_Level << "!" << '\n';
 		}
 
 		return levelsGained;

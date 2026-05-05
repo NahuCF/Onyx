@@ -19,12 +19,12 @@ namespace Onyx {
 
 		if (!m_VShaderFile.is_open())
 		{
-			std::cerr << "ERROR::SHADER::VERTEX::FILE_NOT_FOUND: " << vertexPath << std::endl;
+			std::cerr << "ERROR::SHADER::VERTEX::FILE_NOT_FOUND: " << vertexPath << '\n';
 			return;
 		}
 		if (!m_FShaderFile.is_open())
 		{
-			std::cerr << "ERROR::SHADER::FRAGMENT::FILE_NOT_FOUND: " << fragmentPath << std::endl;
+			std::cerr << "ERROR::SHADER::FRAGMENT::FILE_NOT_FOUND: " << fragmentPath << '\n';
 			return;
 		}
 
@@ -43,15 +43,15 @@ namespace Onyx {
 		m_VertexID = glCreateShader(GL_VERTEX_SHADER);
 		m_FragmentID = glCreateShader(GL_FRAGMENT_SHADER);
 
-		glShaderSource(m_VertexID, 1, &m_VShaderCode, NULL);
+		glShaderSource(m_VertexID, 1, &m_VShaderCode, nullptr);
 		glCompileShader(m_VertexID);
 
 		glGetShaderiv(m_VertexID, GL_COMPILE_STATUS, &success);
 		if (!success)
 		{
-			glGetShaderInfoLog(m_VertexID, 1024, NULL, infoLog);
+			glGetShaderInfoLog(m_VertexID, 1024, nullptr, infoLog);
 			std::cerr << "ERROR::SHADER::VERTEX::COMPILATION_FAILED [" << vertexPath << "]\n"
-					  << infoLog << std::endl;
+					  << infoLog << '\n';
 			std::cerr.flush();
 			glDeleteShader(m_VertexID);
 			m_VertexID = 0;
@@ -60,15 +60,15 @@ namespace Onyx {
 			return;
 		};
 
-		glShaderSource(m_FragmentID, 1, &m_FShaderCode, NULL);
+		glShaderSource(m_FragmentID, 1, &m_FShaderCode, nullptr);
 		glCompileShader(m_FragmentID);
 
 		glGetShaderiv(m_FragmentID, GL_COMPILE_STATUS, &success);
 		if (!success)
 		{
-			glGetShaderInfoLog(m_FragmentID, 1024, NULL, infoLog);
+			glGetShaderInfoLog(m_FragmentID, 1024, nullptr, infoLog);
 			std::cerr << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED [" << fragmentPath << "]\n"
-					  << infoLog << std::endl;
+					  << infoLog << '\n';
 			std::cerr.flush();
 			glDeleteShader(m_VertexID);
 			m_VertexID = 0;
@@ -85,9 +85,9 @@ namespace Onyx {
 		glGetProgramiv(m_ProgramID, GL_LINK_STATUS, &success);
 		if (!success)
 		{
-			glGetProgramInfoLog(m_ProgramID, 1024, NULL, infoLog);
+			glGetProgramInfoLog(m_ProgramID, 1024, nullptr, infoLog);
 			std::cerr << "ERROR::SHADER::PROGRAM::LINKING_FAILED [" << vertexPath << " + " << fragmentPath << "]\n"
-					  << infoLog << std::endl;
+					  << infoLog << '\n';
 			std::cerr.flush();
 		}
 

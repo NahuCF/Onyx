@@ -1953,7 +1953,7 @@ namespace MMO {
 			std::cout << "[MODEL] Resolved: " << path
 					  << " (animated=" << entry.isAnimated
 					  << " meshes=" << (entry.staticModel ? entry.staticModel->GetMeshes().size() : 0)
-					  << ") " << resolveMs << " ms" << std::endl;
+					  << ") " << resolveMs << " ms" << '\n';
 			return entry;
 		}
 		else if (status == Onyx::ModelLoadStatus::Failed)

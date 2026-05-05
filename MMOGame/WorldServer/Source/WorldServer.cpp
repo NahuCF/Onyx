@@ -24,19 +24,19 @@ namespace MMO {
 	{
 		if (!m_Network.Start(port))
 		{
-			std::cerr << "Failed to start World Server on port " << port << std::endl;
+			std::cerr << "Failed to start World Server on port " << port << '\n';
 			return false;
 		}
 
 		// Database is required — DB-only architecture (per docs/release-pipeline.md).
 		if (dbConnectionString.empty())
 		{
-			std::cerr << "DB connection string is required (DB_HOST/DB_USER/DB_PASS/DB_NAME)" << std::endl;
+			std::cerr << "DB connection string is required (DB_HOST/DB_USER/DB_PASS/DB_NAME)" << '\n';
 			return false;
 		}
 		if (!m_Database.Connect(dbConnectionString))
 		{
-			std::cerr << "Failed to connect to database; aborting startup" << std::endl;
+			std::cerr << "Failed to connect to database; aborting startup" << '\n';
 			return false;
 		}
 
@@ -44,7 +44,7 @@ namespace MMO {
 		// Apply schema migrations before reading any tables.
 		if (!MigrationRunner::ApplyAll(m_Database))
 		{
-			std::cerr << "Schema migrations failed; aborting startup" << std::endl;
+			std::cerr << "Schema migrations failed; aborting startup" << '\n';
 			return false;
 		}
 
@@ -58,7 +58,7 @@ namespace MMO {
 		return false;
 #endif
 
-		std::cout << "World Server initialized on port " << port << std::endl;
+		std::cout << "World Server initialized on port " << port << '\n';
 		return true;
 	}
 
@@ -67,7 +67,7 @@ namespace MMO {
 		m_Running = true;
 		m_LastTick = std::chrono::steady_clock::now();
 
-		std::cout << "World Server running at " << TICK_RATE << " Hz..." << std::endl;
+		std::cout << "World Server running at " << TICK_RATE << " Hz..." << '\n';
 
 		while (m_Running)
 		{
@@ -171,12 +171,12 @@ namespace MMO {
 
 	void WorldServer::OnPlayerConnect(uint32_t peerId)
 	{
-		std::cout << "Client connected: " << peerId << std::endl;
+		std::cout << "Client connected: " << peerId << '\n';
 	}
 
 	void WorldServer::OnPlayerDisconnect(uint32_t peerId)
 	{
-		std::cout << "Client disconnected: " << peerId << std::endl;
+		std::cout << "Client disconnected: " << peerId << '\n';
 
 		auto it = m_ConnectedPlayers.find(peerId);
 		if (it == m_ConnectedPlayers.end())
@@ -270,7 +270,7 @@ namespace MMO {
 			HandleTakeLootItem(peerId, buf);
 			break;
 		default:
-			std::cerr << "Unknown world packet type: " << static_cast<int>(packetType) << std::endl;
+			std::cerr << "Unknown world packet type: " << static_cast<int>(packetType) << '\n';
 			break;
 		}
 	}
@@ -280,7 +280,7 @@ namespace MMO {
 		C_AuthToken request;
 		request.Deserialize(buf);
 
-		std::cout << "Auth token received from peer " << peerId << std::endl;
+		std::cout << "Auth token received from peer " << peerId << '\n';
 
 		// Load character data from database
 		CharacterData charData = LoadCharacter(request.characterId);
@@ -293,7 +293,7 @@ namespace MMO {
 		MapInstance* map = MapManager::Instance().GetMapInstance(mapTemplateId);
 		if (!map)
 		{
-			std::cerr << "Failed to get map instance for template " << mapTemplateId << std::endl;
+			std::cerr << "Failed to get map instance for template " << mapTemplateId << '\n';
 			SendError(peerId, ErrorCode::UNKNOWN_ERROR);
 			return;
 		}
@@ -518,7 +518,7 @@ namespace MMO {
 
 		if (!portal)
 		{
-			std::cout << "[WorldServer] Portal " << request.portalId << " not found" << std::endl;
+			std::cout << "[WorldServer] Portal " << request.portalId << " not found" << '\n';
 			return;
 		}
 
@@ -527,7 +527,7 @@ namespace MMO {
 		float distance = Vec2::Distance(playerPos, portal->position);
 		if (distance > 8.0f)
 		{
-			std::cout << "[WorldServer] Player too far from portal (distance: " << distance << ")" << std::endl;
+			std::cout << "[WorldServer] Player too far from portal (distance: " << distance << ")" << '\n';
 			return;
 		}
 
@@ -551,7 +551,7 @@ namespace MMO {
 		MapInstance* destMap = MapManager::Instance().GetMapInstance(portal->destMapId);
 		if (!destMap)
 		{
-			std::cerr << "Failed to get destination map " << portal->destMapId << std::endl;
+			std::cerr << "Failed to get destination map " << portal->destMapId << '\n';
 			return;
 		}
 
@@ -577,7 +577,7 @@ namespace MMO {
 		std::unique_ptr<Entity> entity = fromMap->ReleaseEntity(entityId);
 		if (!entity)
 		{
-			std::cerr << "Failed to release entity " << entityId << " from old map" << std::endl;
+			std::cerr << "Failed to release entity " << entityId << " from old map" << '\n';
 			return;
 		}
 
@@ -592,7 +592,7 @@ namespace MMO {
 		Entity* playerEntity = destMap->AdoptEntity(std::move(entity));
 		if (!playerEntity)
 		{
-			std::cerr << "Failed to adopt entity into destination map" << std::endl;
+			std::cerr << "Failed to adopt entity into destination map" << '\n';
 			return;
 		}
 
@@ -648,7 +648,7 @@ namespace MMO {
 		}
 
 		std::cout << "Player " << playerEntity->GetName() << " transferred to " << destMap->GetName()
-				  << " (EntityId " << entityId << " preserved)" << std::endl;
+				  << " (EntityId " << entityId << " preserved)" << '\n';
 	}
 
 	// ============================================================
@@ -1195,7 +1195,7 @@ namespace MMO {
 		float dist = Vec2::Distance(playerMove->position, corpseMove->position);
 		if (dist > 3.0f)
 		{
-			std::cout << "[Loot] Player too far from corpse (dist: " << dist << ")" << std::endl;
+			std::cout << "[Loot] Player too far from corpse (dist: " << dist << ")" << '\n';
 			return;
 		}
 
@@ -1203,14 +1203,14 @@ namespace MMO {
 		LootData* loot = map->GetLoot(request.targetId);
 		if (!loot)
 		{
-			std::cout << "[Loot] No loot on corpse " << request.targetId << std::endl;
+			std::cout << "[Loot] No loot on corpse " << request.targetId << '\n';
 			return;
 		}
 
 		// Check loot rights
 		if (loot->killerEntityId != player.entityId)
 		{
-			std::cout << "[Loot] Player doesn't have loot rights" << std::endl;
+			std::cout << "[Loot] Player doesn't have loot rights" << '\n';
 			return;
 		}
 
@@ -1391,7 +1391,7 @@ namespace MMO {
 			SendYourStats(peerId, entity);
 
 			std::cout << "[Inventory] Player equipped item from slot " << (int)request.inventorySlot
-					  << " to equipment slot " << (int)request.equipSlot << std::endl;
+					  << " to equipment slot " << (int)request.equipSlot << '\n';
 		}
 	}
 
@@ -1429,7 +1429,7 @@ namespace MMO {
 			SendYourStats(peerId, entity);
 
 			std::cout << "[Inventory] Player unequipped item from slot " << (int)request.equipSlot
-					  << " to inventory slot " << (int)inventorySlot << std::endl;
+					  << " to inventory slot " << (int)inventorySlot << '\n';
 		}
 	}
 
@@ -1597,7 +1597,7 @@ namespace MMO {
 
 			inventory->slots[itemData.slot].item = item;
 		}
-		std::cout << "[Inventory] Loaded " << items.size() << " items for character " << characterId << std::endl;
+		std::cout << "[Inventory] Loaded " << items.size() << " items for character " << characterId << '\n';
 	}
 
 	void WorldServer::LoadPlayerEquipment(Entity* player, CharacterId characterId)
@@ -1620,7 +1620,7 @@ namespace MMO {
 
 			equipment->slots[itemData.slot] = item;
 		}
-		std::cout << "[Equipment] Loaded " << items.size() << " items for character " << characterId << std::endl;
+		std::cout << "[Equipment] Loaded " << items.size() << " items for character " << characterId << '\n';
 	}
 
 	void WorldServer::SavePlayerInventory(Entity* player, CharacterId characterId)

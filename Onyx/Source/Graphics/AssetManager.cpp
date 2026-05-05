@@ -464,7 +464,7 @@ namespace Onyx {
 				m_TexturePaths[readyTex->path] = handle;
 				std::cout << "[TEXTURE] Uploaded: " << readyTex->path
 						  << " (" << readyTex->preloaded.width << "x" << readyTex->preloaded.height
-						  << " ch=" << readyTex->preloaded.channels << ") " << texMs << " ms" << std::endl;
+						  << " ch=" << readyTex->preloaded.channels << ") " << texMs << " ms" << '\n';
 			}
 			m_PendingTextures.erase(readyTex->path);
 		}
@@ -504,7 +504,7 @@ namespace Onyx {
 					  << " indices=" << pending->mergedTotalIndices
 					  << " bytes=" << totalBytes
 					  << (totalBytes > UPLOAD_CHUNK_BYTES ? " STAGED" : " IMMEDIATE")
-					  << (pending->isAnimated ? " ANIMATED" : " STATIC") << std::endl;
+					  << (pending->isAnimated ? " ANIMATED" : " STATIC") << '\n';
 			if (totalBytes > UPLOAD_CHUNK_BYTES)
 			{
 				BeginStagedUpload(pending);
@@ -540,7 +540,7 @@ namespace Onyx {
 			}
 			else
 			{
-				std::cerr << "AssetManager::ProcessGPUUploads: No data for model " << pending->path << std::endl;
+				std::cerr << "AssetManager::ProcessGPUUploads: No data for model " << pending->path << '\n';
 				pending->status = ModelLoadStatus::Failed;
 				std::lock_guard<std::mutex> lock(m_LoadMutex);
 				m_PendingLoads.erase(pending->path);
@@ -654,7 +654,7 @@ namespace Onyx {
 
 		if (vboDone && eboDone)
 		{
-			std::cout << "[UPLOAD] Staged upload finalized: " << upload.pending->path << std::endl;
+			std::cout << "[UPLOAD] Staged upload finalized: " << upload.pending->path << '\n';
 			FinalizeStagedUpload();
 		}
 	}
@@ -697,7 +697,7 @@ namespace Onyx {
 		}
 		else
 		{
-			std::cerr << "AssetManager::FinalizeStagedUpload: No model for " << pending.path << std::endl;
+			std::cerr << "AssetManager::FinalizeStagedUpload: No model for " << pending.path << '\n';
 			pending.status = ModelLoadStatus::Failed;
 			{
 				std::lock_guard<std::mutex> lock(m_LoadMutex);

@@ -227,7 +227,7 @@ namespace MMO {
 
 			if (!fs::exists(dirPath))
 			{
-				std::cerr << "[AssetBrowser] Directory does not exist: " << m_CurrentDirectory << std::endl;
+				std::cerr << "[AssetBrowser] Directory does not exist: " << m_CurrentDirectory << '\n';
 				return;
 			}
 
@@ -267,22 +267,22 @@ namespace MMO {
 				}
 				catch (const std::exception& e)
 				{
-					std::cerr << "[AssetBrowser] Skipping file: " << e.what() << std::endl;
+					std::cerr << "[AssetBrowser] Skipping file: " << e.what() << '\n';
 				}
 				catch (...)
 				{
-					std::cerr << "[AssetBrowser] Skipping file: unknown error" << std::endl;
+					std::cerr << "[AssetBrowser] Skipping file: unknown error" << '\n';
 				}
 			}
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "[AssetBrowser] Error: " << e.what() << std::endl;
+			std::cerr << "[AssetBrowser] Error: " << e.what() << '\n';
 			return;
 		}
 		catch (...)
 		{
-			std::cerr << "[AssetBrowser] Unknown error" << std::endl;
+			std::cerr << "[AssetBrowser] Unknown error" << '\n';
 			return;
 		}
 

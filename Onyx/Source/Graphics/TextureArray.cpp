@@ -79,7 +79,7 @@ namespace Onyx {
 		unsigned char* data = stbi_load(path.c_str(), &w, &h, &ch, m_Channels);
 		if (!data)
 		{
-			std::cerr << "[TextureArray] Failed to load: " << path << std::endl;
+			std::cerr << "[TextureArray] Failed to load: " << path << '\n';
 			return false;
 		}
 

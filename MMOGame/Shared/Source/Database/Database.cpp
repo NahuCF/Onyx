@@ -14,13 +14,13 @@ namespace MMO {
 			m_Connection = std::make_unique<pqxx::connection>(connectionString);
 			if (m_Connection->is_open())
 			{
-				std::cout << "Connected to database: " << m_Connection->dbname() << std::endl;
+				std::cout << "Connected to database: " << m_Connection->dbname() << '\n';
 				return true;
 			}
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "Database connection failed: " << e.what() << std::endl;
+			std::cerr << "Database connection failed: " << e.what() << '\n';
 		}
 		return false;
 	}
@@ -64,7 +64,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "GetAccountByUsername failed: " << e.what() << std::endl;
+			std::cerr << "GetAccountByUsername failed: " << e.what() << '\n';
 			return std::nullopt;
 		}
 	}
@@ -83,7 +83,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "CreateAccount failed: " << e.what() << std::endl;
+			std::cerr << "CreateAccount failed: " << e.what() << '\n';
 			return false;
 		}
 	}
@@ -101,7 +101,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "UpdateLastLogin failed: " << e.what() << std::endl;
+			std::cerr << "UpdateLastLogin failed: " << e.what() << '\n';
 			return false;
 		}
 	}
@@ -153,7 +153,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "GetCharactersByAccountId failed: " << e.what() << std::endl;
+			std::cerr << "GetCharactersByAccountId failed: " << e.what() << '\n';
 		}
 		return characters;
 	}
@@ -202,7 +202,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "GetCharacterById failed: " << e.what() << std::endl;
+			std::cerr << "GetCharacterById failed: " << e.what() << '\n';
 			return std::nullopt;
 		}
 	}
@@ -234,7 +234,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "CreateCharacter failed: " << e.what() << std::endl;
+			std::cerr << "CreateCharacter failed: " << e.what() << '\n';
 		}
 		return false;
 	}
@@ -252,7 +252,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "DeleteCharacter failed: " << e.what() << std::endl;
+			std::cerr << "DeleteCharacter failed: " << e.what() << '\n';
 			return false;
 		}
 	}
@@ -279,7 +279,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "SaveCharacter failed: " << e.what() << std::endl;
+			std::cerr << "SaveCharacter failed: " << e.what() << '\n';
 			return false;
 		}
 	}
@@ -297,7 +297,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "IsNameTaken failed: " << e.what() << std::endl;
+			std::cerr << "IsNameTaken failed: " << e.what() << '\n';
 			return true; // Fail safe
 		}
 	}
@@ -327,7 +327,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "GetCooldowns failed: " << e.what() << std::endl;
+			std::cerr << "GetCooldowns failed: " << e.what() << '\n';
 		}
 		return cooldowns;
 	}
@@ -358,7 +358,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "SaveCooldowns failed: " << e.what() << std::endl;
+			std::cerr << "SaveCooldowns failed: " << e.what() << '\n';
 			return false;
 		}
 	}
@@ -374,7 +374,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "ClearCooldowns failed: " << e.what() << std::endl;
+			std::cerr << "ClearCooldowns failed: " << e.what() << '\n';
 			return false;
 		}
 	}
@@ -398,7 +398,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "CreateSession failed: " << e.what() << std::endl;
+			std::cerr << "CreateSession failed: " << e.what() << '\n';
 			return false;
 		}
 	}
@@ -421,7 +421,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "ValidateSession failed: " << e.what() << std::endl;
+			std::cerr << "ValidateSession failed: " << e.what() << '\n';
 		}
 		return false;
 	}
@@ -437,7 +437,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "DeleteSession failed: " << e.what() << std::endl;
+			std::cerr << "DeleteSession failed: " << e.what() << '\n';
 			return false;
 		}
 	}
@@ -452,7 +452,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "CleanupExpiredSessions failed: " << e.what() << std::endl;
+			std::cerr << "CleanupExpiredSessions failed: " << e.what() << '\n';
 		}
 	}
 
@@ -484,7 +484,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "GetInventory failed: " << e.what() << std::endl;
+			std::cerr << "GetInventory failed: " << e.what() << '\n';
 		}
 		return items;
 	}
@@ -512,7 +512,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "GetEquipment failed: " << e.what() << std::endl;
+			std::cerr << "GetEquipment failed: " << e.what() << '\n';
 		}
 		return items;
 	}
@@ -541,7 +541,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "SaveInventory failed: " << e.what() << std::endl;
+			std::cerr << "SaveInventory failed: " << e.what() << '\n';
 			return false;
 		}
 	}
@@ -570,7 +570,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "SaveEquipment failed: " << e.what() << std::endl;
+			std::cerr << "SaveEquipment failed: " << e.what() << '\n';
 			return false;
 		}
 	}
@@ -602,7 +602,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "LoadAllMapTemplates failed: " << e.what() << std::endl;
+			std::cerr << "LoadAllMapTemplates failed: " << e.what() << '\n';
 		}
 		return templates;
 	}
@@ -635,7 +635,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "LoadPortals failed: " << e.what() << std::endl;
+			std::cerr << "LoadPortals failed: " << e.what() << '\n';
 		}
 		return portals;
 	}
@@ -670,7 +670,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "LoadCreatureSpawns failed: " << e.what() << std::endl;
+			std::cerr << "LoadCreatureSpawns failed: " << e.what() << '\n';
 		}
 		return spawns;
 	}
@@ -706,7 +706,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "LoadRaceTemplates failed: " << e.what() << std::endl;
+			std::cerr << "LoadRaceTemplates failed: " << e.what() << '\n';
 		}
 		return races;
 	}
@@ -738,7 +738,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "LoadClassTemplates failed: " << e.what() << std::endl;
+			std::cerr << "LoadClassTemplates failed: " << e.what() << '\n';
 		}
 		return classes;
 	}
@@ -769,7 +769,7 @@ namespace MMO {
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "LoadPlayerCreateInfo failed: " << e.what() << std::endl;
+			std::cerr << "LoadPlayerCreateInfo failed: " << e.what() << '\n';
 		}
 		return infos;
 	}

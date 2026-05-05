@@ -22,7 +22,7 @@ namespace Onyx {
 
 		float GetSeconds() const { return m_CurrentTime - m_LastTime; }
 		float GetMilliseconds() const { return (m_CurrentTime - m_LastTime) * 1000; }
-		void SetVSync(bool value = 0) const;
+		void SetVSync(bool value = false) const;
 
 		int GetFramerate() const { return m_LastFPS; }
 

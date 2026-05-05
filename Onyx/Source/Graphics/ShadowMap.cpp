@@ -68,7 +68,7 @@ namespace Onyx {
 
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 		{
-			std::cout << "ERROR::SHADOWMAP:: Shadow map framebuffer is not complete!" << std::endl;
+			std::cout << "ERROR::SHADOWMAP:: Shadow map framebuffer is not complete!" << '\n';
 		}
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);

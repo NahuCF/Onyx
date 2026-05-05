@@ -172,7 +172,7 @@ namespace MMO {
 				  << ", Target: " << m_LocalPlayer.targetId
 				  << ", Mana: " << m_LocalPlayer.mana << "/" << m_LocalPlayer.maxMana
 				  << ", Health: " << m_LocalPlayer.health << "/" << m_LocalPlayer.maxHealth
-				  << std::endl;
+				  << '\n';
 
 		WriteBuffer packet;
 		packet.WriteU8(static_cast<uint8_t>(WorldPacketType::C_CAST_ABILITY));
@@ -372,7 +372,7 @@ namespace MMO {
 			m_SessionToken = response.sessionToken;
 			m_AccountId = response.accountId;
 			m_State = ClientState::CHARACTER_SELECT;
-			std::cout << "Login successful!" << std::endl;
+			std::cout << "Login successful!" << '\n';
 		}
 		else
 		{
@@ -387,7 +387,7 @@ namespace MMO {
 
 		if (response.success)
 		{
-			std::cout << "Registration successful! You can now login." << std::endl;
+			std::cout << "Registration successful! You can now login." << '\n';
 		}
 		else
 		{
@@ -400,7 +400,7 @@ namespace MMO {
 		S_CharacterList list;
 		list.Deserialize(buf);
 		m_CharacterList = list.characters;
-		std::cout << "Received " << m_CharacterList.size() << " characters" << std::endl;
+		std::cout << "Received " << m_CharacterList.size() << " characters" << '\n';
 	}
 
 	void GameClient::HandleCharacterCreated(ReadBuffer& buf)
@@ -410,7 +410,7 @@ namespace MMO {
 
 		if (response.success)
 		{
-			std::cout << "Character created: " << response.character.name << std::endl;
+			std::cout << "Character created: " << response.character.name << '\n';
 		}
 		else
 		{
@@ -438,7 +438,7 @@ namespace MMO {
 		S_Error error;
 		error.Deserialize(buf);
 		m_LastError = error.message;
-		std::cerr << "Server error: " << error.message << std::endl;
+		std::cerr << "Server error: " << error.message << '\n';
 	}
 
 	// ============================================================
@@ -579,7 +579,7 @@ namespace MMO {
 			}
 		}
 
-		std::cout << "Entered world: " << m_ZoneName << std::endl;
+		std::cout << "Entered world: " << m_ZoneName << '\n';
 	}
 
 	void GameClient::HandleWorldState(ReadBuffer& buf)
@@ -746,7 +746,7 @@ namespace MMO {
 		entity.isCasting = false;
 
 		m_Entities[spawn.id] = entity;
-		std::cout << "Entity spawned: " << spawn.name << " (ID: " << spawn.id << ")" << std::endl;
+		std::cout << "Entity spawned: " << spawn.name << " (ID: " << spawn.id << ")" << '\n';
 	}
 
 	void GameClient::HandleEntityDespawn(ReadBuffer& buf)
@@ -757,7 +757,7 @@ namespace MMO {
 		auto it = m_Entities.find(despawn.id);
 		if (it != m_Entities.end())
 		{
-			std::cout << "Entity despawned: " << it->second.name << std::endl;
+			std::cout << "Entity despawned: " << it->second.name << '\n';
 			m_Entities.erase(it);
 		}
 
@@ -792,13 +792,13 @@ namespace MMO {
 		switch (sEvent.type)
 		{
 		case GameEventType::DAMAGE:
-			std::cout << "Damage: " << sEvent.value << " to " << sEvent.targetId << std::endl;
+			std::cout << "Damage: " << sEvent.value << " to " << sEvent.targetId << '\n';
 			break;
 		case GameEventType::HEAL:
-			std::cout << "Heal: " << sEvent.value << " to " << sEvent.targetId << std::endl;
+			std::cout << "Heal: " << sEvent.value << " to " << sEvent.targetId << '\n';
 			break;
 		case GameEventType::DEATH:
-			std::cout << "Death: " << sEvent.targetId << std::endl;
+			std::cout << "Death: " << sEvent.targetId << '\n';
 			break;
 		case GameEventType::PROJECTILE_SPAWN:
 		{
@@ -811,7 +811,7 @@ namespace MMO {
 			proj.position = sEvent.position;
 			proj.spawnTime = event.timestamp;
 			m_Projectiles.push_back(proj);
-			std::cout << "Projectile spawned: " << proj.id << std::endl;
+			std::cout << "Projectile spawned: " << proj.id << '\n';
 			break;
 		}
 		case GameEventType::PROJECTILE_HIT:
@@ -822,7 +822,7 @@ namespace MMO {
 				std::remove_if(m_Projectiles.begin(), m_Projectiles.end(),
 							   [projId](const ClientProjectile& p) { return p.id == projId; }),
 				m_Projectiles.end());
-			std::cout << "Projectile hit: " << projId << std::endl;
+			std::cout << "Projectile hit: " << projId << '\n';
 			break;
 		}
 		default:
@@ -861,7 +861,7 @@ namespace MMO {
 			m_Portals.push_back(cp);
 		}
 
-		std::cout << "[Client] Received " << m_Portals.size() << " portals for zone" << std::endl;
+		std::cout << "[Client] Received " << m_Portals.size() << " portals for zone" << '\n';
 	}
 
 	// ============================================================
@@ -898,29 +898,29 @@ namespace MMO {
 
 	void GameClient::TakeLootItem(uint8_t visualSlot)
 	{
-		std::cout << "[Client] TakeLootItem called, visualSlot=" << (int)visualSlot << std::endl;
+		std::cout << "[Client] TakeLootItem called, visualSlot=" << (int)visualSlot << '\n';
 
 		if (m_State != ClientState::IN_GAME)
 		{
-			std::cout << "[Client] TakeLootItem: Not in game" << std::endl;
+			std::cout << "[Client] TakeLootItem: Not in game" << '\n';
 			return;
 		}
 		if (!m_LootState.isOpen || m_LootState.corpseId == INVALID_ENTITY_ID)
 		{
-			std::cout << "[Client] TakeLootItem: Loot not open or invalid corpse" << std::endl;
+			std::cout << "[Client] TakeLootItem: Loot not open or invalid corpse" << '\n';
 			return;
 		}
 		if (visualSlot >= m_LootState.items.size())
 		{
 			std::cout << "[Client] TakeLootItem: visualSlot " << (int)visualSlot
-					  << " >= items.size() " << m_LootState.items.size() << std::endl;
+					  << " >= items.size() " << m_LootState.items.size() << '\n';
 			return;
 		}
 
 		// Get the server-assigned slot ID from the item (AzerothCore style)
 		uint8_t serverSlotId = m_LootState.items[visualSlot].slotId;
 		std::cout << "[Client] TakeLootItem: Sending request for corpse=" << m_LootState.corpseId
-				  << " serverSlotId=" << (int)serverSlotId << std::endl;
+				  << " serverSlotId=" << (int)serverSlotId << '\n';
 
 		WriteBuffer packet;
 		packet.WriteU8(static_cast<uint8_t>(WorldPacketType::C_TAKE_LOOT_ITEM));
@@ -950,7 +950,7 @@ namespace MMO {
 		m_LootState.items = contents.items;
 
 		std::cout << "[Client] Loot window opened, money: " << contents.money
-				  << " copper, items: " << contents.items.size() << std::endl;
+				  << " copper, items: " << contents.items.size() << '\n';
 	}
 
 	void GameClient::HandleLootTaken(ReadBuffer& buf)
@@ -960,7 +960,7 @@ namespace MMO {
 
 		if (taken.moneyTaken > 0)
 		{
-			std::cout << "[Client] Looted " << taken.moneyTaken << " copper" << std::endl;
+			std::cout << "[Client] Looted " << taken.moneyTaken << " copper" << '\n';
 			m_LootState.money = 0;
 		}
 		else if (taken.itemSlotTaken != 255)
@@ -970,7 +970,7 @@ namespace MMO {
 			{
 				if (it->slotId == taken.itemSlotTaken)
 				{
-					std::cout << "[Client] Looted item with slot ID " << (int)taken.itemSlotTaken << std::endl;
+					std::cout << "[Client] Looted item with slot ID " << (int)taken.itemSlotTaken << '\n';
 					m_LootState.items.erase(it);
 					break;
 				}
@@ -989,7 +989,7 @@ namespace MMO {
 		update.Deserialize(buf);
 
 		m_LocalPlayer.money = update.totalCopper;
-		std::cout << "[Client] Money updated: " << update.totalCopper << " copper" << std::endl;
+		std::cout << "[Client] Money updated: " << update.totalCopper << " copper" << '\n';
 	}
 
 	// ============================================================
@@ -1006,7 +1006,7 @@ namespace MMO {
 			m_Inventory.slots[i] = data.slots[i];
 		}
 
-		std::cout << "[Client] Received full inventory data" << std::endl;
+		std::cout << "[Client] Received full inventory data" << '\n';
 	}
 
 	void GameClient::HandleEquipmentData(ReadBuffer& buf)
@@ -1019,7 +1019,7 @@ namespace MMO {
 			m_Inventory.equipment[i] = data.slots[i];
 		}
 
-		std::cout << "[Client] Received full equipment data" << std::endl;
+		std::cout << "[Client] Received full equipment data" << '\n';
 	}
 
 	void GameClient::HandleInventoryUpdate(ReadBuffer& buf)
@@ -1030,7 +1030,7 @@ namespace MMO {
 		if (update.slot < INVENTORY_SIZE)
 		{
 			m_Inventory.slots[update.slot] = update.item;
-			std::cout << "[Client] Inventory slot " << (int)update.slot << " updated" << std::endl;
+			std::cout << "[Client] Inventory slot " << (int)update.slot << " updated" << '\n';
 		}
 	}
 
@@ -1043,7 +1043,7 @@ namespace MMO {
 		if (slot < EQUIPMENT_SLOT_COUNT)
 		{
 			m_Inventory.equipment[slot] = update.item;
-			std::cout << "[Client] Equipment slot " << (int)slot << " updated" << std::endl;
+			std::cout << "[Client] Equipment slot " << (int)slot << " updated" << '\n';
 		}
 	}
 
@@ -1064,7 +1064,7 @@ namespace MMO {
 		m_Inventory.stats.meleeDamageMax = stats.meleeDamageMax;
 		m_Inventory.stats.weaponSpeed = stats.weaponSpeed;
 
-		std::cout << "[Client] Character stats updated" << std::endl;
+		std::cout << "[Client] Character stats updated" << '\n';
 	}
 
 	// ============================================================
@@ -1156,7 +1156,7 @@ namespace MMO {
 			auraList->push_back(aura);
 
 			std::cout << "[Client] Aura added: ID=" << aura.auraId
-					  << " on entity " << update.targetId << std::endl;
+					  << " on entity " << update.targetId << '\n';
 			break;
 		}
 
@@ -1168,7 +1168,7 @@ namespace MMO {
 			if (it != auraList->end())
 			{
 				std::cout << "[Client] Aura removed: ID=" << update.aura.auraId
-						  << " from entity " << update.targetId << std::endl;
+						  << " from entity " << update.targetId << '\n';
 				auraList->erase(it);
 			}
 			break;
@@ -1232,7 +1232,7 @@ namespace MMO {
 		}
 
 		std::cout << "[Client] Received " << update.auras.size()
-				  << " auras for entity " << update.targetId << std::endl;
+				  << " auras for entity " << update.targetId << '\n';
 	}
 
 	void GameClient::UpdateAuras(float dt)

@@ -18,7 +18,7 @@ namespace MMO {
 
 		if (enet_initialize() != 0)
 		{
-			std::cerr << "Failed to initialize ENet" << std::endl;
+			std::cerr << "Failed to initialize ENet" << '\n';
 			return false;
 		}
 
@@ -71,11 +71,11 @@ namespace MMO {
 		m_Host = enet_host_create(&address, maxClients, 2, 0, 0);
 		if (!m_Host)
 		{
-			std::cerr << "Failed to create ENet server on port " << port << std::endl;
+			std::cerr << "Failed to create ENet server on port " << port << '\n';
 			return false;
 		}
 
-		std::cout << "Server started on port " << port << std::endl;
+		std::cout << "Server started on port " << port << '\n';
 		return true;
 	}
 
@@ -116,7 +116,7 @@ namespace MMO {
 				netEvent.peerId = peerId;
 				outEvents.push_back(netEvent);
 
-				std::cout << "Client " << peerId << " connected" << std::endl;
+				std::cout << "Client " << peerId << " connected" << '\n';
 				break;
 			}
 
@@ -130,7 +130,7 @@ namespace MMO {
 				netEvent.peerId = peerId;
 				outEvents.push_back(netEvent);
 
-				std::cout << "Client " << peerId << " disconnected" << std::endl;
+				std::cout << "Client " << peerId << " disconnected" << '\n';
 				break;
 			}
 
@@ -223,7 +223,7 @@ namespace MMO {
 		m_Host = enet_host_create(nullptr, 1, 2, 0, 0);
 		if (!m_Host)
 		{
-			std::cerr << "Failed to create ENet client host" << std::endl;
+			std::cerr << "Failed to create ENet client host" << '\n';
 			return false;
 		}
 
@@ -236,7 +236,7 @@ namespace MMO {
 		m_Peer = enet_host_connect(m_Host, &address, 2, 0);
 		if (!m_Peer)
 		{
-			std::cerr << "No available peers for connection" << std::endl;
+			std::cerr << "No available peers for connection" << '\n';
 			enet_host_destroy(m_Host);
 			m_Host = nullptr;
 			return false;
@@ -248,11 +248,11 @@ namespace MMO {
 			event.type == ENET_EVENT_TYPE_CONNECT)
 		{
 			m_Connected = true;
-			std::cout << "Connected to " << host << ":" << port << std::endl;
+			std::cout << "Connected to " << host << ":" << port << '\n';
 			return true;
 		}
 
-		std::cerr << "Connection to " << host << ":" << port << " failed" << std::endl;
+		std::cerr << "Connection to " << host << ":" << port << " failed" << '\n';
 		enet_peer_reset(m_Peer);
 		enet_host_destroy(m_Host);
 		m_Host = nullptr;

@@ -5,7 +5,7 @@ namespace MMO {
 
 	void ItemTemplateManager::Initialize()
 	{
-		std::cout << "[ItemTemplateManager] Initializing item templates..." << std::endl;
+		std::cout << "[ItemTemplateManager] Initializing item templates..." << '\n';
 
 		// ============================================================
 		// WEAPONS
@@ -466,7 +466,7 @@ namespace MMO {
 			AddTemplate(item);
 		}
 
-		std::cout << "[ItemTemplateManager] Loaded " << m_Templates.size() << " item templates" << std::endl;
+		std::cout << "[ItemTemplateManager] Loaded " << m_Templates.size() << " item templates" << '\n';
 	}
 
 } // namespace MMO
