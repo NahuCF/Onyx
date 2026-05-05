@@ -122,7 +122,7 @@ namespace Onyx {
 
 	VertexArray::~VertexArray()
 	{
-		for(uint32_t i = 0; i < m_Buffers.size(); i++)
+		for (uint32_t i = 0; i < m_Buffers.size(); i++)
 			delete m_Buffers[i];
 
 		glDeleteVertexArrays(1, &m_BufferID);
@@ -144,10 +144,10 @@ namespace Onyx {
 
 		Bind();
 		buffer->Bind();
-		
+
 		glEnableVertexAttribArray(attribIndex);
 		glVertexAttribPointer(attribIndex, buffer->GetComponentCount(), GL_FLOAT, GL_FALSE, 0, 0);
-		
+
 		buffer->UnBind();
 		UnBind();
 	}
@@ -176,58 +176,56 @@ namespace Onyx {
 		Bind();
 
 		const auto& attributes = layout.GetAttributes();
-		for (uint32_t index = 0; index < attributes.size(); index++) {
+		for (uint32_t index = 0; index < attributes.size(); index++)
+		{
 			const auto& attr = attributes[index];
 
 			glEnableVertexAttribArray(index);
 
-			switch (attr.type) {
-				case VertexAttributeType::Float:
-				case VertexAttributeType::Float2:
-				case VertexAttributeType::Float3:
-				case VertexAttributeType::Float4:
-					glVertexAttribPointer(
-						index,
-						GetAttributeComponentCount(attr.type),
-						GL_FLOAT,
-						attr.normalized ? GL_TRUE : GL_FALSE,
-						layout.GetStride(),
-						(const void*)(uintptr_t)attr.offset
-					);
-					break;
+			switch (attr.type)
+			{
+			case VertexAttributeType::Float:
+			case VertexAttributeType::Float2:
+			case VertexAttributeType::Float3:
+			case VertexAttributeType::Float4:
+				glVertexAttribPointer(
+					index,
+					GetAttributeComponentCount(attr.type),
+					GL_FLOAT,
+					attr.normalized ? GL_TRUE : GL_FALSE,
+					layout.GetStride(),
+					(const void*)(uintptr_t)attr.offset);
+				break;
 
-				case VertexAttributeType::Int:
-				case VertexAttributeType::Int2:
-				case VertexAttributeType::Int3:
-				case VertexAttributeType::Int4:
-					glVertexAttribIPointer(
-						index,
-						GetAttributeComponentCount(attr.type),
-						GL_INT,
-						layout.GetStride(),
-						(const void*)(uintptr_t)attr.offset
-					);
-					break;
+			case VertexAttributeType::Int:
+			case VertexAttributeType::Int2:
+			case VertexAttributeType::Int3:
+			case VertexAttributeType::Int4:
+				glVertexAttribIPointer(
+					index,
+					GetAttributeComponentCount(attr.type),
+					GL_INT,
+					layout.GetStride(),
+					(const void*)(uintptr_t)attr.offset);
+				break;
 
-				case VertexAttributeType::UInt:
-					glVertexAttribIPointer(
-						index,
-						GetAttributeComponentCount(attr.type),
-						GL_UNSIGNED_INT,
-						layout.GetStride(),
-						(const void*)(uintptr_t)attr.offset
-					);
-					break;
+			case VertexAttributeType::UInt:
+				glVertexAttribIPointer(
+					index,
+					GetAttributeComponentCount(attr.type),
+					GL_UNSIGNED_INT,
+					layout.GetStride(),
+					(const void*)(uintptr_t)attr.offset);
+				break;
 
-				case VertexAttributeType::Bool:
-					glVertexAttribIPointer(
-						index,
-						1,
-						GL_INT,
-						layout.GetStride(),
-						(const void*)(uintptr_t)attr.offset
-					);
-					break;
+			case VertexAttributeType::Bool:
+				glVertexAttribIPointer(
+					index,
+					1,
+					GL_INT,
+					layout.GetStride(),
+					(const void*)(uintptr_t)attr.offset);
+				break;
 			}
 		}
 
@@ -262,10 +260,13 @@ namespace Onyx {
 	void ShaderStorageBuffer::Upload(const void* data, size_t sizeBytes, uint32_t bindingPoint)
 	{
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_BufferID);
-		if (sizeBytes > m_AllocatedSize) {
+		if (sizeBytes > m_AllocatedSize)
+		{
 			glBufferData(GL_SHADER_STORAGE_BUFFER, sizeBytes, data, GL_DYNAMIC_DRAW);
 			m_AllocatedSize = sizeBytes;
-		} else {
+		}
+		else
+		{
 			glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeBytes, data);
 		}
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, m_BufferID);
@@ -274,7 +275,8 @@ namespace Onyx {
 	void ShaderStorageBuffer::Allocate(size_t sizeBytes, uint32_t bindingPoint)
 	{
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_BufferID);
-		if (sizeBytes > m_AllocatedSize) {
+		if (sizeBytes > m_AllocatedSize)
+		{
 			glBufferData(GL_SHADER_STORAGE_BUFFER, sizeBytes, nullptr, GL_DYNAMIC_DRAW);
 			m_AllocatedSize = sizeBytes;
 		}
@@ -311,12 +313,15 @@ namespace Onyx {
 	void DrawCommandBuffer::Upload(const void* data, size_t sizeBytes)
 	{
 		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_BufferID);
-		if (sizeBytes > m_AllocatedSize) {
+		if (sizeBytes > m_AllocatedSize)
+		{
 			glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeBytes, data, GL_DYNAMIC_DRAW);
 			m_AllocatedSize = sizeBytes;
-		} else {
+		}
+		else
+		{
 			glBufferSubData(GL_DRAW_INDIRECT_BUFFER, 0, sizeBytes, data);
 		}
 	}
 
-}
+} // namespace Onyx

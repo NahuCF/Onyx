@@ -43,4 +43,4 @@ namespace Onyx {
 		uint32_t m_ResolveColorBufferID = 0;
 	};
 
-}
+} // namespace Onyx

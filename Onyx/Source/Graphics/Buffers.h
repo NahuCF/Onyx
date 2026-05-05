@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
 #include "VertexLayout.h"
+#include <vector>
 
 namespace Onyx {
 
@@ -31,7 +31,7 @@ namespace Onyx {
 	class IndexBuffer
 	{
 	public:
-		IndexBuffer(uint32_t sizeBytes);  // Pre-allocate with no data
+		IndexBuffer(uint32_t sizeBytes); // Pre-allocate with no data
 		IndexBuffer(uint32_t* indices, uint32_t sizeBytes);
 		IndexBuffer(const void* data, uint32_t sizeBytes);
 
@@ -126,4 +126,4 @@ namespace Onyx {
 		size_t m_AllocatedSize = 0;
 	};
 
-}
+} // namespace Onyx

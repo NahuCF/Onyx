@@ -7,7 +7,6 @@ namespace Onyx {
 	ParticleSystem::ParticleSystem(int particleCount)
 	{
 		m_ParticlePool.resize(particleCount);
-
 	}
 
 	ParticleSystem::~ParticleSystem()
@@ -29,8 +28,7 @@ namespace Onyx {
 
 			particle.position += {
 				particle.velocity.x * timestamp,
-				particle.velocity.y * timestamp
-			};
+				particle.velocity.y * timestamp};
 			particle.lifeRemaining -= timestamp;
 		}
 	}
@@ -48,11 +46,10 @@ namespace Onyx {
 			float size = Onyx::lerp(particle.sizeEnd, particle.sizeBegin, life);
 
 			renderer->RenderRotatedQuad(
-				{ size, size },
-				{ particle.position.x, particle.position.y, 0.0f }, 
+				{size, size},
+				{particle.position.x, particle.position.y, 0.0f},
 				particle.color,
-				particle.rotation
-			);
+				particle.rotation);
 		}
 	}
 
@@ -87,7 +84,7 @@ namespace Onyx {
 		particle.velocity.y += props.velocityVariation.y * Onyx::ramdomInRange(-0.5f, 0.5f);
 
 		particle.sizeBegin = props.sizeBegin;
-		//particle.sizeBegin += props.sizeVariation * Onyx::ramdomInRange(0.0f, 0.5f);
+		// particle.sizeBegin += props.sizeVariation * Onyx::ramdomInRange(0.0f, 0.5f);
 		particle.sizeEnd = props.sizeEnd;
 
 		particle.color = props.color;
@@ -103,4 +100,4 @@ namespace Onyx {
 		m_PoolIndex++;
 	}
 
-};
+}; // namespace Onyx

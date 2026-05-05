@@ -39,11 +39,13 @@ namespace Onyx {
 		return texture;
 	}
 
-	PreloadedImage Texture::PreloadFromFile(const char* path) {
+	PreloadedImage Texture::PreloadFromFile(const char* path)
+	{
 		PreloadedImage result;
 		stbi_set_flip_vertically_on_load_thread(1);
 		unsigned char* data = stbi_load(path, &result.width, &result.height, &result.channels, 0);
-		if (data) {
+		if (data)
+		{
 			size_t size = static_cast<size_t>(result.width) * result.height * result.channels;
 			result.pixels.assign(data, data + size);
 			stbi_image_free(data);
@@ -51,7 +53,8 @@ namespace Onyx {
 		return result;
 	}
 
-	std::unique_ptr<Texture> Texture::CreateWithMipmaps(const void* data, int width, int height, int channels) {
+	std::unique_ptr<Texture> Texture::CreateWithMipmaps(const void* data, int width, int height, int channels)
+	{
 		auto texture = std::unique_ptr<Texture>(new Texture());
 		texture->m_TextureWidth = width;
 		texture->m_TextureHeight = height;
@@ -66,10 +69,26 @@ namespace Onyx {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		GLenum internalFormat, dataFormat;
-		if (channels == 4) { internalFormat = GL_RGBA8; dataFormat = GL_RGBA; }
-		else if (channels == 3) { internalFormat = GL_RGB8; dataFormat = GL_RGB; }
-		else if (channels == 1) { internalFormat = GL_R8; dataFormat = GL_RED; }
-		else { internalFormat = GL_RGBA8; dataFormat = GL_RGBA; }
+		if (channels == 4)
+		{
+			internalFormat = GL_RGBA8;
+			dataFormat = GL_RGBA;
+		}
+		else if (channels == 3)
+		{
+			internalFormat = GL_RGB8;
+			dataFormat = GL_RGB;
+		}
+		else if (channels == 1)
+		{
+			internalFormat = GL_R8;
+			dataFormat = GL_RED;
+		}
+		else
+		{
+			internalFormat = GL_RGBA8;
+			dataFormat = GL_RGBA;
+		}
 
 		glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, dataFormat, GL_UNSIGNED_BYTE, data);
 		glGenerateMipmap(GL_TEXTURE_2D);
@@ -94,16 +113,23 @@ namespace Onyx {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		GLenum internalFormat, dataFormat;
-		if (channels == 4) {
+		if (channels == 4)
+		{
 			internalFormat = GL_RGBA8;
 			dataFormat = GL_RGBA;
-		} else if (channels == 3) {
+		}
+		else if (channels == 3)
+		{
 			internalFormat = GL_RGB8;
 			dataFormat = GL_RGB;
-		} else if (channels == 1) {
+		}
+		else if (channels == 1)
+		{
 			internalFormat = GL_R8;
 			dataFormat = GL_RED;
-		} else {
+		}
+		else
+		{
 			internalFormat = GL_RGBA8;
 			dataFormat = GL_RGBA;
 		}
@@ -127,7 +153,7 @@ namespace Onyx {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-		uint8_t data[4] = { r, g, b, a };
+		uint8_t data[4] = {r, g, b, a};
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 
 		UnBind();
@@ -147,7 +173,8 @@ namespace Onyx {
 
 		m_TextureData = stbi_load(texturePath, &m_TextureWidth, &m_TextureHeight, &m_NChannels, 0);
 
-		if (!m_TextureData) {
+		if (!m_TextureData)
+		{
 			std::cout << "ERROR::TEXTURE::FILE_NOT_FOUND: " << texturePath << std::endl;
 			UnBind();
 			return;
@@ -156,24 +183,30 @@ namespace Onyx {
 		unsigned char* finalData = m_TextureData;
 		unsigned char* rgbaData = nullptr;
 
-		if (useColorKey) {
+		if (useColorKey)
+		{
 			int pixelCount = m_TextureWidth * m_TextureHeight;
 			rgbaData = new unsigned char[pixelCount * 4];
 
-			for (int i = 0; i < pixelCount; ++i) {
+			for (int i = 0; i < pixelCount; ++i)
+			{
 				uint8_t r, g, b, a;
 
-				if (m_NChannels >= 3) {
+				if (m_NChannels >= 3)
+				{
 					r = m_TextureData[i * m_NChannels + 0];
 					g = m_TextureData[i * m_NChannels + 1];
 					b = m_TextureData[i * m_NChannels + 2];
 					a = (m_NChannels == 4) ? m_TextureData[i * m_NChannels + 3] : 255;
-				} else {
+				}
+				else
+				{
 					r = g = b = m_TextureData[i * m_NChannels];
 					a = 255;
 				}
 
-				if (r == keyR && g == keyG && b == keyB) {
+				if (r == keyR && g == keyG && b == keyB)
+				{
 					a = 0;
 				}
 
@@ -188,16 +221,23 @@ namespace Onyx {
 		}
 
 		GLenum internalFormat, dataFormat;
-		if (m_NChannels == 4) {
+		if (m_NChannels == 4)
+		{
 			internalFormat = GL_RGBA8;
 			dataFormat = GL_RGBA;
-		} else if (m_NChannels == 3) {
+		}
+		else if (m_NChannels == 3)
+		{
 			internalFormat = GL_RGB8;
 			dataFormat = GL_RGB;
-		} else if (m_NChannels == 1) {
+		}
+		else if (m_NChannels == 1)
+		{
 			internalFormat = GL_R8;
 			dataFormat = GL_RED;
-		} else {
+		}
+		else
+		{
 			internalFormat = GL_RGBA8;
 			dataFormat = GL_RGBA;
 		}
@@ -207,7 +247,8 @@ namespace Onyx {
 
 		stbi_image_free(m_TextureData);
 		m_TextureData = nullptr;
-		if (rgbaData) {
+		if (rgbaData)
+		{
 			delete[] rgbaData;
 		}
 		UnBind();
@@ -234,15 +275,17 @@ namespace Onyx {
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
-    void Texture::SetData(void* data)
-    {
-        GLenum format = GL_RGBA;
-        if (m_NChannels == 3) format = GL_RGB;
-        else if (m_NChannels == 1) format = GL_RED;
-        glTextureSubImage2D(this->m_TextureID, 0, 0, 0, m_TextureWidth, m_TextureHeight, format, GL_UNSIGNED_BYTE, data);
-    }
+	void Texture::SetData(void* data)
+	{
+		GLenum format = GL_RGBA;
+		if (m_NChannels == 3)
+			format = GL_RGB;
+		else if (m_NChannels == 1)
+			format = GL_RED;
+		glTextureSubImage2D(this->m_TextureID, 0, 0, 0, m_TextureWidth, m_TextureHeight, format, GL_UNSIGNED_BYTE, data);
+	}
 
-std::unique_ptr<Texture> Texture::CreateFloatTexture(const float* data, int width, int height)
+	std::unique_ptr<Texture> Texture::CreateFloatTexture(const float* data, int width, int height)
 	{
 		auto texture = std::unique_ptr<Texture>(new Texture());
 		texture->m_TextureWidth = width;
@@ -264,7 +307,7 @@ std::unique_ptr<Texture> Texture::CreateFloatTexture(const float* data, int widt
 		return texture;
 	}
 
-std::unique_ptr<Texture> Texture::CreateNoiseTexture(const float* data, int width, int height)
+	std::unique_ptr<Texture> Texture::CreateNoiseTexture(const float* data, int width, int height)
 	{
 		auto texture = std::unique_ptr<Texture>(new Texture());
 		texture->m_TextureWidth = width;
@@ -289,4 +332,4 @@ std::unique_ptr<Texture> Texture::CreateNoiseTexture(const float* data, int widt
 	{
 		glTextureSubImage2D(m_TextureID, 0, 0, 0, m_TextureWidth, m_TextureHeight, GL_RED, GL_FLOAT, data);
 	}
-}
+} // namespace Onyx

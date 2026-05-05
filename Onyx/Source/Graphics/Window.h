@@ -17,14 +17,14 @@ namespace Onyx {
 		void Update();
 		void Clear();
 
-		int Width() const { return m_Width;  }
+		int Width() const { return m_Width; }
 		int Height() const { return m_Height; }
 
 		float GetSeconds() const { return m_CurrentTime - m_LastTime; }
 		float GetMilliseconds() const { return (m_CurrentTime - m_LastTime) * 1000; }
 		void SetVSync(bool value = 0) const;
 
-        int GetFramerate() const { return m_LastFPS; }
+		int GetFramerate() const { return m_LastFPS; }
 
 		Onyx::Vector2D GetWindowSize() const { return Onyx::Vector2D(m_Width, m_Height); }
 		Onyx::Vector2D GetWidowPos() const { return Onyx::Vector2D(m_WindowPosX, m_WindowPosY); }
@@ -32,17 +32,17 @@ namespace Onyx {
 		void SetWindowColor(Onyx::Vector4D color) const { glClearColor(color.x, color.y, color.z, color.w); }
 
 		float GetAspectRatio() const { return m_AspectRatio; }
-        //Onyx::Vector2D GetMainMonitorSize() 
-        //{ 
-            //const GLFWvidmode* mode = glfwGetVideoMode(m_Monitor);
-            //return { mode->width, mode->height };
-        //}
+		// Onyx::Vector2D GetMainMonitorSize()
+		//{
+		// const GLFWvidmode* mode = glfwGetVideoMode(m_Monitor);
+		// return { mode->width, mode->height };
+		//}
 
 		void CloseWindow() const;
 		GLFWwindow* GetWindow() { return m_Window; }
 
-        void MakeFullScreen();
-        void MakeWindowed() { m_Monitor = nullptr; }
+		void MakeFullScreen();
+		void MakeWindowed() { m_Monitor = nullptr; }
 	public:
 		bool IsKeyPressed(uint32_t keyCode) const;
 		bool IsButtomPressed(uint32_t button) const;
@@ -52,7 +52,7 @@ namespace Onyx {
 		bool IsKeyJustPressed(uint32_t button) const;
 
 		bool IsMouseMoving() const { return m_IsMouseMoving; }
-	
+
 		Onyx::Vector2D GetMousePos();
 		Onyx::Vector2D GetMousePosInPixels() const { return Onyx::Vector2D(m_XMousePos, m_YMousePos); };
 		double GetMouseX() const { return m_XMousePos; }
@@ -60,11 +60,11 @@ namespace Onyx {
 	private:
 		const char* m_Title;
 		int m_Height, m_Width;
-        int m_PrimaryMonitorWidth, m_PrimaryMonitorHeight;
+		int m_PrimaryMonitorWidth, m_PrimaryMonitorHeight;
 		float m_AspectRatio;
 		float m_LastTime = 0.0f, m_CurrentTime = 0.0f;
 		int m_FPS = 0;
-        int m_LastFPS = 0;
+		int m_LastFPS = 0;
 		bool m_Closed;
 
 		float curtime, lasttime;
@@ -89,9 +89,9 @@ namespace Onyx {
 		int m_WindowPosX, m_WindowPosY;
 		double m_XMousePos, m_YMousePos;
 
-        bool m_FullScreen;
+		bool m_FullScreen;
 
-        GLFWmonitor* m_Monitor = nullptr;
+		GLFWmonitor* m_Monitor = nullptr;
 	};
 
-} 
+} // namespace Onyx

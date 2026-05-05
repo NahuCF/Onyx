@@ -1,5 +1,5 @@
-#include "pch.h"
 #include "Vector4D.h"
+#include "pch.h"
 
 namespace Onyx {
 
@@ -59,4 +59,4 @@ namespace Onyx {
 		return Multiply(other);
 	}
 
-}
+} // namespace Onyx

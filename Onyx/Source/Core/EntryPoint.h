@@ -6,7 +6,7 @@ extern Onyx::Application* Onyx::CreateApplication();
 
 int main()
 {
-    Onyx::Application* app = Onyx::CreateApplication(); 
-    app->Run();
-    delete app;
+	Onyx::Application* app = Onyx::CreateApplication();
+	app->Run();
+	delete app;
 }

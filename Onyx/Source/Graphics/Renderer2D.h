@@ -1,11 +1,11 @@
 #pragma once
 
-#include <memory>
-#include "Maths/Maths.h"
 #include "Buffers.h"
-#include "Texture.h"
-#include "Shader.h"
 #include "Camera.h"
+#include "Maths/Maths.h"
+#include "Shader.h"
+#include "Texture.h"
+#include <memory>
 
 #include "Graphics/Window.h"
 
@@ -34,7 +34,11 @@ namespace Onyx {
 		uint32_t DrawCalls = 0;
 		uint32_t QuadCount = 0;
 
-		void Reset() { DrawCalls = 0; QuadCount = 0; }
+		void Reset()
+		{
+			DrawCalls = 0;
+			QuadCount = 0;
+		}
 	};
 
 	class Renderer2D
@@ -59,7 +63,7 @@ namespace Onyx {
 		uint32_t GetScreenSpaceIndexCount() const { return m_IndexCount; }
 		float* GetScreenSpaceViewport() { return m_ScreenSpaceViewport; }
 
-        void RenderRotatedLine(Onyx::Vector2D start, Onyx::Vector2D end, float width, Onyx::Vector4D color, float rotation);
+		void RenderRotatedLine(Onyx::Vector2D start, Onyx::Vector2D end, float width, Onyx::Vector4D color, float rotation);
 
 		void RenderCircle(float radius, int subdivision, Onyx::Vector3 position, Onyx::Vector4D color);
 
@@ -69,9 +73,9 @@ namespace Onyx {
 
 		void Flush();
 
-        std::weak_ptr<Onyx::Camera> GetCamera() const { return m_Camera; }
+		std::weak_ptr<Onyx::Camera> GetCamera() const { return m_Camera; }
 
-        Window& GetWindow() { return m_Window; }
+		Window& GetWindow() { return m_Window; }
 
 		// Stats
 		const Renderer2DStats& GetStats() const { return m_Stats; }
@@ -104,10 +108,10 @@ namespace Onyx {
 
 		// Screen-space rendering state
 		bool m_ScreenSpaceMode = false;
-		float m_ScreenSpaceViewport[4] = { 0, 0, 0, 0 }; // x, y, width, height
+		float m_ScreenSpaceViewport[4] = {0, 0, 0, 0}; // x, y, width, height
 
 		// Stats
 		Renderer2DStats m_Stats;
 	};
 
-}
+} // namespace Onyx

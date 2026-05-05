@@ -37,7 +37,7 @@ namespace Onyx {
 
 			float lifetime = 1.0f;
 			float lifeRemaining = 1.0f;
-				
+
 			bool active = false;
 		};
 
@@ -45,4 +45,4 @@ namespace Onyx {
 		int m_PoolIndex = 0;
 	};
 
-}
+} // namespace Onyx

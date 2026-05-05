@@ -1,14 +1,14 @@
 #pragma once
 
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 
-#include <vector>
 #include <string>
+#include <vector>
 
 #include <GL/glew.h>
- 
+
 #ifdef SE_PLATFORM_WINDOWS
-	#include <Windows.h>
+#include <Windows.h>
 #endif

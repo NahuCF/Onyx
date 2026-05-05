@@ -10,7 +10,7 @@ namespace Onyx {
 	float VectorModule(Vector2D vector);
 	float VectorAngle(Vector2D vector);
 
-    Onyx::Vector2D Normalize(Onyx::Vector2D vector);
+	Onyx::Vector2D Normalize(Onyx::Vector2D vector);
 
 	Onyx::Vector2D RotateVector(Vector2D point, float degRotation);
 
@@ -20,4 +20,4 @@ namespace Onyx {
 
 	float ramdomInRange(float min, float max);
 
-}
+} // namespace Onyx

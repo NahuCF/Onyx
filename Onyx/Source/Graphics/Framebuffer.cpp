@@ -18,23 +18,28 @@ namespace Onyx {
 
 	void Framebuffer::Cleanup()
 	{
-		if (m_FrameBufferID) {
+		if (m_FrameBufferID)
+		{
 			glDeleteFramebuffers(1, &m_FrameBufferID);
 			m_FrameBufferID = 0;
 		}
-		if (m_ColorBufferID) {
+		if (m_ColorBufferID)
+		{
 			glDeleteTextures(1, &m_ColorBufferID);
 			m_ColorBufferID = 0;
 		}
-		if (m_DepthBufferID) {
+		if (m_DepthBufferID)
+		{
 			glDeleteRenderbuffers(1, &m_DepthBufferID);
 			m_DepthBufferID = 0;
 		}
-		if (m_ResolveFrameBufferID) {
+		if (m_ResolveFrameBufferID)
+		{
 			glDeleteFramebuffers(1, &m_ResolveFrameBufferID);
 			m_ResolveFrameBufferID = 0;
 		}
-		if (m_ResolveColorBufferID) {
+		if (m_ResolveColorBufferID)
+		{
 			glDeleteTextures(1, &m_ResolveColorBufferID);
 			m_ResolveColorBufferID = 0;
 		}
@@ -54,7 +59,8 @@ namespace Onyx {
 		glGenFramebuffers(1, &m_FrameBufferID);
 		glBindFramebuffer(GL_FRAMEBUFFER, m_FrameBufferID);
 
-		if (multisampled) {
+		if (multisampled)
+		{
 			// Multisampled color texture
 			glGenTextures(1, &m_ColorBufferID);
 			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, m_ColorBufferID);
@@ -66,7 +72,9 @@ namespace Onyx {
 			glBindRenderbuffer(GL_RENDERBUFFER, m_DepthBufferID);
 			glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_DEPTH24_STENCIL8, width, height);
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_DepthBufferID);
-		} else {
+		}
+		else
+		{
 			// Regular color texture
 			glCreateTextures(GL_TEXTURE_2D, 1, &m_ColorBufferID);
 			glBindTexture(GL_TEXTURE_2D, m_ColorBufferID);
@@ -122,8 +130,7 @@ namespace Onyx {
 			0, 0, m_FrameBufferWdith, m_FrameBufferHeight,
 			0, 0, m_FrameBufferWdith, m_FrameBufferHeight,
 			GL_COLOR_BUFFER_BIT,
-			GL_NEAREST
-		);
+			GL_NEAREST);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 
@@ -151,4 +158,4 @@ namespace Onyx {
 		glDisable(GL_DEPTH_TEST);
 	}
 
-}
+} // namespace Onyx

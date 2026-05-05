@@ -4,18 +4,19 @@
 
 namespace MMO {
 
-class ViewportPanel;
+	class ViewportPanel;
 
-class LightingPanel : public EditorPanel {
-public:
-    LightingPanel() { m_Name = "Lighting"; }
-    ~LightingPanel() override = default;
+	class LightingPanel : public EditorPanel
+	{
+	public:
+		LightingPanel() { m_Name = "Lighting"; }
+		~LightingPanel() override = default;
 
-    void SetViewport(ViewportPanel* viewport) { m_Viewport = viewport; }
-    void OnImGuiRender() override;
+		void SetViewport(ViewportPanel* viewport) { m_Viewport = viewport; }
+		void OnImGuiRender() override;
 
-private:
-    ViewportPanel* m_Viewport = nullptr;
-};
+	private:
+		ViewportPanel* m_Viewport = nullptr;
+	};
 
 } // namespace MMO

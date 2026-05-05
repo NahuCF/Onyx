@@ -6,11 +6,16 @@
 
 namespace Onyx {
 
-	struct PreloadedImage {
+	struct PreloadedImage
+	{
 		std::vector<unsigned char> pixels;
 		int width = 0, height = 0, channels = 0;
 		bool Valid() const { return !pixels.empty(); }
-		void Free() { pixels.clear(); pixels.shrink_to_fit(); }
+		void Free()
+		{
+			pixels.clear();
+			pixels.shrink_to_fit();
+		}
 	};
 
 	class Texture
@@ -32,10 +37,8 @@ namespace Onyx {
 		void Bind(uint32_t slot) const;
 		void UnBind() const;
 
-        void SetData(void* data);
+		void SetData(void* data);
 		void SetFloatData(const float* data);
-
-
 
 		uint32_t GetTextureID() const { return m_TextureID; }
 		Onyx::Vector2D GetTextureSize() const { return Onyx::Vector2D(m_TextureWidth, m_TextureHeight); }
@@ -51,4 +54,4 @@ namespace Onyx {
 		int m_TextureWidth = 0, m_TextureHeight = 0, m_NChannels = 0;
 	};
 
-}
+} // namespace Onyx

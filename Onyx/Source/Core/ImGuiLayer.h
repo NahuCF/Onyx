@@ -15,4 +15,4 @@ namespace Onyx {
 		void End();
 	};
 
-}
+} // namespace Onyx

@@ -13,6 +13,6 @@ public:
 private:
 	se::Window* m_Window;
 	se::OrtogonalTilemap* map;
-	
+
 	std::vector<se::Shader*> m_Shaders;
 };

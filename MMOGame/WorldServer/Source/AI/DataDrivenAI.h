@@ -4,6 +4,6 @@
 // Individual components are in separate files following one-class-per-file convention
 
 #include "AIDefines.h"
-#include "CreatureTemplate.h"
 #include "ConditionEvaluator.h"
+#include "CreatureTemplate.h"
 #include "CreatureTemplates.h"

@@ -1,9 +1,9 @@
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <string>
 
-#include <SE.h>
 #include "Viewport.h"
+#include <SE.h>
 
 int main()
 {
@@ -15,10 +15,10 @@ int main()
 	Viewport viewport;
 	ImGuiIO& io = viewport.Init(&window);
 
-	while(!window.Closed())
+	while (!window.Closed())
 	{
 		window.Clear();
-	
+
 		viewport.Loop(io);
 
 		window.Update();

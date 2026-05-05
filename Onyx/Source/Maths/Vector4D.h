@@ -20,5 +20,5 @@ namespace Onyx {
 		bool operator==(const Vector4D& other) const;
 	};
 
-	//std::ostream& operator<<(std::ostream& stream, Onyx::Vector4D& vector);
-}
+	// std::ostream& operator<<(std::ostream& stream, Onyx::Vector4D& vector);
+} // namespace Onyx

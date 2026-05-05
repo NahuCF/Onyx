@@ -2,8 +2,8 @@
 
 #include <math.h>
 
-#include "Vector2D.h"
 #include "Functions.h"
+#include "Vector2D.h"
 
 namespace Onyx {
 
@@ -19,15 +19,15 @@ namespace Onyx {
 		this->y = y;
 	}
 
-	Vector2D& Vector2D::Add(const Vector2D& other) 
-	{  
+	Vector2D& Vector2D::Add(const Vector2D& other)
+	{
 		x += other.x;
 		y += other.y;
 
 		return *this;
 	}
 
-	Vector2D& Vector2D::Multiply(const Vector2D& other) 
+	Vector2D& Vector2D::Multiply(const Vector2D& other)
 	{
 		return *this;
 	}
@@ -58,21 +58,19 @@ namespace Onyx {
 	Vector2D Vector2D::operator*(const float other)
 	{
 		return {
-            (*this).x * other,
-            (*this).y * other
-        };
+			(*this).x * other,
+			(*this).y * other};
 	}
 
 	Vector2D Vector2D::operator/(const float other)
 	{
 		return {
-            (*this).x / other,
-            (*this).y / other
-        };
+			(*this).x / other,
+			(*this).y / other};
 	}
 
-	Vector2D& Vector2D::operator*=(const Vector2D& other) 
-	{ 
+	Vector2D& Vector2D::operator*=(const Vector2D& other)
+	{
 		return Multiply(other);
 	}
 
@@ -101,12 +99,11 @@ namespace Onyx {
 		return stream;
 	}
 
-    Vector2D& Onyx::Vector2D::NormalizeValues() 
-    {
-        x = abs(x);
-        y = abs(y);
-        
-        return *this;
-    }
-}
+	Vector2D& Onyx::Vector2D::NormalizeValues()
+	{
+		x = abs(x);
+		y = abs(y);
 
+		return *this;
+	}
+} // namespace Onyx

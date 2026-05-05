@@ -11,7 +11,7 @@ namespace Onyx {
 
 		Vector2D& Add(const Vector2D& other);
 		Vector2D& Multiply(const Vector2D& other);
-        Vector2D& NormalizeValues();
+		Vector2D& NormalizeValues();
 
 		Vector2D operator+(const Vector2D& other);
 		Vector2D operator-(const Vector2D& other);
@@ -23,10 +23,10 @@ namespace Onyx {
 		Vector2D& operator*=(const Vector2D& other);
 
 		Vector2D Rotate(float degRotation);
-		float GetVectorAngle() const ;
+		float GetVectorAngle() const;
 
 		bool operator==(const Vector2D& other) const;
 	};
 
-	//std::ostream& operator<<(std::ostream& stream, Onyx::Vector2D& vector);
-}
+	// std::ostream& operator<<(std::ostream& stream, Onyx::Vector2D& vector);
+} // namespace Onyx

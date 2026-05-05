@@ -2,13 +2,13 @@
 
 // Convenience header - includes all world object types
 
-#include "Transform.h"
-#include "WorldObject.h"
-#include "StaticObject.h"
-#include "SpawnPoint.h"
+#include "GroupObject.h"
+#include "InstancePortal.h"
 #include "Light.h"
 #include "ParticleEmitter.h"
-#include "TriggerVolume.h"
-#include "InstancePortal.h"
 #include "PlayerSpawn.h"
-#include "GroupObject.h"
+#include "SpawnPoint.h"
+#include "StaticObject.h"
+#include "Transform.h"
+#include "TriggerVolume.h"
+#include "WorldObject.h"

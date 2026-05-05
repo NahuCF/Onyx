@@ -1,195 +1,219 @@
 #include "EditorCommand.h"
 #include "World/EditorWorld.h"
-#include "World/WorldTypes.h"
 #include "World/StaticObject.h"
+#include "World/WorldTypes.h"
 
 namespace MMO {
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TransformCommand
-// ─────────────────────────────────────────────────────────────────────────────
+	// ─────────────────────────────────────────────────────────────────────────────
+	// TransformCommand
+	// ─────────────────────────────────────────────────────────────────────────────
 
-TransformCommand::TransformCommand(WorldObject* object,
-                                   const glm::vec3& oldPos, const glm::quat& oldRot, float oldScale,
-                                   const glm::vec3& newPos, const glm::quat& newRot, float newScale)
-    : m_Object(object)
-    , m_OldPosition(oldPos), m_OldRotation(oldRot), m_OldScale(oldScale)
-    , m_NewPosition(newPos), m_NewRotation(newRot), m_NewScale(newScale)
-{
-}
+	TransformCommand::TransformCommand(WorldObject* object,
+									   const glm::vec3& oldPos, const glm::quat& oldRot, float oldScale,
+									   const glm::vec3& newPos, const glm::quat& newRot, float newScale)
+		: m_Object(object), m_OldPosition(oldPos), m_OldRotation(oldRot), m_OldScale(oldScale), m_NewPosition(newPos), m_NewRotation(newRot), m_NewScale(newScale)
+	{
+	}
 
-void TransformCommand::Execute() {
-    if (m_Object) {
-        m_Object->SetPosition(m_NewPosition);
-        m_Object->SetRotation(m_NewRotation);
-        m_Object->SetScale(m_NewScale);
-    }
-}
+	void TransformCommand::Execute()
+	{
+		if (m_Object)
+		{
+			m_Object->SetPosition(m_NewPosition);
+			m_Object->SetRotation(m_NewRotation);
+			m_Object->SetScale(m_NewScale);
+		}
+	}
 
-void TransformCommand::Undo() {
-    if (m_Object) {
-        m_Object->SetPosition(m_OldPosition);
-        m_Object->SetRotation(m_OldRotation);
-        m_Object->SetScale(m_OldScale);
-    }
-}
+	void TransformCommand::Undo()
+	{
+		if (m_Object)
+		{
+			m_Object->SetPosition(m_OldPosition);
+			m_Object->SetRotation(m_OldRotation);
+			m_Object->SetScale(m_OldScale);
+		}
+	}
 
-std::string TransformCommand::GetDescription() const {
-    return "Transform " + (m_Object ? m_Object->GetName() : "Object");
-}
+	std::string TransformCommand::GetDescription() const
+	{
+		return "Transform " + (m_Object ? m_Object->GetName() : "Object");
+	}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MeshTransformCommand
-// ─────────────────────────────────────────────────────────────────────────────
+	// ─────────────────────────────────────────────────────────────────────────────
+	// MeshTransformCommand
+	// ─────────────────────────────────────────────────────────────────────────────
 
-MeshTransformCommand::MeshTransformCommand(StaticObject* object, const std::string& meshName,
-                                           const glm::vec3& oldOffset, const glm::vec3& oldRotation, float oldScale,
-                                           const glm::vec3& newOffset, const glm::vec3& newRotation, float newScale)
-    : m_Object(object)
-    , m_MeshName(meshName)
-    , m_OldOffset(oldOffset), m_OldRotation(oldRotation), m_OldScale(oldScale)
-    , m_NewOffset(newOffset), m_NewRotation(newRotation), m_NewScale(newScale)
-{
-}
+	MeshTransformCommand::MeshTransformCommand(StaticObject* object, const std::string& meshName,
+											   const glm::vec3& oldOffset, const glm::vec3& oldRotation, float oldScale,
+											   const glm::vec3& newOffset, const glm::vec3& newRotation, float newScale)
+		: m_Object(object), m_MeshName(meshName), m_OldOffset(oldOffset), m_OldRotation(oldRotation), m_OldScale(oldScale), m_NewOffset(newOffset), m_NewRotation(newRotation), m_NewScale(newScale)
+	{
+	}
 
-void MeshTransformCommand::Execute() {
-    if (m_Object) {
-        MeshMaterial& mat = m_Object->GetOrCreateMeshMaterial(m_MeshName);
-        mat.positionOffset = m_NewOffset;
-        mat.rotationOffset = m_NewRotation;
-        mat.scaleMultiplier = m_NewScale;
-    }
-}
+	void MeshTransformCommand::Execute()
+	{
+		if (m_Object)
+		{
+			MeshMaterial& mat = m_Object->GetOrCreateMeshMaterial(m_MeshName);
+			mat.positionOffset = m_NewOffset;
+			mat.rotationOffset = m_NewRotation;
+			mat.scaleMultiplier = m_NewScale;
+		}
+	}
 
-void MeshTransformCommand::Undo() {
-    if (m_Object) {
-        MeshMaterial& mat = m_Object->GetOrCreateMeshMaterial(m_MeshName);
-        mat.positionOffset = m_OldOffset;
-        mat.rotationOffset = m_OldRotation;
-        mat.scaleMultiplier = m_OldScale;
-    }
-}
+	void MeshTransformCommand::Undo()
+	{
+		if (m_Object)
+		{
+			MeshMaterial& mat = m_Object->GetOrCreateMeshMaterial(m_MeshName);
+			mat.positionOffset = m_OldOffset;
+			mat.rotationOffset = m_OldRotation;
+			mat.scaleMultiplier = m_OldScale;
+		}
+	}
 
-std::string MeshTransformCommand::GetDescription() const {
-    return "Transform Mesh " + m_MeshName;
-}
+	std::string MeshTransformCommand::GetDescription() const
+	{
+		return "Transform Mesh " + m_MeshName;
+	}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CreateObjectCommand
-// ─────────────────────────────────────────────────────────────────────────────
+	// ─────────────────────────────────────────────────────────────────────────────
+	// CreateObjectCommand
+	// ─────────────────────────────────────────────────────────────────────────────
 
-CreateObjectCommand::CreateObjectCommand(EditorWorld* world, WorldObject* object)
-    : m_World(world)
-    , m_Object(object)
-    , m_ObjectGuid(object ? object->GetGuid() : 0)
-{
-}
+	CreateObjectCommand::CreateObjectCommand(EditorWorld* world, WorldObject* object)
+		: m_World(world), m_Object(object), m_ObjectGuid(object ? object->GetGuid() : 0)
+	{
+	}
 
-void CreateObjectCommand::Execute() {
-    // Object is already created, nothing to do
-}
+	void CreateObjectCommand::Execute()
+	{
+		// Object is already created, nothing to do
+	}
 
-void CreateObjectCommand::Undo() {
-    if (m_World && m_ObjectGuid > 0) {
-        m_World->DeleteObject(m_ObjectGuid);
-    }
-}
+	void CreateObjectCommand::Undo()
+	{
+		if (m_World && m_ObjectGuid > 0)
+		{
+			m_World->DeleteObject(m_ObjectGuid);
+		}
+	}
 
-std::string CreateObjectCommand::GetDescription() const {
-    return "Create " + (m_Object ? m_Object->GetName() : "Object");
-}
+	std::string CreateObjectCommand::GetDescription() const
+	{
+		return "Create " + (m_Object ? m_Object->GetName() : "Object");
+	}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DeleteObjectCommand
-// ─────────────────────────────────────────────────────────────────────────────
+	// ─────────────────────────────────────────────────────────────────────────────
+	// DeleteObjectCommand
+	// ─────────────────────────────────────────────────────────────────────────────
 
-DeleteObjectCommand::DeleteObjectCommand(EditorWorld* world, WorldObject* object)
-    : m_World(world)
-    , m_ObjectGuid(object ? object->GetGuid() : 0)
-{
-    if (object) {
-        m_ObjectName = object->GetName();
-        m_Position = object->GetPosition();
-        m_Rotation = object->GetRotation();
-        m_Scale = object->GetScale();
-        m_ObjectType = static_cast<int>(object->GetObjectType());
-    }
-}
+	DeleteObjectCommand::DeleteObjectCommand(EditorWorld* world, WorldObject* object)
+		: m_World(world), m_ObjectGuid(object ? object->GetGuid() : 0)
+	{
+		if (object)
+		{
+			m_ObjectName = object->GetName();
+			m_Position = object->GetPosition();
+			m_Rotation = object->GetRotation();
+			m_Scale = object->GetScale();
+			m_ObjectType = static_cast<int>(object->GetObjectType());
+		}
+	}
 
-void DeleteObjectCommand::Execute() {
-    if (m_World && m_ObjectGuid > 0) {
-        m_World->DeleteObject(m_ObjectGuid);
-    }
-}
+	void DeleteObjectCommand::Execute()
+	{
+		if (m_World && m_ObjectGuid > 0)
+		{
+			m_World->DeleteObject(m_ObjectGuid);
+		}
+	}
 
-void DeleteObjectCommand::Undo() {
-    // Recreation would need to restore the full object state
-    // For now, just a placeholder - full implementation would need object serialization
-    // TODO: Implement proper object recreation
-}
+	void DeleteObjectCommand::Undo()
+	{
+		// Recreation would need to restore the full object state
+		// For now, just a placeholder - full implementation would need object serialization
+		// TODO: Implement proper object recreation
+	}
 
-std::string DeleteObjectCommand::GetDescription() const {
-    return "Delete " + m_ObjectName;
-}
+	std::string DeleteObjectCommand::GetDescription() const
+	{
+		return "Delete " + m_ObjectName;
+	}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CommandHistory
-// ─────────────────────────────────────────────────────────────────────────────
+	// ─────────────────────────────────────────────────────────────────────────────
+	// CommandHistory
+	// ─────────────────────────────────────────────────────────────────────────────
 
-void CommandHistory::Execute(std::unique_ptr<EditorCommand> command) {
-    command->Execute();
-    m_UndoStack.push_back(std::move(command));
-    m_RedoStack.clear();  // Clear redo stack on new action
+	void CommandHistory::Execute(std::unique_ptr<EditorCommand> command)
+	{
+		command->Execute();
+		m_UndoStack.push_back(std::move(command));
+		m_RedoStack.clear(); // Clear redo stack on new action
 
-    // Limit history size
-    if (m_UndoStack.size() > MaxHistorySize) {
-        m_UndoStack.erase(m_UndoStack.begin());
-    }
-}
+		// Limit history size
+		if (m_UndoStack.size() > MaxHistorySize)
+		{
+			m_UndoStack.erase(m_UndoStack.begin());
+		}
+	}
 
-void CommandHistory::AddWithoutExecute(std::unique_ptr<EditorCommand> command) {
-    // Add command to history without executing (for already-applied changes like gizmo drags)
-    m_UndoStack.push_back(std::move(command));
-    m_RedoStack.clear();
+	void CommandHistory::AddWithoutExecute(std::unique_ptr<EditorCommand> command)
+	{
+		// Add command to history without executing (for already-applied changes like gizmo drags)
+		m_UndoStack.push_back(std::move(command));
+		m_RedoStack.clear();
 
-    if (m_UndoStack.size() > MaxHistorySize) {
-        m_UndoStack.erase(m_UndoStack.begin());
-    }
-}
+		if (m_UndoStack.size() > MaxHistorySize)
+		{
+			m_UndoStack.erase(m_UndoStack.begin());
+		}
+	}
 
-void CommandHistory::Undo() {
-    if (m_UndoStack.empty()) return;
+	void CommandHistory::Undo()
+	{
+		if (m_UndoStack.empty())
+			return;
 
-    auto command = std::move(m_UndoStack.back());
-    m_UndoStack.pop_back();
+		auto command = std::move(m_UndoStack.back());
+		m_UndoStack.pop_back();
 
-    command->Undo();
-    m_RedoStack.push_back(std::move(command));
-}
+		command->Undo();
+		m_RedoStack.push_back(std::move(command));
+	}
 
-void CommandHistory::Redo() {
-    if (m_RedoStack.empty()) return;
+	void CommandHistory::Redo()
+	{
+		if (m_RedoStack.empty())
+			return;
 
-    auto command = std::move(m_RedoStack.back());
-    m_RedoStack.pop_back();
+		auto command = std::move(m_RedoStack.back());
+		m_RedoStack.pop_back();
 
-    command->Execute();
-    m_UndoStack.push_back(std::move(command));
-}
+		command->Execute();
+		m_UndoStack.push_back(std::move(command));
+	}
 
-void CommandHistory::Clear() {
-    m_UndoStack.clear();
-    m_RedoStack.clear();
-}
+	void CommandHistory::Clear()
+	{
+		m_UndoStack.clear();
+		m_RedoStack.clear();
+	}
 
-std::string CommandHistory::GetUndoDescription() const {
-    if (m_UndoStack.empty()) return "";
-    return m_UndoStack.back()->GetDescription();
-}
+	std::string CommandHistory::GetUndoDescription() const
+	{
+		if (m_UndoStack.empty())
+			return "";
+		return m_UndoStack.back()->GetDescription();
+	}
 
-std::string CommandHistory::GetRedoDescription() const {
-    if (m_RedoStack.empty()) return "";
-    return m_RedoStack.back()->GetDescription();
-}
+	std::string CommandHistory::GetRedoDescription() const
+	{
+		if (m_RedoStack.empty())
+			return "";
+		return m_RedoStack.back()->GetDescription();
+	}
 
 } // namespace MMO
