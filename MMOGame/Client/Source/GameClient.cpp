@@ -483,6 +483,8 @@ void GameClient::HandleEnterWorld(ReadBuffer& buf) {
 
     m_LocalPlayer.entityId = enter.yourEntityId;
     m_LocalPlayer.position = enter.spawnPosition;
+    m_LocalPlayer.height = enter.spawnHeight;
+    m_LocalPlayer.rotation = enter.spawnOrientation;
     m_ZoneName = enter.zoneName;
     m_MapId = enter.mapId;
     m_State = ClientState::IN_GAME;
@@ -555,6 +557,7 @@ void GameClient::HandleWorldState(ReadBuffer& buf) {
             entity.previousPosition = entity.position;
             entity.targetPosition = entityState.position;
             entity.interpolationTime = 0.0f;
+            entity.height = entityState.height;
             entity.rotation = entityState.rotation;
             entity.moveState = entityState.moveState;
             entity.health = entityState.health;
@@ -616,6 +619,7 @@ void GameClient::HandleEntityUpdate(ReadBuffer& buf) {
         entity.previousPosition = entity.position;
         entity.targetPosition = update.position;
         entity.interpolationTime = 0.0f;
+        entity.height = update.height;
         entity.rotation = update.rotation;
     }
     if (update.updateMask & UPDATE_MOVE_STATE) {
@@ -647,6 +651,7 @@ void GameClient::HandleEntitySpawn(ReadBuffer& buf) {
     entity.position = spawn.position;
     entity.previousPosition = spawn.position;
     entity.targetPosition = spawn.position;
+    entity.height = spawn.height;
     entity.rotation = spawn.rotation;
     entity.health = spawn.health;
     entity.maxHealth = spawn.maxHealth;

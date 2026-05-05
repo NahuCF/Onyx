@@ -1,0 +1,9 @@
+{
+  "id": 1,
+  "name": "Untitled Map",
+  "chunkSize": 64,
+  "tileSize": 32,
+  "worldWidthChunks": 10,
+  "worldHeightChunks": 10,
+  "defaultTileset": ""
+}

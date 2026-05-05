@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21...4.2)
 project(Onyx VERSION 1.0.0 LANGUAGES C CXX)
 
 # Set C++ standard
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -177,6 +177,9 @@ endif()
 if(ONYX_BUILD_MMOGAME)
     add_subdirectory(MMOGame)
 endif()
+
+# Learning project (always build)
+add_subdirectory(Learning)
 
 # ========== Installation rules ==========
 include(GNUInstallDirs)

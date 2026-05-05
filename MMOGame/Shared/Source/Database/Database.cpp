@@ -101,7 +101,8 @@ std::vector<CharacterData> Database::GetCharactersByAccountId(AccountId accountI
         pqxx::result result = txn.exec_params(
             "SELECT id, account_id, name, race, class, level, experience, money, "
             "zone_id::INTEGER, "
-            "position_x, position_y, max_health, max_mana, current_health, current_mana, "
+            "position_x, position_y, position_z, orientation, "
+            "max_health, max_mana, current_health, current_mana, "
             "EXTRACT(EPOCH FROM COALESCE(last_played, created_at))::BIGINT "
             "FROM characters WHERE account_id = $1 AND is_deleted = FALSE "
             "ORDER BY last_played DESC NULLS LAST",
@@ -122,11 +123,13 @@ std::vector<CharacterData> Database::GetCharactersByAccountId(AccountId accountI
             c.mapId = row[8].as<uint32_t>();
             c.positionX = row[9].as<float>();
             c.positionY = row[10].as<float>();
-            c.maxHealth = row[11].as<int32_t>();
-            c.maxMana = row[12].as<int32_t>();
-            c.currentHealth = row[13].as<int32_t>();
-            c.currentMana = row[14].as<int32_t>();
-            c.lastPlayed = row[15].as<uint64_t>();
+            c.positionZ = row[11].as<float>();
+            c.orientation = row[12].as<float>();
+            c.maxHealth = row[13].as<int32_t>();
+            c.maxMana = row[14].as<int32_t>();
+            c.currentHealth = row[15].as<int32_t>();
+            c.currentMana = row[16].as<int32_t>();
+            c.lastPlayed = row[17].as<uint64_t>();
             characters.push_back(c);
         }
     } catch (const std::exception& e) {
@@ -141,7 +144,8 @@ std::optional<CharacterData> Database::GetCharacterById(CharacterId characterId)
         pqxx::result result = txn.exec_params(
             "SELECT id, account_id, name, race, class, level, experience, money, "
             "zone_id::INTEGER, "
-            "position_x, position_y, max_health, max_mana, current_health, current_mana, "
+            "position_x, position_y, position_z, orientation, "
+            "max_health, max_mana, current_health, current_mana, "
             "EXTRACT(EPOCH FROM COALESCE(last_played, created_at))::BIGINT "
             "FROM characters WHERE id = $1 AND is_deleted = FALSE",
             characterId
@@ -165,11 +169,13 @@ std::optional<CharacterData> Database::GetCharacterById(CharacterId characterId)
         c.mapId = row[8].as<uint32_t>();
         c.positionX = row[9].as<float>();
         c.positionY = row[10].as<float>();
-        c.maxHealth = row[11].as<int32_t>();
-        c.maxMana = row[12].as<int32_t>();
-        c.currentHealth = row[13].as<int32_t>();
-        c.currentMana = row[14].as<int32_t>();
-        c.lastPlayed = row[15].as<uint64_t>();
+        c.positionZ = row[11].as<float>();
+        c.orientation = row[12].as<float>();
+        c.maxHealth = row[13].as<int32_t>();
+        c.maxMana = row[14].as<int32_t>();
+        c.currentHealth = row[15].as<int32_t>();
+        c.currentMana = row[16].as<int32_t>();
+        c.lastPlayed = row[17].as<uint64_t>();
         return c;
 
     } catch (const std::exception& e) {
@@ -180,18 +186,19 @@ std::optional<CharacterData> Database::GetCharacterById(CharacterId characterId)
 
 bool Database::CreateCharacter(AccountId accountId, const std::string& name,
                                CharacterRace characterRace, CharacterClass characterClass,
-                               uint32_t mapId, float posX, float posY,
+                               uint32_t mapId, float posX, float posY, float posZ, float orientation,
                                int32_t maxHealth, int32_t maxMana,
                                CharacterId& outId) {
     try {
         pqxx::work txn(*m_Connection);
         pqxx::result result = txn.exec_params(
-            "INSERT INTO characters (account_id, name, race, class, zone_id, position_x, position_y, "
+            "INSERT INTO characters (account_id, name, race, class, zone_id, "
+            "position_x, position_y, position_z, orientation, "
             "max_health, max_mana, current_health, current_mana) "
-            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $8, $9) RETURNING id",
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $10, $11) RETURNING id",
             accountId, name,
             static_cast<int>(characterRace), static_cast<int>(characterClass),
-            std::to_string(mapId), posX, posY, maxHealth, maxMana
+            std::to_string(mapId), posX, posY, posZ, orientation, maxHealth, maxMana
         );
         txn.commit();
 
@@ -225,13 +232,15 @@ bool Database::SaveCharacter(const CharacterData& character) {
         pqxx::work txn(*m_Connection);
         txn.exec_params(
             "UPDATE characters SET "
-            "level = $2, experience = $3, money = $4, zone_id = $5, position_x = $6, position_y = $7, "
-            "max_health = $8, max_mana = $9, current_health = $10, current_mana = $11, "
+            "level = $2, experience = $3, money = $4, zone_id = $5, "
+            "position_x = $6, position_y = $7, position_z = $8, orientation = $9, "
+            "max_health = $10, max_mana = $11, current_health = $12, current_mana = $13, "
             "last_played = CURRENT_TIMESTAMP "
             "WHERE id = $1",
             character.id, character.level, character.experience, character.money,
             std::to_string(character.mapId),
-            character.positionX, character.positionY, character.maxHealth, character.maxMana,
+            character.positionX, character.positionY, character.positionZ, character.orientation,
+            character.maxHealth, character.maxMana,
             character.currentHealth, character.currentMana
         );
         txn.commit();
@@ -485,107 +494,6 @@ bool Database::SaveEquipment(CharacterId characterId, const std::vector<Equipmen
         return false;
     }
 }
-
-// ============================================================
-// MAP EXPORT OPERATIONS (Editor -> DB)
-// ============================================================
-
-bool Database::ExportMapTemplate(uint32_t mapId, const std::string& name, float width, float height,
-                                  float spawnX, float spawnY, float spawnZ) {
-    try {
-        pqxx::work txn(*m_Connection);
-        txn.exec_params(
-            "INSERT INTO map_template (id, name, width, height, spawn_x, spawn_y, spawn_z) "
-            "VALUES ($1, $2, $3, $4, $5, $6, $7) "
-            "ON CONFLICT (id) DO UPDATE SET name=$2, width=$3, height=$4, spawn_x=$5, spawn_y=$6, spawn_z=$7",
-            mapId, name, width, height, spawnX, spawnY, spawnZ
-        );
-        txn.commit();
-        return true;
-    } catch (const std::exception& e) {
-        std::cerr << "ExportMapTemplate failed: " << e.what() << std::endl;
-        return false;
-    }
-}
-
-bool Database::ExportPortal(uint32_t mapId, float posX, float posY, float sizeX, float sizeY,
-                             uint32_t destMapId, float destX, float destY) {
-    try {
-        pqxx::work txn(*m_Connection);
-        txn.exec_params(
-            "INSERT INTO portal (map_id, position_x, position_y, size_x, size_y, dest_map_id, dest_x, dest_y) "
-            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-            mapId, posX, posY, sizeX, sizeY, destMapId, destX, destY
-        );
-        txn.commit();
-        return true;
-    } catch (const std::exception& e) {
-        std::cerr << "ExportPortal failed: " << e.what() << std::endl;
-        return false;
-    }
-}
-
-bool Database::ExportCreatureSpawn(uint32_t mapId, uint32_t creatureTemplateId,
-                                    float posX, float posY, float respawnTime, float corpseDecayTime) {
-    try {
-        pqxx::work txn(*m_Connection);
-        txn.exec_params(
-            "INSERT INTO creature_spawn (map_id, creature_template_id, position_x, position_y, respawn_time, corpse_decay_time) "
-            "VALUES ($1, $2, $3, $4, $5, $6)",
-            mapId, creatureTemplateId, posX, posY, respawnTime, corpseDecayTime
-        );
-        txn.commit();
-        return true;
-    } catch (const std::exception& e) {
-        std::cerr << "ExportCreatureSpawn failed: " << e.what() << std::endl;
-        return false;
-    }
-}
-
-bool Database::ClearMapExportData(uint32_t mapId) {
-    try {
-        pqxx::work txn(*m_Connection);
-        txn.exec_params("DELETE FROM creature_spawn WHERE map_id = $1", mapId);
-        txn.exec_params("DELETE FROM portal WHERE map_id = $1", mapId);
-        // Don't delete map_template itself - ExportMapTemplate uses UPSERT
-        txn.commit();
-        return true;
-    } catch (const std::exception& e) {
-        std::cerr << "ClearMapExportData failed: " << e.what() << std::endl;
-        return false;
-    }
-}
-
-bool Database::ExportPlayerCreateInfo(uint8_t race, uint8_t cls, uint32_t mapId,
-                                       float posX, float posY, float posZ, float orientation) {
-    try {
-        pqxx::work txn(*m_Connection);
-        txn.exec_params(
-            "INSERT INTO player_create_info (race, class, map_id, position_x, position_y, position_z, orientation) "
-            "VALUES ($1, $2, $3, $4, $5, $6, $7) "
-            "ON CONFLICT (race, class) DO UPDATE SET map_id=$3, position_x=$4, position_y=$5, position_z=$6, orientation=$7",
-            static_cast<int>(race), static_cast<int>(cls), mapId, posX, posY, posZ, orientation
-        );
-        txn.commit();
-        return true;
-    } catch (const std::exception& e) {
-        std::cerr << "ExportPlayerCreateInfo failed: " << e.what() << std::endl;
-        return false;
-    }
-}
-
-bool Database::ClearPlayerCreateInfo(uint32_t mapId) {
-    try {
-        pqxx::work txn(*m_Connection);
-        txn.exec_params("DELETE FROM player_create_info WHERE map_id = $1", mapId);
-        txn.commit();
-        return true;
-    } catch (const std::exception& e) {
-        std::cerr << "ClearPlayerCreateInfo failed: " << e.what() << std::endl;
-        return false;
-    }
-}
-
 // ============================================================
 // MAP LOADING OPERATIONS (Server reads from DB)
 // ============================================================
@@ -648,20 +556,24 @@ std::vector<CreatureSpawnData> Database::LoadCreatureSpawns(uint32_t mapId) {
     try {
         pqxx::work txn(*m_Connection);
         pqxx::result result = txn.exec_params(
-            "SELECT id, creature_template_id, position_x, position_y, respawn_time, corpse_decay_time "
-            "FROM creature_spawn WHERE map_id = $1 ORDER BY id",
+            "SELECT guid, entry, position_x, position_y, position_z, orientation, "
+            "       respawn_secs, wander_radius, max_count "
+            "FROM creature_spawn WHERE map_id = $1 ORDER BY guid",
             mapId
         );
         txn.commit();
 
         for (const auto& row : result) {
             CreatureSpawnData s;
-            s.id = row[0].as<uint32_t>();
+            s.guid = row[0].as<std::string>();
             s.creatureTemplateId = row[1].as<uint32_t>();
             s.positionX = row[2].as<float>();
             s.positionY = row[3].as<float>();
-            s.respawnTime = row[4].as<float>();
-            s.corpseDecayTime = row[5].as<float>();
+            s.positionZ = row[4].as<float>();
+            s.orientation = row[5].as<float>();
+            s.respawnTime = row[6].as<float>();
+            s.wanderRadius = row[7].as<float>();
+            s.maxCount = row[8].as<uint32_t>();
             spawns.push_back(s);
         }
     } catch (const std::exception& e) {

@@ -37,6 +37,7 @@ public:
     // Entity management
     Entity* CreatePlayer(CharacterId characterId, const std::string& name,
                          CharacterClass charClass, uint32_t level, Vec2 position,
+                         float height, float orientation,
                          int32_t currentHealth, int32_t currentMana);
     Entity* CreateMob(uint32_t creatureTemplateId, Vec2 position, uint32_t spawnPointId = 0);
     Entity* SummonCreature(uint32_t creatureTemplateId, Vec2 position, EntityId summonerId);

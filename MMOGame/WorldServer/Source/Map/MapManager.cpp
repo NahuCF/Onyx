@@ -1,10 +1,7 @@
 #include "MapManager.h"
 #include "MapInstance.h"
-#include "MapTemplates.h"
 #include "Items/Items.h"
-#ifdef HAS_DATABASE
 #include "../../../Shared/Source/Database/Database.h"
-#endif
 #include <iostream>
 
 namespace MMO {
@@ -13,18 +10,6 @@ namespace MMO {
 // MAP MANAGER
 // ============================================================
 
-void MapManager::Initialize() {
-    // Initialize item templates
-    ItemTemplateManager::Instance().Initialize();
-
-    // Register hardcoded map templates (fallback)
-    m_Templates[1] = MapTemplates::CreateStartingZone();
-    m_Templates[2] = MapTemplates::CreateDarkForest();
-
-    std::cout << "[MapManager] Initialized with " << m_Templates.size() << " hardcoded map templates" << std::endl;
-}
-
-#ifdef HAS_DATABASE
 void MapManager::Initialize(Database& db) {
     // Initialize item templates
     ItemTemplateManager::Instance().Initialize();
@@ -34,7 +19,7 @@ void MapManager::Initialize(Database& db) {
 
     if (dbTemplates.empty()) {
         std::cerr << "[MapManager] WARNING: No maps found in database! "
-                  << "Run schema.sql to seed default map_template rows." << std::endl;
+                  << "Apply schema migrations and seed map_template rows." << std::endl;
     }
 
     for (auto& t : dbTemplates) {
@@ -64,10 +49,14 @@ void MapManager::Initialize(Database& db) {
         for (auto& s : dbSpawns) {
             MobSpawnPoint spawn;
             spawn.id = spawnIdx++;
+            spawn.guid = s.guid;
             spawn.creatureTemplateId = s.creatureTemplateId;
             spawn.position = Vec2(s.positionX, s.positionY);
+            spawn.positionZ = s.positionZ;
+            spawn.orientation = s.orientation;
             spawn.respawnTimeOverride = s.respawnTime;
-            spawn.corpseDecayTimeOverride = s.corpseDecayTime;
+            spawn.wanderRadius = s.wanderRadius;
+            spawn.maxCount = s.maxCount;
             tmpl.mobSpawns.push_back(spawn);
         }
 
@@ -76,7 +65,6 @@ void MapManager::Initialize(Database& db) {
 
     std::cout << "[MapManager] Initialized with " << m_Templates.size() << " map templates from database" << std::endl;
 }
-#endif
 
 MapInstance* MapManager::GetMapInstance(uint32_t templateId) {
     // Check if instance already exists
@@ -137,6 +125,9 @@ EntityId MapManager::TransferPlayer(EntityId playerId, uint32_t fromInstanceId,
     int32_t currentHealth = oldPlayer->GetHealth() ? oldPlayer->GetHealth()->current : 100;
     int32_t currentMana = oldPlayer->GetMana() ? oldPlayer->GetMana()->current : 100;
     uint32_t currentMoney = oldPlayer->GetWallet() ? oldPlayer->GetWallet()->IsCopper : 0;
+    auto* oldMove = oldPlayer->GetMovement();
+    float currentHeight = oldMove ? oldMove->height : 0.0f;
+    float currentOrientation = oldMove ? oldMove->rotation : 0.0f;
 
     // Remove from old instance
     fromInstance->UnregisterPlayer(playerId);
@@ -147,6 +138,7 @@ EntityId MapManager::TransferPlayer(EntityId playerId, uint32_t fromInstanceId,
 
     // Create player in new instance
     Entity* newPlayer = toInstance->CreatePlayer(characterId, name, charClass, level, position,
+                                                  currentHeight, currentOrientation,
                                                   currentHealth, currentMana);
     if (!newPlayer) return INVALID_ENTITY_ID;
 

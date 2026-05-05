@@ -8,19 +8,59 @@
 #include "Panels/TerrainPanel.h"
 #include "Panels/MaterialEditorPanel.h"
 #include "Terrain/MaterialSerializer.h"
+#include "Settings/EditorPreferences.h"
+#include "Export/MigrationSqlWriter.h"
+#include "World/EditorWorldSystem.h"
+#include <World/SpawnPoint.h>
+#include <World/PlayerSpawn.h>
 #include <filesystem>
+#include <iostream>
+#include <map>
+#include <sstream>
+#include <cstdlib>
 #include "Commands/EditorCommand.h"
 #include <Core/Application.h>
+#include <Core/Platform.h>
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <glm/gtc/quaternion.hpp>
+
+#ifdef HAS_DATABASE
+#include "../../Shared/Source/Database/MigrationRunner.h"
+#endif
 
 namespace MMO {
 
 Editor3DLayer::Editor3DLayer() = default;
 
+Editor3DLayer::~Editor3DLayer() {
+    // Tear down in a controlled order so we don't crash on shutdown:
+    //  1. Stop any Run-Locally subprocesses (LoginServer, WorldServer, Client)
+    //     before tearing anything else down — they may briefly outlive the
+    //     editor process otherwise, and pqxx's connection close can hang if
+    //     the server it's talking to is in the middle of being killed.
+    if (m_RunSession) {
+        m_RunSession.reset();
+    }
+
+    // 2. Close the pqxx connection now while the rest of the editor's state
+    //    is still alive. Wrapped in try/catch so a malformed network shutdown
+    //    can never bubble out of the destructor.
+#ifdef HAS_DATABASE
+    try {
+        if (m_Database.IsConnected()) m_Database.Disconnect();
+    } catch (...) {
+        // Best-effort; nothing to do.
+    }
+#endif
+}
+
 void Editor3DLayer::OnAttach() {
     auto& window = *Onyx::Application::GetInstance().GetWindow();
     window.SetVSync(false);
+
+    EditorPreferences::Instance().Load();
+    m_LastSaveTime = std::chrono::steady_clock::now();
 
     // Load map registry
     m_MapRegistry.Load("maps");
@@ -84,7 +124,21 @@ void Editor3DLayer::OnAttach() {
 }
 
 void Editor3DLayer::OnUpdate() {
+    if (m_RunSession) m_RunSession->Tick();
     if (!m_MapLoaded) return;
+
+    // Auto-save: if enabled and the configured interval has elapsed, persist
+    // dirty chunks. Reuses the same Ctrl+S code path so manual saves and
+    // auto-saves go through one path.
+    auto& prefs = EditorPreferences::Instance();
+    if (prefs.AutosaveEnabled() && m_ViewportPanel) {
+        const auto now = std::chrono::steady_clock::now();
+        const float elapsed = std::chrono::duration<float>(now - m_LastSaveTime).count();
+        if (elapsed >= prefs.AutosaveIntervalSecs()) {
+            HandleSave();
+        }
+    }
+
     HandleGlobalShortcuts();
 }
 
@@ -152,9 +206,7 @@ void Editor3DLayer::SetupDockspace() {
 
     ImGui::End();
 
-#ifdef HAS_DATABASE
-    RenderExportDialog();
-#endif
+    RenderRuntimeExportDialog();
 
     // Show map browser if no map is loaded
     if (m_ShowMapBrowser) {
@@ -179,18 +231,34 @@ void Editor3DLayer::RenderMenuBar() {
             m_MapBrowser.Reset();
             m_ShowMapBrowser = true;
         }
-        if (ImGui::MenuItem("Save", "Ctrl+S", false, m_MapLoaded)) {
-            if (m_ViewportPanel) {
-                m_ViewportPanel->GetWorldSystem().SaveDirtyChunks();
+        const auto& recentMaps = EditorPreferences::Instance().RecentMaps();
+        if (ImGui::BeginMenu("Recent Maps", !recentMaps.empty())) {
+            for (uint32_t id : recentMaps) {
+                if (const MapEntry* entry = m_MapRegistry.GetMapById(id)) {
+                    std::string label = entry->displayName + " (id " + std::to_string(id) + ")";
+                    if (ImGui::MenuItem(label.c_str())) {
+                        LoadMap(id);
+                    }
+                }
             }
+            ImGui::EndMenu();
+        }
+        if (ImGui::MenuItem("Save", "Ctrl+S", false, m_MapLoaded)) {
+            HandleSave();
         }
         ImGui::Separator();
-#ifdef HAS_DATABASE
-        if (ImGui::MenuItem("Export...", nullptr, false, m_MapLoaded)) {
-            m_ShowExportDialog = true;
+        if (ImGui::MenuItem("Export Runtime Data...", nullptr, false, m_MapLoaded)) {
+            m_ShowRuntimeExportDialog = true;
         }
         ImGui::Separator();
-#endif
+        const bool sessionRunning = m_RunSession && m_RunSession->GetStatus() == LocalRunSession::Status::Running;
+        if (ImGui::MenuItem("Run Locally", "Ctrl+R", false, m_MapLoaded && !sessionRunning)) {
+            StartRunLocally();
+        }
+        if (ImGui::MenuItem("Stop", nullptr, false, sessionRunning)) {
+            if (m_RunSession) m_RunSession->Stop();
+        }
+        ImGui::Separator();
         if (ImGui::MenuItem("Exit")) {
             Onyx::Application::GetInstance().GetWindow()->CloseWindow();
         }
@@ -346,9 +414,7 @@ void Editor3DLayer::HandleGlobalShortcuts() {
     }
 
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
-        if (m_MapLoaded && m_ViewportPanel) {
-            m_ViewportPanel->GetWorldSystem().SaveDirtyChunks();
-        }
+        HandleSave();
     }
 }
 
@@ -364,12 +430,19 @@ void Editor3DLayer::LoadMap(uint32_t mapId) {
     m_CurrentMapId = mapId;
     m_MapLoaded = true;
 
+    EditorPreferences::Instance().PushRecentMap(mapId);
+
     m_World.NewMap(entry->displayName);
 
     // Initialize terrain system with map-scoped chunks directory
     std::string chunksDir = m_MapRegistry.GetChunksDirectory(mapId);
     m_ViewportPanel->GetWorldSystem().SetEditorWorld(&m_World);
     m_ViewportPanel->GetWorldSystem().Init(chunksDir);
+
+    // Pull authored DB-bound entities (creature spawns, player spawns)
+    // back from Postgres. Static objects come from chunk binaries via Init().
+    LoadWorldFromDatabase(mapId);
+    m_World.SetDirty(false);
 }
 
 void Editor3DLayer::UnloadMap() {
@@ -386,77 +459,32 @@ void Editor3DLayer::UnloadMap() {
     m_MapLoaded = false;
 }
 
-#ifdef HAS_DATABASE
-void Editor3DLayer::RenderExportDialog() {
-    if (m_ShowExportDialog) {
-        ImGui::OpenPopup("Export to Database");
-        m_ShowExportDialog = false;
+void Editor3DLayer::RenderRuntimeExportDialog() {
+    if (m_ShowRuntimeExportDialog) {
+        ImGui::OpenPopup("Export Runtime Data");
+        m_ShowRuntimeExportDialog = false;
     }
 
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(500, 350), ImGuiCond_Appearing);
 
-    if (ImGui::BeginPopupModal("Export to Database", nullptr, ImGuiWindowFlags_NoResize)) {
-        bool connected = m_Database.IsConnected();
-
-        // -- Connection fields --
-        ImGui::SeparatorText("Connection");
-        float labelW = 80.0f;
-
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Host");     ImGui::SameLine(labelW); ImGui::SetNextItemWidth(-1); ImGui::InputText("##host", m_DbHost, sizeof(m_DbHost));
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("User");     ImGui::SameLine(labelW); ImGui::SetNextItemWidth(-1); ImGui::InputText("##user", m_DbUser, sizeof(m_DbUser));
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Password"); ImGui::SameLine(labelW); ImGui::SetNextItemWidth(-1); ImGui::InputText("##pass", m_DbPass, sizeof(m_DbPass), ImGuiInputTextFlags_Password);
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Database"); ImGui::SameLine(labelW); ImGui::SetNextItemWidth(-1); ImGui::InputText("##dbname", m_DbName, sizeof(m_DbName));
-
+    if (ImGui::BeginPopupModal("Export Runtime Data", nullptr, ImGuiWindowFlags_NoResize)) {
+        ImGui::TextWrapped("Export map data to Data/ folder for client runtime use.");
+        ImGui::TextWrapped("Output: Data/maps/, Data/models/, Data/textures/");
         ImGui::Spacing();
 
-        // Status indicator + Connect/Disconnect button
-        if (connected) {
-            ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), "Connected");
-            ImGui::SameLine();
-            if (ImGui::Button("Disconnect")) {
-                m_Database.Disconnect();
-                m_ExportLog.push_back("Disconnected.");
-            }
-        } else {
-            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Not connected");
-            ImGui::SameLine();
-            if (ImGui::Button("Connect")) {
-                std::string connStr = std::string("host=") + m_DbHost +
-                                      " user=" + m_DbUser +
-                                      " password=" + m_DbPass +
-                                      " dbname=" + m_DbName;
-                if (m_Database.Connect(connStr)) {
-                    m_ExportLog.push_back("Connected to " + std::string(m_DbName) + "@" + std::string(m_DbHost));
-                } else {
-                    m_ExportLog.push_back("Connection failed!");
-                }
-            }
-        }
-
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        // -- Export button --
-        bool canExport = connected && m_MapLoaded;
+        bool canExport = m_MapLoaded;
         if (!canExport) ImGui::BeginDisabled();
-        if (ImGui::Button("Export Map", ImVec2(-1, 30))) {
-            ExportMapToDatabase();
+        if (ImGui::Button("Export", ImVec2(-1, 30))) {
+            ExportRuntimeFiles();
         }
         if (!canExport) ImGui::EndDisabled();
 
         ImGui::Spacing();
-
-        // -- Log area --
         ImGui::SeparatorText("Log");
-        ImGui::BeginChild("ExportLog", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), ImGuiChildFlags_Borders);
-        for (const auto& line : m_ExportLog) {
+        ImGui::BeginChild("RuntimeExportLog", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), ImGuiChildFlags_Borders);
+        for (const auto& line : m_RuntimeExportLog) {
             ImGui::TextWrapped("%s", line.c_str());
         }
         if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
@@ -464,7 +492,6 @@ void Editor3DLayer::RenderExportDialog() {
         }
         ImGui::EndChild();
 
-        // -- Close button --
         if (ImGui::Button("Close", ImVec2(-1, 0))) {
             ImGui::CloseCurrentPopup();
         }
@@ -473,109 +500,197 @@ void Editor3DLayer::RenderExportDialog() {
     }
 }
 
-void Editor3DLayer::ExportMapToDatabase() {
-    if (!m_Database.IsConnected() || !m_MapLoaded) return;
+void Editor3DLayer::ExportRuntimeFiles() {
+    if (!m_MapLoaded || !m_ViewportPanel) return;
 
-    const MapEntry* entry = m_MapRegistry.GetMapById(m_CurrentMapId);
-    if (!entry) {
-        m_ExportLog.push_back("Export failed: no map entry found.");
+    m_RuntimeExportLog.clear();
+    m_RuntimeExportLog.push_back("Starting runtime export for map " + std::to_string(m_CurrentMapId) + "...");
+
+    auto result = m_ViewportPanel->GetWorldSystem().ExportForRuntime("Data", m_CurrentMapId);
+
+    m_RuntimeExportLog.push_back("Models exported: " + std::to_string(result.modelsExported));
+    m_RuntimeExportLog.push_back("Materials exported: " + std::to_string(result.materialsExported));
+    m_RuntimeExportLog.push_back("Chunks exported: " + std::to_string(result.chunksExported));
+    m_RuntimeExportLog.push_back("Textures copied: " + std::to_string(result.texturesCopied));
+
+    for (const auto& err : result.errors) {
+        m_RuntimeExportLog.push_back("ERROR: " + err);
+    }
+
+    if (result.success) {
+        m_RuntimeExportLog.push_back("Export completed successfully.");
+    } else {
+        m_RuntimeExportLog.push_back("Export completed with errors.");
+    }
+}
+
+void Editor3DLayer::StartRunLocally() {
+    if (!m_MapLoaded || !m_ViewportPanel) return;
+
+    // Run the export first so migration.sql exists. Reuses the same Data/
+    // output dir as the standalone Export Runtime Data flow.
+    auto result = m_ViewportPanel->GetWorldSystem().ExportForRuntime("Data", m_CurrentMapId);
+    if (!result.success) {
+        std::cerr << "[Run Locally] export failed; not starting servers" << std::endl;
+        for (const auto& err : result.errors) std::cerr << "  " << err << std::endl;
         return;
     }
 
-    uint32_t mapId = m_CurrentMapId;
-    m_ExportLog.push_back("Exporting map \"" + entry->displayName + "\" (ID " + std::to_string(mapId) + ")...");
-
-    // Clear existing data for this map
-    m_Database.ClearMapExportData(mapId);
-    m_ExportLog.push_back("Cleared existing data for map " + std::to_string(mapId));
-
-    // Compute terrain dimensions from loaded chunks
-    float mapWidth = 100.0f, mapHeight = 100.0f;
-    {
-        auto& chunks = m_ViewportPanel->GetWorldSystem().GetChunks();
-        if (!chunks.empty()) {
-            int32_t minCX = INT32_MAX, maxCX = INT32_MIN;
-            int32_t minCZ = INT32_MAX, maxCZ = INT32_MIN;
-            for (const auto& [key, chunk] : chunks) {
-                int32_t cx = chunk->GetChunkX();
-                int32_t cz = chunk->GetChunkZ();
-                minCX = std::min(minCX, cx);
-                maxCX = std::max(maxCX, cx);
-                minCZ = std::min(minCZ, cz);
-                maxCZ = std::max(maxCZ, cz);
-            }
-            mapWidth = static_cast<float>(maxCX - minCX + 1) * Editor3D::CHUNK_SIZE;
-            mapHeight = static_cast<float>(maxCZ - minCZ + 1) * Editor3D::CHUNK_SIZE;
-        }
+    // Sibling binaries live in the same dir as the editor exe.
+    // ONYX_BIN_DIR overrides for unusual layouts.
+    std::filesystem::path binDir;
+    if (const char* override_dir = std::getenv("ONYX_BIN_DIR")) {
+        binDir = std::filesystem::path(override_dir);
+    } else {
+        binDir = Onyx::Platform::GetExecutableDir();
     }
 
-    // Get default spawn from first player spawn, or center of terrain
-    float spawnX = mapWidth * 0.5f, spawnY = mapHeight * 0.5f, spawnZ = 0.0f;
-    if (!m_World.GetPlayerSpawns().empty()) {
-        auto& firstSpawn = m_World.GetPlayerSpawns().front();
-        auto pos = firstSpawn->GetPosition();
-        spawnX = pos.x;
-        spawnY = pos.z;  // 3D Z = server 2D Y
-        spawnZ = pos.y;  // 3D Y = height
+    m_RunSession.reset();
+    m_RunSession = std::make_unique<LocalRunSession>();
+    if (!m_RunSession->Start(binDir, std::filesystem::absolute("Data"), m_CurrentMapId)) {
+        std::cerr << "[Run Locally] failed: " << m_RunSession->LastError() << std::endl;
     }
-
-    // Export map template
-    m_Database.ExportMapTemplate(mapId, entry->displayName, mapWidth, mapHeight, spawnX, spawnY, spawnZ);
-    m_ExportLog.push_back("Exported map_template (size: " + std::to_string((int)mapWidth) + "x" + std::to_string((int)mapHeight) +
-                          ", spawn: " + std::to_string(spawnX) + ", " + std::to_string(spawnY) + ", " + std::to_string(spawnZ) + ")");
-
-    // Export spawn points as creature spawns
-    int spawnCount = 0;
-    for (const auto& spawn : m_World.GetSpawnPoints()) {
-        auto pos = spawn->GetPosition();
-        m_Database.ExportCreatureSpawn(
-            mapId,
-            spawn->GetCreatureTemplateId(),
-            pos.x, pos.z,
-            spawn->GetRespawnTime(),
-            0.0f
-        );
-        spawnCount++;
-    }
-    m_ExportLog.push_back("Exported " + std::to_string(spawnCount) + " creature spawns");
-
-    // Export instance portals
-    int portalCount = 0;
-    for (const auto& portal : m_World.GetInstancePortals()) {
-        auto pos = portal->GetPosition();
-        float radius = portal->GetInteractionRadius();
-        auto exitPos = portal->GetExitPosition();
-        m_Database.ExportPortal(
-            mapId,
-            pos.x, pos.z,
-            radius * 2.0f, radius * 2.0f,
-            portal->GetDungeonId(),
-            exitPos.x, exitPos.z
-        );
-        portalCount++;
-    }
-    m_ExportLog.push_back("Exported " + std::to_string(portalCount) + " portals");
-
-    // Export player spawns
-    m_Database.ClearPlayerCreateInfo(mapId);
-    int playerSpawnCount = 0;
-    for (const auto& ps : m_World.GetPlayerSpawns()) {
-        auto pos = ps->GetPosition();
-        float orientation = ps->GetOrientation();
-        for (const auto& [race, cls] : ps->GetRaceClassPairs()) {
-            m_Database.ExportPlayerCreateInfo(
-                static_cast<uint8_t>(race),
-                static_cast<uint8_t>(cls),
-                mapId,
-                pos.x, pos.z, pos.y,
-                orientation
-            );
-            playerSpawnCount++;
-        }
-    }
-    m_ExportLog.push_back("Exported " + std::to_string(playerSpawnCount) + " player spawn entries");
-    m_ExportLog.push_back("Export complete.");
 }
-#endif
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SAVE / DB ROUND-TRIP
+// ─────────────────────────────────────────────────────────────────────────────
+
+void Editor3DLayer::HandleSave() {
+    if (!m_MapLoaded || !m_ViewportPanel) return;
+    m_ViewportPanel->GetWorldSystem().SaveDirtyChunks();
+    SyncWorldToDatabase();
+    m_LastSaveTime = std::chrono::steady_clock::now();
+}
+
+#ifdef HAS_DATABASE
+
+namespace {
+
+std::string BuildEditorDbConnString() {
+    auto get = [](const char* name, const char* fallback) -> std::string {
+        const char* v = std::getenv(name);
+        return v ? std::string(v) : std::string(fallback);
+    };
+    std::ostringstream s;
+    s << "host=" << get("DB_HOST", "localhost")
+      << " port=" << get("DB_PORT", "5432")
+      << " user=" << get("DB_USER", "root")
+      << " password=" << get("DB_PASS", "root")
+      << " dbname=" << get("DB_NAME", "mmogame");
+    return s.str();
+}
+
+} // namespace
+
+bool Editor3DLayer::EnsureDatabaseConnected() {
+    if (m_Database.IsConnected()) return true;
+    if (m_DatabaseConnectAttempted) return false;
+    m_DatabaseConnectAttempted = true;
+    if (!m_Database.Connect(BuildEditorDbConnString())) {
+        std::cerr << "[Editor] Could not connect to Postgres — spawn entities "
+                     "will not persist across editor restarts. Check DB_HOST/"
+                     "DB_USER/DB_PASS/DB_NAME env vars." << std::endl;
+        return false;
+    }
+    // Schema migrations are owned by the LoginServer/WorldServer at boot, but
+    // run them here too so a freshly-cloned editor can edit a freshly-created
+    // database without needing the servers to have ever run.
+    if (!MigrationRunner::ApplyAll(m_Database)) {
+        std::cerr << "[Editor] Schema migrations failed; spawn load/save will be skipped." << std::endl;
+        m_Database.Disconnect();
+        return false;
+    }
+    std::cout << "[Editor] Connected to Postgres for spawn round-trip." << std::endl;
+    return true;
+}
+
+void Editor3DLayer::LoadWorldFromDatabase(uint32_t mapId) {
+    if (!EnsureDatabaseConnected()) return;
+
+    // ── Creature spawns → SpawnPoints. DB stores Z-up; editor uses Y-up.
+    auto creatures = m_Database.LoadCreatureSpawns(mapId);
+    for (const auto& cs : creatures) {
+        std::string name = "Creature " + std::to_string(cs.creatureTemplateId);
+        SpawnPoint* sp = m_World.CreateSpawnPoint(name);
+        // Axis swap: DB(x, y_ground, z_vertical) → Editor(x, y_vertical, z_ground)
+        sp->SetPosition(glm::vec3(cs.positionX, cs.positionZ, cs.positionY));
+        sp->SetRotation(glm::angleAxis(cs.orientation, glm::vec3(0.0f, 1.0f, 0.0f)));
+        sp->SetCreatureTemplateId(cs.creatureTemplateId);
+        sp->SetRespawnTime(cs.respawnTime);
+        sp->SetWanderRadius(cs.wanderRadius);
+        sp->SetMaxCount(cs.maxCount);
+    }
+
+    // ── Player spawns → group player_create_info rows by exact (pos, ori) tuple
+    // so a single editor PlayerSpawn can carry multiple (race, class) pairs.
+    auto rows = m_Database.LoadPlayerCreateInfo();
+    struct Key {
+        uint32_t mapId;
+        float x, y, z, ori;
+        bool operator<(const Key& o) const {
+            return std::tie(mapId, x, y, z, ori) < std::tie(o.mapId, o.x, o.y, o.z, o.ori);
+        }
+    };
+    std::map<Key, std::vector<std::pair<uint8_t, uint8_t>>> grouped;
+    for (const auto& r : rows) {
+        if (r.info.mapId != mapId) continue;
+        grouped[{r.info.mapId, r.info.positionX, r.info.positionY, r.info.positionZ, r.info.orientation}]
+            .push_back({r.race, r.cls});
+    }
+    for (const auto& [k, pairs] : grouped) {
+        PlayerSpawn* ps = m_World.CreatePlayerSpawn();
+        ps->SetPosition(glm::vec3(k.x, k.z, k.y));  // axis swap — see above
+        ps->SetOrientation(k.ori);
+        ps->SetRotation(glm::angleAxis(k.ori, glm::vec3(0.0f, 1.0f, 0.0f)));
+        for (auto [race, cls] : pairs) {
+            ps->AddRaceClass(static_cast<CharacterRace>(race),
+                             static_cast<CharacterClass>(cls));
+        }
+    }
+
+    if (!creatures.empty() || !grouped.empty()) {
+        std::cout << "[Editor] Loaded " << creatures.size()
+                  << " creature spawns and " << grouped.size()
+                  << " player spawns from DB for map " << mapId << "." << std::endl;
+    }
+}
+
+void Editor3DLayer::SyncWorldToDatabase() {
+    if (!m_MapLoaded || !EnsureDatabaseConnected()) return;
+
+    // Build the same SQL the migration.sql writer emits, but apply it directly
+    // to the live connection instead of writing to disk. The writer methods
+    // emit their own BEGIN/COMMIT, so each entity-type block is self-contained.
+    std::ostringstream sql;
+
+    std::vector<const SpawnPoint*> spawns;
+    spawns.reserve(m_World.GetSpawnPoints().size());
+    for (const auto& sp : m_World.GetSpawnPoints()) spawns.push_back(sp.get());
+    MigrationSqlWriter::EmitCreatureSpawnsForMap(m_CurrentMapId, spawns, sql);
+
+    std::vector<const PlayerSpawn*> players;
+    players.reserve(m_World.GetPlayerSpawns().size());
+    for (const auto& ps : m_World.GetPlayerSpawns()) players.push_back(ps.get());
+    MigrationSqlWriter::EmitPlayerCreateInfo(players, m_CurrentMapId, sql);
+
+    const std::string sqlText = sql.str();
+    if (sqlText.empty()) return;
+
+    try {
+        pqxx::nontransaction txn(m_Database.GetRawConnection());
+        txn.exec(sqlText);
+    } catch (const std::exception& e) {
+        std::cerr << "[Editor] Failed to sync spawns to DB: " << e.what() << std::endl;
+    }
+}
+
+#else  // !HAS_DATABASE
+
+bool Editor3DLayer::EnsureDatabaseConnected() { return false; }
+void Editor3DLayer::LoadWorldFromDatabase(uint32_t /*mapId*/) {}
+void Editor3DLayer::SyncWorldToDatabase() {}
+
+#endif  // HAS_DATABASE
 
 } // namespace MMO

@@ -34,6 +34,8 @@ struct CharacterData {
     uint32_t mapId;          // Map template ID
     float positionX;
     float positionY;
+    float positionZ = 0.0f;
+    float orientation = 0.0f;
     int32_t maxHealth;
     int32_t maxMana;
     int32_t currentHealth;
@@ -58,11 +60,13 @@ struct PortalData {
 };
 
 struct CreatureSpawnData {
-    uint32_t id;
+    std::string guid;
     uint32_t creatureTemplateId;
-    float positionX, positionY;
+    float positionX, positionY, positionZ;
+    float orientation;
     float respawnTime;
-    float corpseDecayTime;
+    float wanderRadius;
+    uint32_t maxCount;
 };
 
 struct CooldownData {
@@ -83,6 +87,8 @@ public:
     void Disconnect();
     bool IsConnected() const { return m_Connection != nullptr; }
 
+    pqxx::connection& GetRawConnection() { return *m_Connection; }
+
     // Account operations
     std::optional<AccountData> GetAccountByUsername(const std::string& username);
     bool CreateAccount(const std::string& username, const std::string& email,
@@ -94,24 +100,12 @@ public:
     std::optional<CharacterData> GetCharacterById(CharacterId characterId);
     bool CreateCharacter(AccountId accountId, const std::string& name,
                          CharacterRace characterRace, CharacterClass characterClass,
-                         uint32_t mapId, float posX, float posY,
+                         uint32_t mapId, float posX, float posY, float posZ, float orientation,
                          int32_t maxHealth, int32_t maxMana,
                          CharacterId& outId);
     bool DeleteCharacter(CharacterId characterId);
     bool SaveCharacter(const CharacterData& character);
     bool IsNameTaken(const std::string& name);
-
-    // Map export (editor -> DB)
-    bool ExportMapTemplate(uint32_t mapId, const std::string& name, float width, float height,
-                           float spawnX, float spawnY, float spawnZ);
-    bool ExportPortal(uint32_t mapId, float posX, float posY, float sizeX, float sizeY,
-                      uint32_t destMapId, float destX, float destY);
-    bool ExportCreatureSpawn(uint32_t mapId, uint32_t creatureTemplateId,
-                             float posX, float posY, float respawnTime, float corpseDecayTime);
-    bool ClearMapExportData(uint32_t mapId);
-    bool ExportPlayerCreateInfo(uint8_t race, uint8_t cls, uint32_t mapId,
-                                float posX, float posY, float posZ, float orientation);
-    bool ClearPlayerCreateInfo(uint32_t mapId);
 
     // Map loading (server reads from DB)
     std::vector<MapTemplateData> LoadAllMapTemplates();

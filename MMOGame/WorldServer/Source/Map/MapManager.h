@@ -22,8 +22,8 @@ public:
         return instance;
     }
 
-    // Initialize with map templates (loads from DB if available, falls back to hardcoded)
-    void Initialize();
+    // Initialize with map templates loaded from the database. DB is now the
+    // single source of truth (no hardcoded fallback).
     void Initialize(Database& db);
 
     // Get map instance (creates if needed for world maps)

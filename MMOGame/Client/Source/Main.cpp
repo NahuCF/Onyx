@@ -68,9 +68,10 @@ public:
             uint32_t mapId = m_Client.GetMapId();
             if (mapId != m_CurrentMapId && mapId != 0) {
                 m_TerrainSystem->UnloadZone();
-                char mapDir[16];
-                snprintf(mapDir, sizeof(mapDir), "maps/%03u", mapId);
+                char mapDir[64];
+                snprintf(mapDir, sizeof(mapDir), "Data/maps/%03u", mapId);
                 m_TerrainSystem->LoadZone(mapId, mapDir);
+                m_Renderer->LoadStaticObjects(*m_TerrainSystem, "Data");
                 m_CurrentMapId = mapId;
             }
 
@@ -80,11 +81,15 @@ public:
             uint32_t vpH = static_cast<uint32_t>(window.Height());
 
             const auto& player = m_Client.GetLocalPlayer();
-            float playerHeight = m_TerrainSystem->GetHeightAt(player.position.x, player.position.y);
+            // Server-authored Z (from PlayerSpawn) takes precedence over terrain snap.
+            float playerHeight = (player.height != 0.0f)
+                ? player.height
+                : m_TerrainSystem->GetHeightAt(player.position.x, player.position.y);
             glm::vec3 player3D(player.position.x, playerHeight, player.position.y);
 
             m_Renderer->BeginFrame(player3D, dt, vpW, vpH);
             m_Renderer->RenderTerrain(*m_TerrainSystem);
+            m_Renderer->RenderStaticObjects();
             m_Renderer->RenderEntities(player, m_Client.GetEntities(),
                                         m_Client.GetPortals(), m_Client.GetProjectiles(),
                                         *m_TerrainSystem);
@@ -140,14 +145,6 @@ private:
         }
 
         m_Client.SendInput(moveX, moveY, rotation);
-
-        // Camera rotation (Q/E)
-        if (ImGui::IsKeyPressed(ImGuiKey_Q)) {
-            m_Renderer->GetCamera().RotateYaw(-45.0f);
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_E)) {
-            m_Renderer->GetCamera().RotateYaw(45.0f);
-        }
 
         // Camera zoom (scroll wheel)
         float scroll = ImGui::GetIO().MouseWheel;

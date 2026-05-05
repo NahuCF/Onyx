@@ -1,5 +1,7 @@
 #include "GameRenderer.h"
+#include <Model/OmdlReader.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <GL/glew.h>
 #include <iostream>
 
 namespace MMO {
@@ -17,6 +19,10 @@ void GameRenderer::Init() {
     m_EntityShader = std::make_unique<Onyx::Shader>(
         "MMOGame/Client/assets/shaders/entity.vert",
         "MMOGame/Client/assets/shaders/entity.frag");
+
+    m_ModelShader = std::make_unique<Onyx::Shader>(
+        "MMOGame/Client/assets/shaders/model.vert",
+        "MMOGame/Client/assets/shaders/model.frag");
 
     // Create 1x1 white texture as diffuse fallback
     m_WhiteTexture = Onyx::Texture::CreateSolidColor(255, 255, 255, 255);
@@ -66,6 +72,147 @@ void GameRenderer::RenderTerrain(ClientTerrainSystem& terrain) {
     m_TerrainShader->UnBind();
 }
 
+void GameRenderer::RenderStaticObjects() {
+    if (!m_Initialized || m_StaticObjects.empty()) return;
+
+    m_ModelShader->Bind();
+    m_ModelShader->SetMat4("u_View", m_ViewMatrix);
+    m_ModelShader->SetMat4("u_Projection", m_ProjMatrix);
+    m_ModelShader->SetVec3("u_LightDir", m_SunDirection);
+    m_ModelShader->SetVec3("u_LightColor", m_SunColor);
+    m_ModelShader->SetFloat("u_AmbientStrength", m_AmbientStrength);
+    m_ModelShader->SetInt("u_AlbedoMap", 0);
+
+    for (const auto& obj : m_StaticObjects) {
+        if (!obj.model) continue;
+
+        m_ModelShader->SetMat4("u_Model", obj.modelMatrix);
+        obj.model->vao->Bind();
+
+        for (size_t i = 0; i < obj.model->meshes.size(); i++) {
+            const auto& mesh = obj.model->meshes[i];
+
+            // Bind per-mesh albedo texture
+            if (i < obj.model->albedoTextures.size() && obj.model->albedoTextures[i]) {
+                obj.model->albedoTextures[i]->Bind(0);
+            } else {
+                m_WhiteTexture->Bind(0);
+            }
+
+            glDrawElementsBaseVertex(
+                GL_TRIANGLES,
+                static_cast<GLsizei>(mesh.indexCount),
+                GL_UNSIGNED_INT,
+                reinterpret_cast<void*>(static_cast<uintptr_t>(mesh.firstIndex * sizeof(uint32_t))),
+                mesh.baseVertex
+            );
+        }
+
+        obj.model->vao->UnBind();
+    }
+
+    m_ModelShader->UnBind();
+}
+
+void GameRenderer::LoadStaticObjects(const ClientTerrainSystem& terrain, const std::string& dataDir) {
+    m_StaticObjects.clear();
+
+    const auto& objects = terrain.GetAllObjects();
+    std::cout << "[GameRenderer] Loading " << objects.size() << " static objects..." << std::endl;
+
+    for (const auto& obj : objects) {
+        if (obj.modelPath.empty()) continue;
+
+        std::string fullPath = dataDir + "/" + obj.modelPath;
+        RuntimeModel* model = LoadRuntimeModel(fullPath);
+        if (!model) continue;
+
+        // Build model matrix from position, rotation (euler radians), scale
+        glm::mat4 mat = glm::mat4(1.0f);
+        mat = glm::translate(mat, glm::vec3(obj.position[0], obj.position[1], obj.position[2]));
+        mat = glm::rotate(mat, obj.rotation[1], glm::vec3(0, 1, 0));  // Y first
+        mat = glm::rotate(mat, obj.rotation[0], glm::vec3(1, 0, 0));  // X
+        mat = glm::rotate(mat, obj.rotation[2], glm::vec3(0, 0, 1));  // Z
+        mat = glm::scale(mat, glm::vec3(obj.scale[0], obj.scale[1], obj.scale[2]));
+
+        StaticWorldObject swo;
+        swo.model = model;
+        swo.modelMatrix = mat;
+        m_StaticObjects.push_back(swo);
+    }
+
+    std::cout << "[GameRenderer] Loaded " << m_StaticObjects.size() << " static objects, "
+              << m_ModelCache.size() << " unique models" << std::endl;
+}
+
+RuntimeModel* GameRenderer::LoadRuntimeModel(const std::string& path) {
+    // Check cache
+    auto it = m_ModelCache.find(path);
+    if (it != m_ModelCache.end()) {
+        return it->second.get();
+    }
+
+    // Read .omdl file
+    OmdlData data;
+    if (!ReadOmdl(path, data)) {
+        std::cerr << "[GameRenderer] Failed to load .omdl: " << path << std::endl;
+        return nullptr;
+    }
+
+    auto model = std::make_unique<RuntimeModel>();
+    model->meshes = std::move(data.meshes);
+    model->totalIndices = data.header.totalIndices;
+
+    Onyx::RenderCommand::ResetState();
+
+    // Create GPU buffers from raw blobs
+    model->vao = std::make_unique<Onyx::VertexArray>();
+    model->vbo = std::make_unique<Onyx::VertexBuffer>(
+        data.vertexBlob.data(), static_cast<uint32_t>(data.vertexBlob.size()));
+    model->ebo = std::make_unique<Onyx::IndexBuffer>(
+        data.indexBlob.data(), static_cast<uint32_t>(data.indexBlob.size()));
+
+    // MeshVertex layout: pos3 + normal3 + uv2 + tangent3 + bitangent3 = 14 floats = 56 bytes
+    Onyx::VertexLayout layout = Onyx::MeshVertex::GetLayout();
+
+    model->vao->SetVertexBuffer(model->vbo.get());
+    model->vao->SetLayout(layout);
+    model->vao->SetIndexBuffer(model->ebo.get());
+    model->vao->UnBind();
+
+    // Load per-mesh albedo textures
+    // Resolve paths relative to the Data/ directory
+    std::string dataDir;
+    {
+        // Extract base dir: path is like "Data/models/foo.omdl", we want "Data/"
+        auto pos = path.find("models/");
+        if (pos != std::string::npos) {
+            dataDir = path.substr(0, pos);  // "Data/"
+        }
+    }
+
+    model->albedoTextures.resize(model->meshes.size());
+    for (size_t i = 0; i < model->meshes.size(); i++) {
+        const auto& meshInfo = model->meshes[i];
+        if (!meshInfo.albedoPath.empty()) {
+            std::string texPath = dataDir + meshInfo.albedoPath;
+            auto tex = std::make_unique<Onyx::Texture>(texPath.c_str());
+            if (tex->GetTextureID() != 0) {
+                model->albedoTextures[i] = std::move(tex);
+            }
+        }
+    }
+
+    RuntimeModel* ptr = model.get();
+    m_ModelCache[path] = std::move(model);
+
+    std::cout << "[GameRenderer] Loaded .omdl: " << path
+              << " (" << data.header.meshCount << " meshes, "
+              << data.header.totalVertices << " verts)" << std::endl;
+
+    return ptr;
+}
+
 void GameRenderer::RenderEntities(const LocalPlayer& player,
                                    const std::unordered_map<EntityId, RemoteEntity>& entities,
                                    const std::vector<GameClient::ClientPortal>& portals,
@@ -82,16 +229,18 @@ void GameRenderer::RenderEntities(const LocalPlayer& player,
 
     // Draw local player
     {
-        float h = terrain.GetHeightAt(player.position.x, player.position.y);
+        // Server-authored Z (from PlayerSpawn) takes precedence over terrain snap.
+        float h = (player.height != 0.0f) ? player.height
+                                          : terrain.GetHeightAt(player.position.x, player.position.y);
         glm::vec3 pos3D(player.position.x, h, player.position.y);
 
         glm::vec4 color;
         switch (player.characterClass) {
             case CharacterClass::WARRIOR:
-                color = glm::vec4(0.4f, 0.6f, 1.0f, 1.0f);  // Blue
+                color = glm::vec4(0.4f, 0.6f, 1.0f, 1.0f);
                 break;
             case CharacterClass::WITCH:
-                color = glm::vec4(0.8f, 0.4f, 1.0f, 1.0f);  // Purple
+                color = glm::vec4(0.8f, 0.4f, 1.0f, 1.0f);
                 break;
             default:
                 color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -102,7 +251,8 @@ void GameRenderer::RenderEntities(const LocalPlayer& player,
 
     // Draw remote entities
     for (const auto& [id, entity] : entities) {
-        float h = terrain.GetHeightAt(entity.position.x, entity.position.y);
+        float h = (entity.height != 0.0f) ? entity.height
+                                          : terrain.GetHeightAt(entity.position.x, entity.position.y);
         glm::vec3 pos3D(entity.position.x, h, entity.position.y);
 
         glm::vec4 color;
@@ -110,13 +260,13 @@ void GameRenderer::RenderEntities(const LocalPlayer& player,
 
         switch (entity.type) {
             case EntityType::PLAYER:
-                color = glm::vec4(0.0f, 0.8f, 0.0f, 1.0f);  // Green
+                color = glm::vec4(0.0f, 0.8f, 0.0f, 1.0f);
                 break;
             case EntityType::MOB:
                 if (isDead)
-                    color = glm::vec4(0.3f, 0.25f, 0.25f, 1.0f);  // Dark gray
+                    color = glm::vec4(0.3f, 0.25f, 0.25f, 1.0f);
                 else
-                    color = glm::vec4(0.8f, 0.2f, 0.2f, 1.0f);  // Red
+                    color = glm::vec4(0.8f, 0.2f, 0.2f, 1.0f);
                 break;
             default:
                 color = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
@@ -126,9 +276,7 @@ void GameRenderer::RenderEntities(const LocalPlayer& player,
         float cubeHeight = isDead ? 0.3f : 1.0f;
         DrawCube(pos3D, glm::vec3(0.5f, cubeHeight, 0.5f), color);
 
-        // Draw target indicator as wireframe
         if (id == player.targetId) {
-            // Draw a slightly larger wireframe cube
             Onyx::RenderCommand::SetWireframeMode(true);
             DrawCube(pos3D, glm::vec3(0.6f, cubeHeight + 0.1f, 0.6f),
                      glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
@@ -176,7 +324,7 @@ glm::vec2 GameRenderer::ProjectToScreen(const glm::vec3& worldPos,
 
 void GameRenderer::DrawCube(const glm::vec3& position, const glm::vec3& scale, const glm::vec4& color) {
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, position + glm::vec3(0, scale.y, 0));  // Bottom at ground level
+    model = glm::translate(model, position + glm::vec3(0, scale.y, 0));
     model = glm::scale(model, scale);
 
     m_EntityShader->SetMat4("u_Model", model);
@@ -188,7 +336,6 @@ void GameRenderer::DrawCube(const glm::vec3& position, const glm::vec3& scale, c
 }
 
 void GameRenderer::InitCubeMesh() {
-    // Unit cube centered at origin, with normals
     float vertices[] = {
         // Front face (normal: 0,0,1)
         -1, -1,  1,   0, 0, 1,
@@ -223,12 +370,12 @@ void GameRenderer::InitCubeMesh() {
     };
 
     uint32_t indices[] = {
-        0,1,2,  0,2,3,      // front
-        4,5,6,  4,6,7,      // back
-        8,9,10, 8,10,11,    // top
-        12,13,14, 12,14,15, // bottom
-        16,17,18, 16,18,19, // right
-        20,21,22, 20,22,23  // left
+        0,1,2,  0,2,3,
+        4,5,6,  4,6,7,
+        8,9,10, 8,10,11,
+        12,13,14, 12,14,15,
+        16,17,18, 16,18,19,
+        20,21,22, 20,22,23
     };
 
     m_CubeIndexCount = 36;

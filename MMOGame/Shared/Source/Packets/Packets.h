@@ -436,12 +436,16 @@ struct S_AuthResult {
 struct S_EnterWorld {
     EntityId yourEntityId;
     Vec2 spawnPosition;
+    float spawnHeight = 0.0f;       // Z (vertical placement)
+    float spawnOrientation = 0.0f;  // yaw (radians)
     std::string zoneName;
     uint32_t mapId = 0;
 
     void Serialize(WriteBuffer& buf) const {
         buf.WriteU32(yourEntityId);
         buf.WriteVec2(spawnPosition);
+        buf.WriteF32(spawnHeight);
+        buf.WriteF32(spawnOrientation);
         buf.WriteString(zoneName);
         buf.WriteU32(mapId);
     }
@@ -449,6 +453,8 @@ struct S_EnterWorld {
     void Deserialize(ReadBuffer& buf) {
         yourEntityId = buf.ReadU32();
         spawnPosition = buf.ReadVec2();
+        spawnHeight = buf.ReadF32();
+        spawnOrientation = buf.ReadF32();
         zoneName = buf.ReadString();
         mapId = buf.ReadU32();
     }
@@ -458,6 +464,7 @@ struct EntityState {
     EntityId id;
     EntityType type;
     Vec2 position;
+    float height = 0.0f;
     float rotation;
     MoveState moveState;
     int32_t health;
@@ -473,6 +480,7 @@ struct EntityState {
         buf.WriteU32(id);
         buf.WriteU8(static_cast<uint8_t>(type));
         buf.WriteVec2(position);
+        buf.WriteF32(height);
         buf.WriteF32(rotation);
         buf.WriteU8(static_cast<uint8_t>(moveState));
         buf.WriteI32(health);
@@ -491,6 +499,7 @@ struct EntityState {
         id = buf.ReadU32();
         type = static_cast<EntityType>(buf.ReadU8());
         position = buf.ReadVec2();
+        height = buf.ReadF32();
         rotation = buf.ReadF32();
         moveState = static_cast<MoveState>(buf.ReadU8());
         health = buf.ReadI32();
@@ -551,6 +560,7 @@ struct S_EntityUpdate {
 
     // Optional fields (only present if bit is set in updateMask)
     Vec2 position;
+    float height = 0.0f;
     float rotation;
     MoveState moveState;
     int32_t health;
@@ -568,6 +578,7 @@ struct S_EntityUpdate {
 
         if (updateMask & UPDATE_POSITION) {
             buf.WriteVec2(position);
+            buf.WriteF32(height);
             buf.WriteF32(rotation);
         }
         if (updateMask & UPDATE_MOVE_STATE) {
@@ -599,6 +610,7 @@ struct S_EntityUpdate {
 
         if (updateMask & UPDATE_POSITION) {
             position = buf.ReadVec2();
+            height = buf.ReadF32();
             rotation = buf.ReadF32();
         }
         if (updateMask & UPDATE_MOVE_STATE) {
@@ -650,6 +662,7 @@ struct S_EntitySpawn {
     std::string name;
     CharacterClass characterClass;  // For players
     Vec2 position;
+    float height = 0.0f;
     float rotation;
     int32_t health;
     int32_t maxHealth;
@@ -661,6 +674,7 @@ struct S_EntitySpawn {
         buf.WriteString(name);
         buf.WriteU8(static_cast<uint8_t>(characterClass));
         buf.WriteVec2(position);
+        buf.WriteF32(height);
         buf.WriteF32(rotation);
         buf.WriteI32(health);
         buf.WriteI32(maxHealth);
@@ -673,6 +687,7 @@ struct S_EntitySpawn {
         name = buf.ReadString();
         characterClass = static_cast<CharacterClass>(buf.ReadU8());
         position = buf.ReadVec2();
+        height = buf.ReadF32();
         rotation = buf.ReadF32();
         health = buf.ReadI32();
         maxHealth = buf.ReadI32();

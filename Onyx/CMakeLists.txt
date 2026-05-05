@@ -61,10 +61,12 @@ endif()
 
 # Platform-specific settings
 if(WIN32)
-    target_compile_definitions(Onyx 
-        PUBLIC 
+    target_compile_definitions(Onyx
+        PUBLIC
             _CRT_SECURE_NO_WARNINGS
             GLEW_STATIC
+            NOMINMAX
+            WIN32_LEAN_AND_MEAN
         PRIVATE
             SE_PLATFORM_WINDOWS  # For compatibility with existing code
     )
@@ -100,7 +102,7 @@ endif()
 # Set properties
 set_target_properties(Onyx PROPERTIES
     POSITION_INDEPENDENT_CODE ON
-    CXX_STANDARD 17
+    CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
     FOLDER "Engine"
 )

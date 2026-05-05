@@ -15,7 +15,7 @@ constexpr uint32_t OBJS_TAG = 0x4F424A53;  // Objects
 constexpr uint32_t SNDS_TAG = 0x534E4453;  // Sounds
 
 // ---- Format versions ----
-constexpr uint32_t CHUNK_FORMAT_VERSION   = 2;  // CHNK container
+constexpr uint32_t CHUNK_FORMAT_VERSION   = 3;  // CHNK container
 constexpr uint32_t TERRAIN_FORMAT_VERSION = 4;  // Standalone TERR
 
 // ---- Sanity limits ----
@@ -44,6 +44,7 @@ struct ChunkObjectData {
     float rotation[3] = {0, 0, 0};
     float scale[3]    = {1, 1, 1};
     uint32_t flags    = 0;
+    std::string materialId;
 };
 
 } // namespace MMO

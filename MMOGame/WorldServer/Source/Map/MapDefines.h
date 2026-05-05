@@ -36,16 +36,20 @@ struct Portal {
 // ============================================================
 
 struct MobSpawnPoint {
-    uint32_t id;
+    uint32_t id;                          // Runtime index (assigned by MapManager)
+    std::string guid;                      // DB-stable identity (creature_spawn.guid)
     uint32_t creatureTemplateId;
-    Vec2 position;
+    Vec2 position;                         // 2D position for grid placement
+    float positionZ = 0.0f;                // Vertical placement
+    float orientation = 0.0f;              // Facing angle (radians)
     float respawnTimeOverride = 0.0f;      // 0 = use creature template/rank default
-    float corpseDecayTimeOverride = 0.0f;  // 0 = use creature template/rank default
+    float wanderRadius = 0.0f;
+    uint32_t maxCount = 1;
 
     // Get effective respawn time: spawn override > template override > rank default
     float GetRespawnTime(const CreatureTemplate* tmpl) const;
 
-    // Get effective corpse decay time: spawn override > template override > rank default
+    // Corpse decay falls back to template/rank default (no per-spawn override).
     float GetCorpseDecayTime(const CreatureTemplate* tmpl) const;
 };
 

@@ -1,4 +1,5 @@
 #include "LoginServer.h"
+#include "../../Shared/Source/Database/MigrationRunner.h"
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -31,6 +32,12 @@ bool LoginServer::Initialize(const std::string& dbConnectionString, uint16_t por
     // Connect to database
     if (!m_Database.Connect(dbConnectionString)) {
         std::cerr << "Failed to connect to database" << std::endl;
+        return false;
+    }
+
+    // Apply schema migrations before reading any tables.
+    if (!MigrationRunner::ApplyAll(m_Database)) {
+        std::cerr << "Schema migrations failed; aborting startup" << std::endl;
         return false;
     }
 
@@ -298,12 +305,15 @@ void LoginServer::HandleCreateCharacter(uint32_t peerId, ReadBuffer& buf) {
     uint32_t mapId = createInfo ? createInfo->mapId : 1;
     float posX = createInfo ? createInfo->positionX : 10.0f;
     float posY = createInfo ? createInfo->positionY : 10.0f;
+    float posZ = createInfo ? createInfo->positionZ : 0.0f;
+    float orientation = createInfo ? createInfo->orientation : 0.0f;
 
     // Create character
     CharacterId newId;
     if (!m_Database.CreateCharacter(it->second.accountId, request.name,
                                     request.characterRace, request.characterClass,
-                                    mapId, posX, posY, maxHealth, maxMana, newId)) {
+                                    mapId, posX, posY, posZ, orientation,
+                                    maxHealth, maxMana, newId)) {
         SendError(peerId, ErrorCode::UNKNOWN_ERROR, "Failed to create character");
         return;
     }

@@ -13,7 +13,6 @@ float MobSpawnPoint::GetRespawnTime(const CreatureTemplate* tmpl) const {
 }
 
 float MobSpawnPoint::GetCorpseDecayTime(const CreatureTemplate* tmpl) const {
-    if (corpseDecayTimeOverride > 0) return corpseDecayTimeOverride;
     return tmpl ? tmpl->GetCorpseDecayTime() : GetDefaultCorpseDecayTime(CreatureRank::NORMAL);
 }
 

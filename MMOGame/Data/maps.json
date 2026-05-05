@@ -1,0 +1,6 @@
+{
+  "maps": [
+    { "id": 1, "folder": "StartingZone", "name": "Starting Zone" },
+    { "id": 2, "folder": "DarkForest", "name": "Dark Forest" }
+  ]
+}

@@ -10,14 +10,20 @@ namespace Onyx {
 
 	Shader::Shader(const char* vertexPath, const char* fragmentPath)
 	{
+		m_ProgramID = 0;
+		m_VertexID = 0;
+		m_FragmentID = 0;
+
 		m_VShaderFile.open(vertexPath);
 		m_FShaderFile.open(fragmentPath);
 
 		if (!m_VShaderFile.is_open()) {
-			std::cout << "ERROR::SHADER::VERTEX::FILE_NOT_FOUND: " << vertexPath << std::endl;
+			std::cerr << "ERROR::SHADER::VERTEX::FILE_NOT_FOUND: " << vertexPath << std::endl;
+			return;
 		}
 		if (!m_FShaderFile.is_open()) {
-			std::cout << "ERROR::SHADER::FRAGMENT::FILE_NOT_FOUND: " << fragmentPath << std::endl;
+			std::cerr << "ERROR::SHADER::FRAGMENT::FILE_NOT_FOUND: " << fragmentPath << std::endl;
+			return;
 		}
 
 		m_VShaderStream << m_VShaderFile.rdbuf();
@@ -41,8 +47,13 @@ namespace Onyx {
 		glGetShaderiv(m_VertexID, GL_COMPILE_STATUS, &success);
 		if(!success)
 		{
-			glGetShaderInfoLog(m_VertexID, 512, NULL, infoLog);
-			std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+			glGetShaderInfoLog(m_VertexID, 1024, NULL, infoLog);
+			std::cerr << "ERROR::SHADER::VERTEX::COMPILATION_FAILED [" << vertexPath << "]\n"
+			          << infoLog << std::endl;
+			std::cerr.flush();
+			glDeleteShader(m_VertexID); m_VertexID = 0;
+			glDeleteShader(m_FragmentID); m_FragmentID = 0;
+			return;
 		};
 
 		glShaderSource(m_FragmentID, 1, &m_FShaderCode, NULL);
@@ -51,8 +62,13 @@ namespace Onyx {
 		glGetShaderiv(m_FragmentID, GL_COMPILE_STATUS, &success);
 		if(!success)
 		{
-			glGetShaderInfoLog(m_FragmentID, 512, NULL, infoLog);
-			std::cout << "ERROR::SHADER::FFRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
+			glGetShaderInfoLog(m_FragmentID, 1024, NULL, infoLog);
+			std::cerr << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED [" << fragmentPath << "]\n"
+			          << infoLog << std::endl;
+			std::cerr.flush();
+			glDeleteShader(m_VertexID); m_VertexID = 0;
+			glDeleteShader(m_FragmentID); m_FragmentID = 0;
+			return;
 		};
 
 		m_ProgramID = glCreateProgram();
@@ -63,8 +79,10 @@ namespace Onyx {
 		glGetProgramiv(m_ProgramID, GL_LINK_STATUS, &success);
 		if (!success)
 		{
-			glGetProgramInfoLog(m_ProgramID, 512, NULL, infoLog);
-			std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
+			glGetProgramInfoLog(m_ProgramID, 1024, NULL, infoLog);
+			std::cerr << "ERROR::SHADER::PROGRAM::LINKING_FAILED [" << vertexPath << " + " << fragmentPath << "]\n"
+			          << infoLog << std::endl;
+			std::cerr.flush();
 		}
 
 		glDeleteShader(m_VertexID);

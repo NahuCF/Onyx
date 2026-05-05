@@ -23,6 +23,13 @@ struct SkinnedVertex {
     glm::vec4 boneWeights = glm::vec4(0.0f);
 
     void AddBoneData(int boneId, float weight);
+
+    static VertexLayout GetLayout() {
+        VertexLayout layout = MeshVertex::GetLayout();
+        layout.PushInt(4);    // boneIds    (location 5)
+        layout.PushFloat(4);  // boneWeights (location 6)
+        return layout;
+    }
 };
 
 struct SkinnedMesh {
@@ -37,17 +44,6 @@ struct SkinnedMesh {
     std::vector<uint32_t> indices;
 };
 
-struct MergedMeshInfo;
-
-struct SkinnedMergedBuffers {
-    std::unique_ptr<VertexArray> vao;
-    std::unique_ptr<VertexBuffer> vbo;
-    std::unique_ptr<IndexBuffer> ebo;
-    uint32_t totalVertices = 0;
-    uint32_t totalIndices = 0;
-    std::vector<MergedMeshInfo> meshInfos;
-};
-
 struct AnimatedMaterial {
     std::string name;
     glm::vec3 diffuseColor = glm::vec3(1.0f);
@@ -56,6 +52,16 @@ struct AnimatedMaterial {
     std::unique_ptr<Texture> diffuseTexture;
     std::unique_ptr<Texture> normalTexture;
     std::unique_ptr<Texture> specularTexture;
+
+    // Texture paths for deferred loading (populated by ParseFromFile, consumed by UploadGPUResources)
+    std::string diffuseTexturePath;
+    std::string normalTexturePath;
+    std::string specularTexturePath;
+
+    // Pre-loaded pixel data (populated by PreloadTextureData on background thread)
+    PreloadedImage preloadedDiffuse;
+    PreloadedImage preloadedNormal;
+    PreloadedImage preloadedSpecular;
 };
 
 class AnimatedModel {
@@ -64,6 +70,21 @@ public:
     ~AnimatedModel();
 
     bool Load(const std::string& path);
+
+    // Parse from file without creating GPU resources (thread-safe, no GL calls)
+    static std::unique_ptr<AnimatedModel> ParseFromFile(const std::string& path);
+
+    // Create GPU resources (VAO/VBO/EBO, Textures) from pre-parsed data. Must be called on main thread.
+    void UploadGPUResources();
+
+    // Upload only textures from stored paths (no VAO/VBO/EBO). For use with merged buffers path.
+    void UploadTextures();
+
+    // Thread-safe: pre-loads texture pixels from disk via stbi_load (no GL calls).
+    // Call on background thread before UploadTextures() to avoid main-thread stalls.
+    void PreloadTextureData();
+
+    bool HasGPUResources() const { return m_HasGPU; }
 
     bool LoadAnimation(const std::string& path);
 
@@ -88,7 +109,8 @@ public:
     const std::string& GetPath() const { return m_Path; }
 
     void BuildMergedBuffers();
-    const SkinnedMergedBuffers& GetMergedBuffers() const { return m_Merged; }
+    void SetMergedBuffers(MergedBuffers&& merged) { m_Merged = std::move(merged); m_HasGPU = true; }
+    const MergedBuffers& GetMergedBuffers() const { return m_Merged; }
     bool HasMergedBuffers() const { return m_Merged.vao != nullptr; }
 
     struct NodeData {
@@ -129,7 +151,14 @@ private:
     std::vector<NodeData> m_NodeHierarchy;
     std::unordered_map<std::string, int> m_NodeMap;
 
-    SkinnedMergedBuffers m_Merged;
+    MergedBuffers m_Merged;
+
+    bool m_HasGPU = false;
+
+    // Internal helpers shared between Load() and ParseFromFile()
+    void ProcessNodeImplCpuOnly(void* node, const void* scene);
+    void ProcessMeshImplCpuOnly(void* mesh, const void* scene);
+    void LoadMaterialsImplCpuOnly(const void* scene);
 };
 
 } // namespace Onyx

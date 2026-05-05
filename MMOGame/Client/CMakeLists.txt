@@ -4,10 +4,16 @@ project(MMOClient)
 set(CLIENT_SOURCES
     Source/Main.cpp
     Source/GameClient.cpp
+    Source/Rendering/IsometricCamera.cpp
+    Source/Rendering/GameRenderer.cpp
+    Source/Terrain/ClientTerrainSystem.cpp
 )
 
 set(CLIENT_HEADERS
     Source/GameClient.h
+    Source/Rendering/IsometricCamera.h
+    Source/Rendering/GameRenderer.h
+    Source/Terrain/ClientTerrainSystem.h
 )
 
 add_executable(MMOClient ${CLIENT_SOURCES} ${CLIENT_HEADERS})
@@ -24,7 +30,7 @@ target_link_libraries(MMOClient PRIVATE
 )
 
 set_target_properties(MMOClient PROPERTIES
-    CXX_STANDARD 17
+    CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
     OUTPUT_NAME "MMOClient"

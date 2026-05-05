@@ -30,6 +30,7 @@ void ClientTerrainSystem::LoadZone(uint32_t mapId, const std::string& basePath) 
         auto chunk = std::make_unique<ClientTerrainChunk>();
         chunk->data = std::move(fileData.terrain);
         chunk->data.CalculateBounds();
+        chunk->objects = std::move(fileData.objects);
 
         CreateChunkGPU(*chunk);
 
@@ -38,11 +39,21 @@ void ClientTerrainSystem::LoadZone(uint32_t mapId, const std::string& basePath) 
         loadedCount++;
     }
 
-    std::cout << "[ClientTerrain] Loaded " << loadedCount << " chunks for map " << mapId << std::endl;
+    // Build flat object list from all chunks
+    m_AllObjects.clear();
+    for (const auto& [key, chunk] : m_Chunks) {
+        for (const auto& obj : chunk->objects) {
+            m_AllObjects.push_back(obj);
+        }
+    }
+
+    std::cout << "[ClientTerrain] Loaded " << loadedCount << " chunks, "
+              << m_AllObjects.size() << " objects for map " << mapId << std::endl;
 }
 
 void ClientTerrainSystem::UnloadZone() {
     m_Chunks.clear();
+    m_AllObjects.clear();
     m_MapId = 0;
 }
 

@@ -1,0 +1,11 @@
+{
+    "maps": [
+        {
+            "displayName": "test",
+            "id": 1,
+            "instanceType": "open_world",
+            "internalName": "test",
+            "maxPlayers": 0
+        }
+    ]
+}

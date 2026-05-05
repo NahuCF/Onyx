@@ -13,6 +13,7 @@ namespace MMO {
 
 struct ClientTerrainChunk {
     TerrainChunkData data;
+    std::vector<ChunkObjectData> objects;
 
     std::unique_ptr<Onyx::VertexArray> vao;
     std::unique_ptr<Onyx::VertexBuffer> vbo;
@@ -37,6 +38,8 @@ public:
     float GetHeightAt(float worldX, float worldZ) const;
     bool HasChunks() const { return !m_Chunks.empty(); }
 
+    const std::vector<ChunkObjectData>& GetAllObjects() const { return m_AllObjects; }
+
 private:
     void CreateChunkGPU(ClientTerrainChunk& chunk);
     void GenerateMesh(ClientTerrainChunk& chunk);
@@ -48,6 +51,7 @@ private:
     }
 
     std::unordered_map<int64_t, std::unique_ptr<ClientTerrainChunk>> m_Chunks;
+    std::vector<ChunkObjectData> m_AllObjects;
     uint32_t m_MapId = 0;
 };
 

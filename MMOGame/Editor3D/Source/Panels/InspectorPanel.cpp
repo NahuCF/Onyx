@@ -2,6 +2,7 @@
 #include "ViewportPanel.h"
 #include "World/EditorWorld.h"
 #include "World/WorldTypes.h"
+#include "Data/RaceClassRegistry.h"
 #include <Graphics/Model.h>
 #include <Graphics/AnimatedModel.h>
 #include <Graphics/Animator.h>
@@ -633,34 +634,65 @@ void InspectorPanel::RenderInstancePortalProperties(InstancePortal* object) {
 }
 
 void InspectorPanel::RenderPlayerSpawnProperties(PlayerSpawn* object) {
-    ImGui::Text("Spawn Assignments:");
-    ImGui::Spacing();
+    const auto& combos = RaceClassRegistry::Combos();
 
-    // Race+Class checkbox grid
-    struct RaceEntry { CharacterRace race; const char* name; };
-    struct ClassEntry { CharacterClass cls; const char* name; };
+    // Determine the currently-selected combo (single per spawn in v1).
+    const auto& pairs = object->GetRaceClassPairs();
+    int currentIdx = -1;
+    if (!pairs.empty()) {
+        for (size_t i = 0; i < combos.size(); ++i) {
+            if (combos[i].raceId == pairs.front().first &&
+                combos[i].classId == pairs.front().second) {
+                currentIdx = static_cast<int>(i);
+                break;
+            }
+        }
+    }
 
-    const RaceEntry races[] = {
-        { CharacterRace::HUMAN, "Human" },
-        { CharacterRace::ORC,   "Orc" }
-    };
-    const ClassEntry classes[] = {
-        { CharacterClass::WARRIOR, "Warrior" },
-        { CharacterClass::WITCH,   "Witch" }
-    };
+    const char* preview = (currentIdx >= 0)
+        ? combos[currentIdx].DisplayName().c_str()
+        : "(none — will not export)";
 
-    for (const auto& race : races) {
-        for (const auto& cls : classes) {
-            bool has = object->HasRaceClass(race.race, cls.cls);
-            std::string label = std::string(race.name) + " " + cls.name;
-            if (ImGui::Checkbox(label.c_str(), &has)) {
-                if (has) {
-                    object->AddRaceClass(race.race, cls.cls);
-                } else {
-                    object->RemoveRaceClass(race.race, cls.cls);
+    if (ImGui::BeginCombo("Race / Class", preview)) {
+        for (size_t i = 0; i < combos.size(); ++i) {
+            const std::string label = combos[i].DisplayName();
+            const bool selected = (currentIdx == static_cast<int>(i));
+            if (ImGui::Selectable(label.c_str(), selected)) {
+                // Replace any existing pairs with the chosen single combo.
+                while (!object->GetRaceClassPairs().empty()) {
+                    const auto& p = object->GetRaceClassPairs().front();
+                    object->RemoveRaceClass(p.first, p.second);
+                }
+                object->AddRaceClass(combos[i].raceId, combos[i].classId);
+            }
+            if (selected) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+
+    // Conflict warning: another PlayerSpawn covers the same combo.
+    if (currentIdx >= 0 && m_World) {
+        const auto& chosen = combos[currentIdx];
+        int conflicts = 0;
+        for (const auto& other : m_World->GetPlayerSpawns()) {
+            if (other.get() == object) continue;
+            for (const auto& p : other->GetRaceClassPairs()) {
+                if (p.first == chosen.raceId && p.second == chosen.classId) {
+                    ++conflicts;
+                    break;
                 }
             }
         }
+        if (conflicts > 0) {
+            ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f),
+                "⚠ Conflict: another PlayerSpawn covers this combo. "
+                "Re-export will pick one arbitrarily.");
+        }
+    }
+
+    if (currentIdx < 0) {
+        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f),
+            "✗ No race/class assigned; will not export.");
     }
 
     ImGui::Spacing();
@@ -670,11 +702,6 @@ void InspectorPanel::RenderPlayerSpawnProperties(PlayerSpawn* object) {
     if (ImGui::SliderAngle("Orientation", &orientation, 0.0f, 360.0f)) {
         object->SetOrientation(orientation);
     }
-
-    ImGui::Spacing();
-
-    size_t count = object->GetRaceClassPairs().size();
-    ImGui::TextDisabled("%zu race+class combination%s assigned", count, count == 1 ? "" : "s");
 }
 
 bool InspectorPanel::RenderMaterialSelector(const char* label, std::string& materialId) {

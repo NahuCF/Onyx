@@ -58,6 +58,7 @@ struct RemoteEntity {
     std::string name;
     CharacterClass characterClass;
     Vec2 position;
+    float height = 0.0f;     // Z (vertical placement)
     Vec2 velocity;
     float rotation;
     MoveState moveState;
@@ -86,6 +87,7 @@ struct LocalPlayer {
     std::string name;
     CharacterClass characterClass;
     Vec2 position;
+    float height = 0.0f;    // Z (vertical placement)
     float rotation;
     int32_t health;
     int32_t maxHealth;

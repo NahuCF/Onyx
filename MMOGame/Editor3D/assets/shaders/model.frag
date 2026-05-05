@@ -28,6 +28,23 @@ uniform vec3 u_ViewPos;
 // Ambient
 uniform float u_AmbientStrength;
 
+// Point lights
+#define MAX_POINT_LIGHTS 32
+uniform int u_PointLightCount;
+uniform vec3 u_PointLightPos[MAX_POINT_LIGHTS];
+uniform vec3 u_PointLightColor[MAX_POINT_LIGHTS];
+uniform float u_PointLightRange[MAX_POINT_LIGHTS];
+
+// Spot lights
+#define MAX_SPOT_LIGHTS 8
+uniform int u_SpotLightCount;
+uniform vec3 u_SpotLightPos[MAX_SPOT_LIGHTS];
+uniform vec3 u_SpotLightDir[MAX_SPOT_LIGHTS];
+uniform vec3 u_SpotLightColor[MAX_SPOT_LIGHTS];
+uniform float u_SpotLightRange[MAX_SPOT_LIGHTS];
+uniform float u_SpotLightInnerCos[MAX_SPOT_LIGHTS];
+uniform float u_SpotLightOuterCos[MAX_SPOT_LIGHTS];
+
 float CalculateShadow(vec3 fragPos, vec3 normal, vec3 lightDir) {
     if (!u_EnableShadows) return 0.0;
 
@@ -62,6 +79,52 @@ float CalculateShadow(vec3 fragPos, vec3 normal, vec3 lightDir) {
     shadow /= 9.0;
 
     return 1.0 - shadow;
+}
+
+vec3 CalcPointLights(vec3 normal, vec3 viewDir, vec3 albedo) {
+    vec3 result = vec3(0.0);
+    for (int i = 0; i < u_PointLightCount; i++) {
+        vec3 toLight = u_PointLightPos[i] - v_FragPos;
+        float dist = length(toLight);
+        if (dist > u_PointLightRange[i]) continue;
+
+        float attenuation = 1.0 - smoothstep(0.0, u_PointLightRange[i], dist);
+        attenuation *= attenuation;
+        vec3 L = toLight / dist;
+        float diff = max(dot(normal, L), 0.0);
+
+        vec3 H = normalize(L + viewDir);
+        float spec = pow(max(dot(normal, H), 0.0), 32.0);
+
+        result += attenuation * (diff * albedo + spec * 0.3) * u_PointLightColor[i];
+    }
+    return result;
+}
+
+vec3 CalcSpotLights(vec3 normal, vec3 viewDir, vec3 albedo) {
+    vec3 result = vec3(0.0);
+    for (int i = 0; i < u_SpotLightCount; i++) {
+        vec3 toLight = u_SpotLightPos[i] - v_FragPos;
+        float dist = length(toLight);
+        if (dist > u_SpotLightRange[i]) continue;
+
+        vec3 L = toLight / dist;
+        float theta = dot(L, normalize(-u_SpotLightDir[i]));
+        if (theta < u_SpotLightOuterCos[i]) continue;
+
+        float epsilon = u_SpotLightInnerCos[i] - u_SpotLightOuterCos[i];
+        float spotFade = clamp((theta - u_SpotLightOuterCos[i]) / max(epsilon, 0.001), 0.0, 1.0);
+
+        float attenuation = 1.0 - smoothstep(0.0, u_SpotLightRange[i], dist);
+        attenuation *= attenuation;
+        float diff = max(dot(normal, L), 0.0);
+
+        vec3 H = normalize(L + viewDir);
+        float spec = pow(max(dot(normal, H), 0.0), 32.0);
+
+        result += attenuation * spotFade * (diff * albedo + spec * 0.3) * u_SpotLightColor[i];
+    }
+    return result;
 }
 
 void main() {
@@ -102,8 +165,12 @@ void main() {
     float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
     vec3 specular = spec * u_LightColor * 0.3;
 
-    // Apply shadow to diffuse and specular (not ambient)
-    vec3 lighting = ambient + (1.0 - shadow) * (diffuse + specular);
+    // Point and spot lights
+    vec3 pointContrib = CalcPointLights(normal, viewDir, albedo);
+    vec3 spotContrib = CalcSpotLights(normal, viewDir, albedo);
+
+    // Apply shadow to diffuse and specular (not ambient), add local lights
+    vec3 lighting = ambient + (1.0 - shadow) * (diffuse + specular) + pointContrib + spotContrib;
 
     FragColor = vec4(lighting, 1.0);
 

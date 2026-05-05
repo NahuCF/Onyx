@@ -60,6 +60,17 @@ public:
                        const std::string& materialId, float strength);
     void SetHole(float worldX, float worldZ, bool isHole);
 
+    // Runtime export
+    struct ExportResult {
+        int modelsExported = 0;
+        int chunksExported = 0;
+        int texturesCopied = 0;
+        int materialsExported = 0;
+        std::vector<std::string> errors;
+        bool success = false;
+    };
+    ExportResult ExportForRuntime(const std::string& outputDir, uint32_t mapId);
+
     // Chunk management
     void EnsureChunkLoaded(int32_t chunkX, int32_t chunkZ);
     WorldChunk* CreateChunk(int32_t chunkX, int32_t chunkZ);

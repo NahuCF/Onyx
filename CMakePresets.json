@@ -59,8 +59,10 @@
                 "rhs": "Windows"
             },
             "generator": "Ninja",
+            "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
+                "CMAKE_BUILD_TYPE": "Debug",
+                "VCPKG_TARGET_TRIPLET": "x64-windows-static-md"
             }
         },
         {
@@ -74,8 +76,10 @@
                 "rhs": "Windows"
             },
             "generator": "Ninja",
+            "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
+                "CMAKE_BUILD_TYPE": "Release",
+                "VCPKG_TARGET_TRIPLET": "x64-windows-static-md"
             }
         },
         {

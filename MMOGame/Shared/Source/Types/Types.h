@@ -126,25 +126,40 @@ struct Currency {
 // ENUMS
 // ============================================================
 
+// IDs must match MMOGame/Database/migrations/0003_seed_races_classes.sql.
 enum class CharacterRace : uint8_t {
     NONE   = 0,
     HUMAN  = 1,
-    ORC    = 2
+    ORC    = 2,
+    ELF    = 3
 };
 
 inline const char* GetRaceName(CharacterRace race) {
     switch (race) {
         case CharacterRace::HUMAN: return "Human";
         case CharacterRace::ORC:   return "Orc";
+        case CharacterRace::ELF:   return "Elf";
         default:                   return "Unknown";
     }
 }
 
 enum class CharacterClass : uint8_t {
-    NONE = 0,
+    NONE    = 0,
     WARRIOR = 1,
-    WITCH = 2
+    WITCH   = 2,
+    MAGE    = 3,
+    ROGUE   = 4
 };
+
+inline const char* GetClassName(CharacterClass cls) {
+    switch (cls) {
+        case CharacterClass::WARRIOR: return "Warrior";
+        case CharacterClass::WITCH:   return "Witch";
+        case CharacterClass::MAGE:    return "Mage";
+        case CharacterClass::ROGUE:   return "Rogue";
+        default:                       return "Unknown";
+    }
+}
 
 enum class MoveState : uint8_t {
     IDLE = 0,

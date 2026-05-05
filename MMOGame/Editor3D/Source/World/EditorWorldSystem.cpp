@@ -1,9 +1,15 @@
 #include "EditorWorldSystem.h"
 #include "EditorWorld.h"
+#include "../Export/MigrationSqlWriter.h"
 #include <World/StaticObject.h>
+#include <World/SpawnPoint.h>
+#include <World/PlayerSpawn.h>
 #include <World/WorldObjectData.h>
 #include <Core/Application.h>
 #include <Graphics/AssetManager.h>
+#include <Model/OmdlFormat.h>
+#include <Model/OmdlWriter.h>
+#include <Terrain/ChunkFileWriter.h>
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -917,6 +923,438 @@ void EditorWorldSystem::SaveChunkToDisk(WorldChunk* chunk) {
     std::string path = GetChunkFilePath(chunk->GetChunkX(), chunk->GetChunkZ());
     chunk->Save(path);
     m_KnownChunkFiles.insert(MakeChunkKey(chunk->GetChunkX(), chunk->GetChunkZ()));
+}
+
+// ---- Runtime Export ----
+
+static std::string ModelPathToOmdlName(const std::string& modelPath) {
+    std::filesystem::path p(modelPath);
+    return p.stem().string() + ".omdl";
+}
+
+static bool CopyFileIfNeeded(const std::string& src, const std::string& dst) {
+    if (std::filesystem::exists(dst)) return true;
+    std::filesystem::create_directories(std::filesystem::path(dst).parent_path());
+    std::error_code ec;
+    std::filesystem::copy_file(src, dst, std::filesystem::copy_options::skip_existing, ec);
+    return !ec;
+}
+
+EditorWorldSystem::ExportResult EditorWorldSystem::ExportForRuntime(
+    const std::string& outputDir, uint32_t mapId) {
+
+    ExportResult result;
+
+    // Save all dirty chunks first
+    SaveDirtyChunks();
+
+    // Also gather objects for all loaded chunks
+    for (auto& [key, chunk] : m_Chunks) {
+        GatherObjectsForChunk(chunk.get());
+    }
+
+    auto& assets = Onyx::Application::GetInstance().GetAssetManager();
+
+    // Create output directories
+    char mapDirBuf[64];
+    snprintf(mapDirBuf, sizeof(mapDirBuf), "%s/maps/%03u/chunks", outputDir.c_str(), mapId);
+    std::string runtimeChunksDir = mapDirBuf;
+    std::string modelsDir = outputDir + "/models";
+    std::string materialsDir = outputDir + "/materials";
+
+    std::filesystem::create_directories(runtimeChunksDir);
+    std::filesystem::create_directories(modelsDir);
+    std::filesystem::create_directories(materialsDir);
+
+    // Collect unique model paths across all chunks
+    std::unordered_set<std::string> uniqueModels;
+    for (const auto& [key, chunk] : m_Chunks) {
+        for (const auto& obj : chunk->GetObjects()) {
+            if (!obj.modelPath.empty()) {
+                uniqueModels.insert(obj.modelPath);
+            }
+        }
+    }
+
+    // Also collect from editor world if available
+    if (m_EditorWorld) {
+        for (const auto& obj : m_EditorWorld->GetStaticObjects()) {
+            if (!obj->GetModelPath().empty()) {
+                uniqueModels.insert(obj->GetModelPath());
+            }
+        }
+    }
+
+    // Check for duplicate omdl names (different source paths → same stem)
+    std::unordered_map<std::string, std::string> omdlNameToSource;  // omdlName → first source path
+    for (const std::string& modelPath : uniqueModels) {
+        std::string omdlName = ModelPathToOmdlName(modelPath);
+        auto it = omdlNameToSource.find(omdlName);
+        if (it != omdlNameToSource.end() && it->second != modelPath) {
+            result.errors.push_back("Duplicate model name '" + omdlName +
+                "' from:\n  " + it->second + "\n  " + modelPath);
+        } else {
+            omdlNameToSource[omdlName] = modelPath;
+        }
+    }
+    if (!result.errors.empty()) {
+        return result;
+    }
+
+    // Export models as .omdl
+    std::unordered_map<std::string, std::string> modelPathRemap;  // original → relative .omdl path
+
+    for (const std::string& modelPath : uniqueModels) {
+        std::string omdlName = ModelPathToOmdlName(modelPath);
+        std::string omdlRelative = "models/" + omdlName;
+        std::string omdlFullPath = modelsDir + "/" + omdlName;
+
+        // The editor's render path loads models async, which uploads merged
+        // GPU buffers and leaves per-mesh CPU `m_Vertices`/`m_Indices` /
+        // `m_Textures` empty. The exporter needs CPU-side data, so always
+        // re-parse via the synchronous `Model(path, true)` constructor for
+        // export. `loadTextures=true` populates each mesh's m_Textures so the
+        // material-copy pass below has paths to copy. This is a one-shot
+        // local Model that bypasses the AssetManager cache; the editor keeps
+        // using its GPU-only async copy for rendering.
+        Onyx::Model exportModel(modelPath.c_str(), true);
+        Onyx::Model* model = &exportModel;
+
+        // Build .omdl data from model meshes
+        MMO::OmdlData omdl;
+        auto& meshes = model->GetMeshes();
+        if (meshes.empty()) {
+            result.errors.push_back("Failed to parse model (no meshes): " + modelPath);
+            continue;
+        }
+
+        uint32_t totalVertices = 0;
+        uint32_t totalIndices = 0;
+
+        // First pass: count totals
+        for (const auto& mesh : meshes) {
+            totalVertices += static_cast<uint32_t>(mesh.m_Vertices.size());
+            totalIndices += static_cast<uint32_t>(mesh.m_Indices.size());
+        }
+
+        omdl.header.meshCount = static_cast<uint32_t>(meshes.size());
+        omdl.header.totalVertices = totalVertices;
+        omdl.header.totalIndices = totalIndices;
+
+        // Global bounds
+        glm::vec3 globalMin(std::numeric_limits<float>::max());
+        glm::vec3 globalMax(std::numeric_limits<float>::lowest());
+
+        // Allocate blobs
+        omdl.vertexBlob.resize(totalVertices * sizeof(Onyx::MeshVertex));
+        omdl.indexBlob.resize(totalIndices * sizeof(uint32_t));
+
+        uint32_t vertexOffset = 0;
+        uint32_t indexOffset = 0;
+
+        for (size_t i = 0; i < meshes.size(); i++) {
+            const auto& mesh = meshes[i];
+            MMO::OmdlMeshInfo info;
+            info.indexCount = static_cast<uint32_t>(mesh.m_Indices.size());
+            info.firstIndex = indexOffset;
+            info.baseVertex = static_cast<int32_t>(vertexOffset);
+
+            // Mesh bounds
+            info.boundsMin[0] = mesh.GetBoundsMin().x;
+            info.boundsMin[1] = mesh.GetBoundsMin().y;
+            info.boundsMin[2] = mesh.GetBoundsMin().z;
+            info.boundsMax[0] = mesh.GetBoundsMax().x;
+            info.boundsMax[1] = mesh.GetBoundsMax().y;
+            info.boundsMax[2] = mesh.GetBoundsMax().z;
+
+            globalMin = glm::min(globalMin, mesh.GetBoundsMin());
+            globalMax = glm::max(globalMax, mesh.GetBoundsMax());
+
+            // Texture paths — copy into materials/{modelStem}/.
+            //
+            // Assimp's `tex.path` is whatever the source asset embeds (often
+            // a name from the original DCC tool that doesn't match what's
+            // actually on disk — e.g. an FBX exported from Unreal references
+            // `_Unreal_BaseColor.tga` while the artist ships `Albedo.png`).
+            // Resolve in three steps:
+            //   1. <modelDir>/<assimpPath>
+            //   2. <modelDir>/<basename(assimpPath)>
+            //   3. heuristic: any image in <modelDir> matching the slot kind.
+            std::string modelDir = std::filesystem::path(modelPath).parent_path().string();
+            std::string modelStem = std::filesystem::path(modelPath).stem().string();
+            std::string matDir = materialsDir + "/" + modelStem;
+            std::string matRelative = "materials/" + modelStem + "/";
+
+            auto resolveTextureSrc = [&](const std::string& assimpPath,
+                                         const std::vector<std::string>& keywords) -> std::string {
+                if (!assimpPath.empty()) {
+                    std::string p1 = modelDir + "/" + assimpPath;
+                    if (std::filesystem::exists(p1)) return p1;
+                    std::string p2 = modelDir + "/"
+                                   + std::filesystem::path(assimpPath).filename().string();
+                    if (std::filesystem::exists(p2)) return p2;
+                }
+                if (modelDir.empty() || !std::filesystem::is_directory(modelDir)) return "";
+                for (const auto& entry : std::filesystem::directory_iterator(modelDir)) {
+                    if (!entry.is_regular_file()) continue;
+                    std::string ext = entry.path().extension().string();
+                    std::transform(ext.begin(), ext.end(), ext.begin(),
+                                   [](unsigned char c){ return std::tolower(c); });
+                    if (ext != ".png" && ext != ".jpg" && ext != ".jpeg"
+                        && ext != ".tga" && ext != ".bmp") continue;
+                    std::string name = entry.path().filename().string();
+                    std::string lower = name;
+                    std::transform(lower.begin(), lower.end(), lower.begin(),
+                                   [](unsigned char c){ return std::tolower(c); });
+                    for (const auto& kw : keywords) {
+                        if (lower.find(kw) != std::string::npos) {
+                            return entry.path().string();
+                        }
+                    }
+                }
+                return "";
+            };
+
+            auto copyTexture = [&](const std::string& srcPath) -> std::string {
+                if (srcPath.empty()) return "";
+                std::string texName = std::filesystem::path(srcPath).filename().string();
+                std::string destPath = matDir + "/" + texName;
+                if (CopyFileIfNeeded(srcPath, destPath)) {
+                    result.texturesCopied++;
+                }
+                return matRelative + texName;
+            };
+
+            const std::vector<std::string> diffuseKeywords =
+                {"albedo", "basecolor", "base_color", "diffuse", "color"};
+            const std::vector<std::string> normalKeywords =
+                {"normal", "nrm"};
+
+            for (const auto& tex : mesh.m_Textures) {
+                if (tex.type == "texture_diffuse" && info.albedoPath.empty()) {
+                    std::string src = resolveTextureSrc(tex.path, diffuseKeywords);
+                    info.albedoPath = copyTexture(src);
+                }
+                if (tex.type == "texture_normal" && info.normalPath.empty()) {
+                    std::string src = resolveTextureSrc(tex.path, normalKeywords);
+                    info.normalPath = copyTexture(src);
+                }
+            }
+            // If the asset exposed no texture slots at all, still try to find
+            // sibling images by name — common when the FBX has a stub material.
+            if (info.albedoPath.empty()) {
+                info.albedoPath = copyTexture(resolveTextureSrc("", diffuseKeywords));
+            }
+            if (info.normalPath.empty()) {
+                info.normalPath = copyTexture(resolveTextureSrc("", normalKeywords));
+            }
+
+            omdl.meshes.push_back(std::move(info));
+
+            // Copy vertex data
+            size_t vertBytes = mesh.m_Vertices.size() * sizeof(Onyx::MeshVertex);
+            memcpy(omdl.vertexBlob.data() + vertexOffset * sizeof(Onyx::MeshVertex),
+                   mesh.m_Vertices.data(), vertBytes);
+            vertexOffset += static_cast<uint32_t>(mesh.m_Vertices.size());
+
+            // Copy index data
+            size_t idxBytes = mesh.m_Indices.size() * sizeof(uint32_t);
+            memcpy(omdl.indexBlob.data() + indexOffset * sizeof(uint32_t),
+                   mesh.m_Indices.data(), idxBytes);
+            indexOffset += static_cast<uint32_t>(mesh.m_Indices.size());
+        }
+
+        omdl.header.boundsMin[0] = globalMin.x;
+        omdl.header.boundsMin[1] = globalMin.y;
+        omdl.header.boundsMin[2] = globalMin.z;
+        omdl.header.boundsMax[0] = globalMax.x;
+        omdl.header.boundsMax[1] = globalMax.y;
+        omdl.header.boundsMax[2] = globalMax.z;
+
+        if (MMO::WriteOmdl(omdlFullPath, omdl)) {
+            modelPathRemap[modelPath] = omdlRelative;
+            result.modelsExported++;
+        } else {
+            result.errors.push_back("Failed to write .omdl: " + omdlFullPath);
+        }
+    }
+
+    // Export editor-assigned materials
+    std::unordered_set<std::string> exportedMaterialIds;
+    for (const auto& [key, chunk] : m_Chunks) {
+        for (const auto& obj : chunk->GetObjects()) {
+            if (!obj.materialId.empty())
+                exportedMaterialIds.insert(obj.materialId);
+            for (const auto& mm : obj.meshMaterials) {
+                if (!mm.materialId.empty())
+                    exportedMaterialIds.insert(mm.materialId);
+            }
+        }
+    }
+
+    for (const std::string& matId : exportedMaterialIds) {
+        const Onyx::Material* mat = assets.GetMaterial(matId);
+        if (!mat) continue;
+
+        std::string matDir = materialsDir + "/" + matId;
+        std::string matRelative = "materials/" + matId + "/";
+
+        auto copyMatTexture = [&](const std::string& srcPath) {
+            if (srcPath.empty()) return;
+            std::string texName = std::filesystem::path(srcPath).filename().string();
+            std::string destPath = matDir + "/" + texName;
+            if (CopyFileIfNeeded(srcPath, destPath)) {
+                result.texturesCopied++;
+            }
+        };
+
+        copyMatTexture(mat->albedoPath);
+        copyMatTexture(mat->normalPath);
+        copyMatTexture(mat->rmaPath);
+        result.materialsExported++;
+    }
+
+    // Export chunks as runtime .chunk files
+    // We need to iterate ALL known chunk files, not just currently loaded chunks
+    for (int32_t chunkKey : m_KnownChunkFiles) {
+        // Decode chunk key
+        int32_t cx = static_cast<int16_t>(chunkKey >> 16);
+        int32_t cz = static_cast<int16_t>(chunkKey & 0xFFFF);
+
+        // Load chunk if not already loaded
+        auto it = m_Chunks.find(chunkKey);
+        WorldChunk* chunk = nullptr;
+        bool temporarilyLoaded = false;
+
+        if (it != m_Chunks.end()) {
+            chunk = it->second.get();
+        } else {
+            // Temporarily load chunk from disk for export
+            auto tempChunk = std::make_unique<WorldChunk>(cx, cz);
+            std::string srcPath = GetChunkFilePath(cx, cz);
+            tempChunk->Load(srcPath);
+            chunk = tempChunk.get();
+            temporarilyLoaded = true;
+            // Store temporarily for iteration, will clean up after
+            m_Chunks[chunkKey] = std::move(tempChunk);
+        }
+
+        if (!chunk) continue;
+
+        // Build ChunkFileData for runtime
+        MMO::ChunkFileData fileData;
+        fileData.mapId = mapId;
+
+        // Terrain
+        if (chunk->GetTerrain()) {
+            fileData.terrain = chunk->GetTerrain()->GetData();
+        }
+
+        // Lights — convert EditorLight to ChunkLightData
+        for (const auto& el : chunk->GetLights()) {
+            MMO::ChunkLightData ld;
+            ld.type = static_cast<uint8_t>(el.type);
+            ld.position[0] = el.position.x;
+            ld.position[1] = el.position.y;
+            ld.position[2] = el.position.z;
+            ld.direction[0] = el.direction.x;
+            ld.direction[1] = el.direction.y;
+            ld.direction[2] = el.direction.z;
+            ld.color[0] = el.color.x;
+            ld.color[1] = el.color.y;
+            ld.color[2] = el.color.z;
+            ld.intensity = el.intensity;
+            ld.range = el.range;
+            ld.innerAngle = el.innerAngle;
+            ld.outerAngle = el.outerAngle;
+            ld.castShadows = el.castShadows;
+            fileData.lights.push_back(ld);
+        }
+
+        // Objects — convert ChunkObject to ChunkObjectData with remapped model paths
+        for (const auto& co : chunk->GetObjects()) {
+            MMO::ChunkObjectData od;
+
+            // Remap model path to .omdl relative path
+            auto remapIt = modelPathRemap.find(co.modelPath);
+            if (remapIt != modelPathRemap.end()) {
+                od.modelPath = remapIt->second;
+            } else {
+                od.modelPath = co.modelPath;  // fallback to original
+            }
+
+            od.position[0] = co.position.x;
+            od.position[1] = co.position.y;
+            od.position[2] = co.position.z;
+
+            // Convert quaternion to euler angles (radians)
+            glm::vec3 euler = glm::eulerAngles(co.rotation);
+            od.rotation[0] = euler.x;
+            od.rotation[1] = euler.y;
+            od.rotation[2] = euler.z;
+
+            od.scale[0] = co.scale;
+            od.scale[1] = co.scale;
+            od.scale[2] = co.scale;
+
+            od.flags = co.castsShadow ? 1u : 0u;
+            od.materialId = co.materialId;
+
+            fileData.objects.push_back(od);
+        }
+
+        // Write runtime chunk
+        char chunkFilename[64];
+        snprintf(chunkFilename, sizeof(chunkFilename), "%s/chunk_%d_%d.chunk",
+                 runtimeChunksDir.c_str(), cx, cz);
+
+        if (MMO::WriteChunkFile(chunkFilename, fileData, cx, cz)) {
+            result.chunksExported++;
+        } else {
+            result.errors.push_back("Failed to write chunk: " + std::string(chunkFilename));
+        }
+
+        // Clean up temporarily loaded chunk
+        if (temporarilyLoaded) {
+            m_Chunks.erase(chunkKey);
+        }
+    }
+
+    // Emit migration.sql for DB-bound entities (creature spawns + player spawns).
+    if (m_EditorWorld) {
+        std::filesystem::path sqlPath = std::filesystem::path(outputDir) / "migration.sql";
+        std::filesystem::create_directories(sqlPath.parent_path());
+
+        std::ofstream sqlOut(sqlPath, std::ios::binary | std::ios::trunc);
+        if (!sqlOut.is_open()) {
+            result.errors.push_back("Failed to open migration.sql for writing: " + sqlPath.string());
+        } else {
+            sqlOut << "-- Generated by MMOEditor3D — do not edit by hand.\n"
+                   << "-- Apply via Run Locally (editor) or psql -f migration.sql.\n\n";
+
+            // creature_spawn — scoped to this map
+            std::vector<const MMO::SpawnPoint*> spawnPtrs;
+            spawnPtrs.reserve(m_EditorWorld->GetSpawnPoints().size());
+            for (const auto& sp : m_EditorWorld->GetSpawnPoints()) {
+                spawnPtrs.push_back(sp.get());
+            }
+            MMO::MigrationSqlWriter::EmitCreatureSpawnsForMap(mapId, spawnPtrs, sqlOut);
+            sqlOut << "\n";
+
+            // player_create_info — global; only PlayerSpawns with a chosen combo
+            std::vector<const MMO::PlayerSpawn*> playerPtrs;
+            playerPtrs.reserve(m_EditorWorld->GetPlayerSpawns().size());
+            for (const auto& ps : m_EditorWorld->GetPlayerSpawns()) {
+                if (!ps->GetRaceClassPairs().empty()) {
+                    playerPtrs.push_back(ps.get());
+                }
+            }
+            MMO::MigrationSqlWriter::EmitPlayerCreateInfo(playerPtrs, mapId, sqlOut);
+        }
+    }
+
+    result.success = result.errors.empty();
+    return result;
 }
 
 WorldChunk* EditorWorldSystem::GetOrCreateChunk(int32_t chunkX, int32_t chunkZ) {

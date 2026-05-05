@@ -3,6 +3,7 @@
 #include "Items/Items.h"
 #ifdef HAS_DATABASE
 #include "../../Shared/Source/Data/GameDataStore.h"
+#include "../../Shared/Source/Database/MigrationRunner.h"
 #endif
 #include <iostream>
 #include <thread>
@@ -24,29 +25,31 @@ bool WorldServer::Initialize(uint16_t port, const std::string& dbConnectionStrin
         return false;
     }
 
-    // Connect to database if connection string provided
-    if (!dbConnectionString.empty()) {
-        if (!m_Database.Connect(dbConnectionString)) {
-            std::cerr << "Warning: Failed to connect to database, running without persistence" << std::endl;
-        }
+    // Database is required — DB-only architecture (per docs/release-pipeline.md).
+    if (dbConnectionString.empty()) {
+        std::cerr << "DB connection string is required (DB_HOST/DB_USER/DB_PASS/DB_NAME)" << std::endl;
+        return false;
+    }
+    if (!m_Database.Connect(dbConnectionString)) {
+        std::cerr << "Failed to connect to database; aborting startup" << std::endl;
+        return false;
+    }
+
+#ifdef HAS_DATABASE
+    // Apply schema migrations before reading any tables.
+    if (!MigrationRunner::ApplyAll(m_Database)) {
+        std::cerr << "Schema migrations failed; aborting startup" << std::endl;
+        return false;
     }
 
     // Load game data (races, classes, create info)
-#ifdef HAS_DATABASE
-    if (m_Database.IsConnected()) {
-        GameDataStore::Instance().LoadFromDatabase(m_Database);
-    }
-#endif
+    GameDataStore::Instance().LoadFromDatabase(m_Database);
 
-    // Initialize map manager with templates (from DB if available)
-#ifdef HAS_DATABASE
-    if (m_Database.IsConnected()) {
-        MapManager::Instance().Initialize(m_Database);
-    } else {
-        MapManager::Instance().Initialize();
-    }
+    // Initialize map manager with templates from DB.
+    MapManager::Instance().Initialize(m_Database);
 #else
-    MapManager::Instance().Initialize();
+    std::cerr << "WorldServer must be built with HAS_DATABASE (libpqxx required)" << std::endl;
+    return false;
 #endif
 
     std::cout << "World Server initialized on port " << port << std::endl;
@@ -275,6 +278,8 @@ void WorldServer::HandleAuthToken(uint32_t peerId, ReadBuffer& buf) {
         charData.characterClass,
         charData.level,
         spawnPos,
+        charData.positionZ,
+        charData.orientation,
         charData.currentHealth,
         charData.currentMana
     );
@@ -372,6 +377,7 @@ void WorldServer::HandleAuthToken(uint32_t peerId, ReadBuffer& buf) {
     spawn.name = player->GetName();
     spawn.characterClass = player->GetClass();
     spawn.position = player->GetMovement()->position;
+    spawn.height = player->GetMovement()->height;
     spawn.rotation = player->GetMovement()->rotation;
     spawn.health = player->GetHealth()->current;
     spawn.maxHealth = player->GetHealth()->max;
@@ -556,6 +562,7 @@ void WorldServer::TransferPlayer(uint32_t peerId, const Portal* portal, MapInsta
     spawn.name = playerEntity->GetName();
     spawn.characterClass = playerEntity->GetClass();
     spawn.position = playerEntity->GetMovement()->position;
+    spawn.height = playerEntity->GetMovement()->height;
     spawn.rotation = playerEntity->GetMovement()->rotation;
     spawn.health = playerEntity->GetHealth()->current;
     spawn.maxHealth = playerEntity->GetHealth()->max;
@@ -598,6 +605,8 @@ void WorldServer::SavePlayer(const ConnectedPlayer& player) {
     data.mapId = map->GetTemplateId();
     data.positionX = entity->GetMovement()->position.x;
     data.positionY = entity->GetMovement()->position.y;
+    data.positionZ = entity->GetMovement()->height;
+    data.orientation = entity->GetMovement()->rotation;
     data.maxHealth = entity->GetHealth()->max;
     data.maxMana = entity->GetMana() ? entity->GetMana()->max : 0;
     data.currentHealth = entity->GetHealth()->current;
@@ -668,6 +677,8 @@ void WorldServer::SendEnterWorld(uint32_t peerId, EntityId entityId, MapInstance
     S_EnterWorld enter;
     enter.yourEntityId = entityId;
     enter.spawnPosition = entity->GetMovement()->position;
+    enter.spawnHeight = entity->GetMovement()->height;
+    enter.spawnOrientation = entity->GetMovement()->rotation;
     enter.zoneName = map->GetName();
     enter.mapId = map->GetTemplateId();
     enter.Serialize(packet);
@@ -677,9 +688,13 @@ void WorldServer::SendEnterWorld(uint32_t peerId, EntityId entityId, MapInstance
 void WorldServer::SendMapChange(uint32_t peerId, EntityId newEntityId, const std::string& mapName, Vec2 position, MapInstance* map) {
     WriteBuffer packet;
     packet.WriteU8(static_cast<uint8_t>(WorldPacketType::S_ENTER_WORLD));
+    Entity* entity = map->GetEntity(newEntityId);
+    auto* move = entity ? entity->GetMovement() : nullptr;
     S_EnterWorld enter;
     enter.yourEntityId = newEntityId;
     enter.spawnPosition = position;
+    enter.spawnHeight = move ? move->height : 0.0f;
+    enter.spawnOrientation = move ? move->rotation : 0.0f;
     enter.zoneName = mapName;
     enter.mapId = map->GetTemplateId();
     enter.Serialize(packet);
@@ -766,6 +781,7 @@ void WorldServer::SendWorldState(MapInstance* map) {
 
         if (movement) {
             update.position = movement->position;
+            update.height = movement->height;
             update.rotation = movement->rotation;
             update.moveState = movement->moveState;
         }
@@ -890,6 +906,7 @@ void WorldServer::SendEntitySpawn(uint32_t peerId, Entity* entity) {
     auto movement = entity->GetMovement();
     if (movement) {
         spawn.position = movement->position;
+        spawn.height = movement->height;
         spawn.rotation = movement->rotation;
     }
 

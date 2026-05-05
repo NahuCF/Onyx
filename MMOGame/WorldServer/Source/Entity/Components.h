@@ -51,9 +51,10 @@ struct ManaComponent {
 // ============================================================
 
 struct MovementComponent {
-    Vec2 position;
+    Vec2 position;          // Ground plane (X, Y). Used by grid + 2D distance/range.
+    float height = 0.0f;    // Z. Vertical placement; not simulated, just propagated to client.
     Vec2 velocity;
-    float rotation = 0.0f;
+    float rotation = 0.0f;  // Yaw / facing angle (radians).
     float speed = 5.0f;
     MoveState moveState = MoveState::IDLE;
     // Note: Speed modifiers are now handled via AuraComponent

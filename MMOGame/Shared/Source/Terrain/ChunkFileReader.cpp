@@ -46,7 +46,8 @@ static void ReadLightsSection(std::ifstream& file, std::vector<ChunkLightData>& 
     }
 }
 
-static void ReadObjectsSection(std::ifstream& file, std::vector<ChunkObjectData>& objects) {
+static void ReadObjectsSection(std::ifstream& file, std::vector<ChunkObjectData>& objects,
+                               uint32_t containerVersion) {
     uint32_t count = 0;
     file.read(reinterpret_cast<char*>(&count), sizeof(count));
     if (count > MAX_OBJECTS_PER_CHUNK) return;
@@ -60,6 +61,9 @@ static void ReadObjectsSection(std::ifstream& file, std::vector<ChunkObjectData>
         file.read(reinterpret_cast<char*>(&obj.rotation), sizeof(obj.rotation));
         file.read(reinterpret_cast<char*>(&obj.scale), sizeof(obj.scale));
         file.read(reinterpret_cast<char*>(&obj.flags), sizeof(obj.flags));
+        if (containerVersion >= 3) {
+            obj.materialId = ReadString(file);
+        }
     }
 }
 
@@ -75,9 +79,10 @@ bool LoadChunkFile(const std::string& path, ChunkFileData& out) {
 
     uint32_t version;
     file.read(reinterpret_cast<char*>(&version), sizeof(version));
-    if (version != CHUNK_FORMAT_VERSION) {
-        std::cerr << "ChunkFileReader: unexpected CHNK version " << version
-                  << " (expected " << CHUNK_FORMAT_VERSION << ") in " << path << "\n";
+    if (version < 2 || version > CHUNK_FORMAT_VERSION) {
+        std::cerr << "ChunkFileReader: unsupported CHNK version " << version
+                  << " (supported 2-" << CHUNK_FORMAT_VERSION << ") in " << path << "\n";
+        return false;
     }
 
     file.read(reinterpret_cast<char*>(&out.mapId), sizeof(out.mapId));
@@ -101,7 +106,7 @@ bool LoadChunkFile(const std::string& path, ChunkFileData& out) {
         switch (sectionType) {
             case TERR_TAG:  ReadTerrainSection(file, out.terrain, chunkX, chunkZ); break;
             case LGHT_TAG:  ReadLightsSection(file, out.lights); break;
-            case OBJS_TAG:  ReadObjectsSection(file, out.objects); break;
+            case OBJS_TAG:  ReadObjectsSection(file, out.objects, version); break;
             case SNDS_TAG:  break; // Skip sounds for now
             default: break;
         }

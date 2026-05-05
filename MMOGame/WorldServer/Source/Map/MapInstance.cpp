@@ -1,6 +1,5 @@
 #include "MapInstance.h"
 #include "MapManager.h"
-#include "MapTemplates.h"
 #include "../AI/ScriptedAI.h"
 #include "../AI/ScriptRegistry.h"
 #include "../AI/CreatureTemplates.h"
@@ -41,6 +40,7 @@ void MapInstance::SpawnInitialMobs() {
 
 Entity* MapInstance::CreatePlayer(CharacterId characterId, const std::string& name,
                                    CharacterClass charClass, uint32_t level, Vec2 position,
+                                   float height, float orientation,
                                    int32_t currentHealth, int32_t currentMana) {
     EntityId id = GenerateEntityId();
     auto entity = std::make_unique<Entity>(id, EntityType::PLAYER, name);
@@ -79,7 +79,10 @@ Entity* MapInstance::CreatePlayer(CharacterId characterId, const std::string& na
     }
 
     // Set position
-    entity->GetMovement()->position = position;
+    auto* movement = entity->GetMovement();
+    movement->position = position;
+    movement->height = height;
+    movement->rotation = orientation;
 
     // Restore health/mana if provided (from database)
     auto health = entity->GetHealth();
@@ -1129,6 +1132,7 @@ std::vector<EntityState> MapInstance::GetWorldStateForPlayer(EntityId playerId) 
         state.id = id;
         state.type = entity->GetType();
         state.position = movement->position;
+        state.height = movement->height;
         state.rotation = movement->rotation;
         state.moveState = movement->moveState;
 

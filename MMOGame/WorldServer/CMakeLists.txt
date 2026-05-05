@@ -8,7 +8,6 @@ set(WORLDSERVER_SOURCES
     Source/Map/MapDefines.cpp
     Source/Map/MapInstance.cpp
     Source/Map/MapManager.cpp
-    Source/Map/MapTemplates.cpp
     Source/Grid/Grid.cpp
     Source/AI/ScriptedAI.cpp
     Source/AI/ScriptRegistry.cpp
@@ -39,7 +38,6 @@ set(WORLDSERVER_HEADERS
     Source/Map/MapDefines.h
     Source/Map/MapInstance.h
     Source/Map/MapManager.h
-    Source/Map/MapTemplates.h
     # Grid
     Source/Grid/GridDefines.h
     Source/Grid/GridCell.h
@@ -57,7 +55,7 @@ target_link_libraries(MMOWorldServer PRIVATE
 )
 
 set_target_properties(MMOWorldServer PROPERTIES
-    CXX_STANDARD 17
+    CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
     OUTPUT_NAME "MMOWorldServer"
@@ -105,8 +103,6 @@ source_group("Map" FILES
     Source/Map/MapInstance.cpp
     Source/Map/MapManager.h
     Source/Map/MapManager.cpp
-    Source/Map/MapTemplates.h
-    Source/Map/MapTemplates.cpp
 )
 
 source_group("Grid" FILES

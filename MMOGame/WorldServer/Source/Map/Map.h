@@ -6,4 +6,3 @@
 #include "MapDefines.h"
 #include "MapInstance.h"
 #include "MapManager.h"
-#include "MapTemplates.h"

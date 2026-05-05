@@ -48,6 +48,23 @@ uniform bool u_ShowCascades;
 uniform int u_UsePixelNormals;
 uniform int u_DebugSplatmap;  // 0=off, 1=weights RGBA, 2=weight sum, 3=chunk borders
 
+// Point lights
+#define MAX_POINT_LIGHTS 32
+uniform int u_PointLightCount;
+uniform vec3 u_PointLightPos[MAX_POINT_LIGHTS];
+uniform vec3 u_PointLightColor[MAX_POINT_LIGHTS];   // color * intensity pre-multiplied
+uniform float u_PointLightRange[MAX_POINT_LIGHTS];
+
+// Spot lights
+#define MAX_SPOT_LIGHTS 8
+uniform int u_SpotLightCount;
+uniform vec3 u_SpotLightPos[MAX_SPOT_LIGHTS];
+uniform vec3 u_SpotLightDir[MAX_SPOT_LIGHTS];
+uniform vec3 u_SpotLightColor[MAX_SPOT_LIGHTS];      // color * intensity pre-multiplied
+uniform float u_SpotLightRange[MAX_SPOT_LIGHTS];
+uniform float u_SpotLightInnerCos[MAX_SPOT_LIGHTS];
+uniform float u_SpotLightOuterCos[MAX_SPOT_LIGHTS];
+
 const float PI = 3.14159265359;
 
 float CalculateShadow(vec3 fragPos, vec3 normal, vec3 lightDir) {
@@ -137,6 +154,114 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
 
 vec3 FresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+// ========== Point/Spot Light Helpers ==========
+
+vec3 CalcPointLightsBlinnPhong(vec3 normal, vec3 viewDir, vec3 albedo) {
+    vec3 result = vec3(0.0);
+    for (int i = 0; i < u_PointLightCount; i++) {
+        vec3 toLight = u_PointLightPos[i] - v_FragPos;
+        float dist = length(toLight);
+        if (dist > u_PointLightRange[i]) continue;
+
+        float attenuation = 1.0 - smoothstep(0.0, u_PointLightRange[i], dist);
+        attenuation *= attenuation;
+        vec3 L = toLight / dist;
+        float diff = max(dot(normal, L), 0.0);
+
+        vec3 H = normalize(L + viewDir);
+        float spec = pow(max(dot(normal, H), 0.0), 32.0);
+
+        result += attenuation * (diff * albedo + spec * 0.1) * u_PointLightColor[i];
+    }
+    return result;
+}
+
+vec3 CalcSpotLightsBlinnPhong(vec3 normal, vec3 viewDir, vec3 albedo) {
+    vec3 result = vec3(0.0);
+    for (int i = 0; i < u_SpotLightCount; i++) {
+        vec3 toLight = u_SpotLightPos[i] - v_FragPos;
+        float dist = length(toLight);
+        if (dist > u_SpotLightRange[i]) continue;
+
+        vec3 L = toLight / dist;
+        float theta = dot(L, normalize(-u_SpotLightDir[i]));
+        if (theta < u_SpotLightOuterCos[i]) continue;
+
+        float epsilon = u_SpotLightInnerCos[i] - u_SpotLightOuterCos[i];
+        float spotFade = clamp((theta - u_SpotLightOuterCos[i]) / max(epsilon, 0.001), 0.0, 1.0);
+
+        float attenuation = 1.0 - smoothstep(0.0, u_SpotLightRange[i], dist);
+        attenuation *= attenuation;
+        float diff = max(dot(normal, L), 0.0);
+
+        vec3 H = normalize(L + viewDir);
+        float spec = pow(max(dot(normal, H), 0.0), 32.0);
+
+        result += attenuation * spotFade * (diff * albedo + spec * 0.1) * u_SpotLightColor[i];
+    }
+    return result;
+}
+
+vec3 CalcPointLightsPBR(vec3 normal, vec3 viewDir, vec3 albedo, float roughness, float metallic, vec3 F0) {
+    vec3 result = vec3(0.0);
+    for (int i = 0; i < u_PointLightCount; i++) {
+        vec3 toLight = u_PointLightPos[i] - v_FragPos;
+        float dist = length(toLight);
+        if (dist > u_PointLightRange[i]) continue;
+
+        float attenuation = 1.0 - smoothstep(0.0, u_PointLightRange[i], dist);
+        attenuation *= attenuation;
+        vec3 L = toLight / dist;
+        vec3 H = normalize(viewDir + L);
+
+        float NDF = DistributionGGX(normal, H, roughness);
+        float G = GeometrySmith(normal, viewDir, L, roughness);
+        vec3 F = FresnelSchlick(max(dot(H, viewDir), 0.0), F0);
+
+        vec3 specular = (NDF * G * F) /
+            (4.0 * max(dot(normal, viewDir), 0.0) * max(dot(normal, L), 0.0) + 0.0001);
+
+        vec3 kD = (1.0 - F) * (1.0 - metallic);
+        float NdotL = max(dot(normal, L), 0.0);
+
+        result += attenuation * (kD * albedo / PI + specular) * u_PointLightColor[i] * NdotL;
+    }
+    return result;
+}
+
+vec3 CalcSpotLightsPBR(vec3 normal, vec3 viewDir, vec3 albedo, float roughness, float metallic, vec3 F0) {
+    vec3 result = vec3(0.0);
+    for (int i = 0; i < u_SpotLightCount; i++) {
+        vec3 toLight = u_SpotLightPos[i] - v_FragPos;
+        float dist = length(toLight);
+        if (dist > u_SpotLightRange[i]) continue;
+
+        vec3 L = toLight / dist;
+        float theta = dot(L, normalize(-u_SpotLightDir[i]));
+        if (theta < u_SpotLightOuterCos[i]) continue;
+
+        float epsilon = u_SpotLightInnerCos[i] - u_SpotLightOuterCos[i];
+        float spotFade = clamp((theta - u_SpotLightOuterCos[i]) / max(epsilon, 0.001), 0.0, 1.0);
+
+        float attenuation = 1.0 - smoothstep(0.0, u_SpotLightRange[i], dist);
+        attenuation *= attenuation;
+        vec3 H = normalize(viewDir + L);
+
+        float NDF = DistributionGGX(normal, H, roughness);
+        float G = GeometrySmith(normal, viewDir, L, roughness);
+        vec3 F = FresnelSchlick(max(dot(H, viewDir), 0.0), F0);
+
+        vec3 specular = (NDF * G * F) /
+            (4.0 * max(dot(normal, viewDir), 0.0) * max(dot(normal, L), 0.0) + 0.0001);
+
+        vec3 kD = (1.0 - F) * (1.0 - metallic);
+        float NdotL = max(dot(normal, L), 0.0);
+
+        result += attenuation * spotFade * (kD * albedo / PI + specular) * u_SpotLightColor[i] * NdotL;
+    }
+    return result;
 }
 
 void main() {
@@ -246,7 +371,11 @@ void main() {
         vec3 ambient = u_AmbientStrength * albedo * ao;
         vec3 Lo = (kD * albedo / PI + specular) * u_LightColor * NdotL;
 
-        lighting = ambient + (1.0 - shadow) * Lo;
+        // Point and spot lights (PBR)
+        vec3 pointLo = CalcPointLightsPBR(normal, viewDir, albedo, roughness, metallic, F0);
+        vec3 spotLo = CalcSpotLightsPBR(normal, viewDir, albedo, roughness, metallic, F0);
+
+        lighting = ambient + (1.0 - shadow) * Lo + pointLo + spotLo;
 
     } else {
         // Blinn-Phong path
@@ -263,7 +392,11 @@ void main() {
         float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
         vec3 specular = spec * u_LightColor * 0.1;
 
-        lighting = ambient + (1.0 - shadow) * (diffuse + specular);
+        // Point and spot lights (Blinn-Phong)
+        vec3 pointContrib = CalcPointLightsBlinnPhong(normal, viewDir, albedo);
+        vec3 spotContrib = CalcSpotLightsBlinnPhong(normal, viewDir, albedo);
+
+        lighting = ambient + (1.0 - shadow) * (diffuse + specular) + pointContrib + spotContrib;
     }
 
     // Brush overlay (shared by both paths)

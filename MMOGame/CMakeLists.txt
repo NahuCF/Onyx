@@ -13,13 +13,21 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(enet)
 
-# libpqxx (PostgreSQL C++ client) - for servers only
-find_package(PkgConfig)
-if(PkgConfig_FOUND)
-    pkg_check_modules(LIBPQXX libpqxx)
+# libpqxx (PostgreSQL C++ client) - for servers only.
+# Windows: vcpkg manifest provides a CMake CONFIG-mode package.
+# Linux: pkg-config (apt: libpqxx-dev).
+find_package(libpqxx CONFIG QUIET)
+if(libpqxx_FOUND)
+    set(LIBPQXX_FOUND TRUE)
+    set(LIBPQXX_TARGET libpqxx::pqxx)
+else()
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(LIBPQXX libpqxx)
+    endif()
 endif()
 
-# OpenSSL for password hashing
+# OpenSSL for password hashing (apt: libssl-dev / vcpkg: openssl)
 find_package(OpenSSL)
 
 # ========== Shared Library ==========

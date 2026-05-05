@@ -1,0 +1,9 @@
+{
+  "name": "onyx",
+  "version-string": "0.1.0",
+  "description": "Onyx engine + MMOGame dependencies (manifest mode).",
+  "dependencies": [
+    "libpqxx",
+    "openssl"
+  ]
+}
