@@ -57,6 +57,9 @@ IncludeBlocks: Preserve
 # No automatic line wrapping — preserve long single-line getters/ctors as written
 ColumnLimit: 0
 
+# Line endings — project is Windows-developed; keep CRLF in working tree.
+LineEnding: CRLF
+
 # Misc
 Cpp11BracedListStyle: true
 FixNamespaceComments: true
