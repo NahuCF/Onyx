@@ -121,7 +121,7 @@ namespace MMO {
 					modifier *= (100.0f + aura.value) / 100.0f;
 				}
 			}
-			return (std::max)(0.0f, modifier); // Parens defeat windows.h max macro. Can't go negative
+			return std::max(0.0f, modifier);
 		}
 
 		// Get damage taken modifier
@@ -135,7 +135,7 @@ namespace MMO {
 					modifier *= (100.0f + aura.value) / 100.0f;
 				}
 			}
-			return (std::max)(0.0f, modifier);
+			return std::max(0.0f, modifier);
 		}
 
 		// Check for CC

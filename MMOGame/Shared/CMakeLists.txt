@@ -68,9 +68,10 @@ target_include_directories(MMOShared PUBLIC
 
 target_link_libraries(MMOShared PUBLIC enet glm::glm)
 
-# Windows socket libraries for ENet
+# Windows socket libraries for ENet; NOMINMAX prevents windows.h from clobbering std::min/max
 if(WIN32)
     target_link_libraries(MMOShared PUBLIC ws2_32 winmm)
+    target_compile_definitions(MMOShared PUBLIC NOMINMAX)
 endif()
 
 if(PQXX_FOUND)
