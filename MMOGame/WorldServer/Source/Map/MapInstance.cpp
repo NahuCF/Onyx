@@ -1,12 +1,15 @@
 #include "MapInstance.h"
+#include "../../../Shared/Source/Scripting/ScriptRegistry.h"
 #include "../../../Shared/Source/Spells/SpellDefines.h"
+#include "../AI/BuiltInAI.h"
+#include "../AI/CreatureAI.h"
+#include "../AI/CreatureScript.h"
 #include "../AI/CreatureTemplates.h"
-#include "../AI/ScriptRegistry.h"
-#include "../AI/ScriptedAI.h"
-#include "../Scripts/ScriptLoader.h"
+#include "../Triggers/TriggerScript.h"
 #include "Items/Items.h"
 #include "MapManager.h"
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 
 namespace MMO {
@@ -18,6 +21,23 @@ namespace MMO {
 	MapInstance::MapInstance(uint32_t instanceId, const MapTemplate* tmpl)
 		: m_InstanceId(instanceId), m_Template(tmpl), m_Grid(this)
 	{
+		BuildTriggerCellIndex();
+
+		// Construct per-instance encounter script if configured
+		if (!tmpl->instanceScriptName.empty())
+		{
+			if (auto* factory = ScriptRegistry<InstanceScript>::Instance().Get(tmpl->instanceScriptName))
+			{
+				m_InstanceState = factory->CreateState(*this);
+				m_InstanceState->OnInstanceCreate(*this);
+			}
+			else
+			{
+				std::cerr << "[Scripts] WARNING: map '" << tmpl->name
+						  << "' references unknown instance_script '"
+						  << tmpl->instanceScriptName << "'\n";
+			}
+		}
 	}
 
 	MapInstance::~MapInstance() = default;
@@ -116,6 +136,12 @@ namespace MMO {
 		// Add to grid (isPlayer = true)
 		m_Grid.AddEntity(id, pos, true);
 
+		// Fire OnEnter for any volume the player spawns inside. The
+		// movement-driven CheckTriggers call only triggers on position deltas,
+		// so a stationary spawn-inside-volume case would otherwise stay silent
+		// until the first step.
+		CheckTriggers(id, pos, pos);
+
 		std::cout << "[Map:" << m_Template->name << "] Player created: " << name << " (ID: " << id << ")" << '\n';
 		return ptr;
 	}
@@ -153,9 +179,26 @@ namespace MMO {
 			entity->AddAbility(rule.ability);
 		}
 
-		// Create AI using ScriptRegistry (creates custom script if defined, otherwise default)
+		// Three-step AI resolution (priority order):
+		//   1. scripts column -> hand-coded CreatureScript
+		//   2. ai_name column -> data-driven BuiltInAI archetype
+		//   3. default CreatureAI (base class, data-driven via template abilities)
 		Entity* ptr = entity.get();
-		m_MobAIs[id] = ScriptRegistry::Instance().CreateAI(ptr, tmpl);
+		std::unique_ptr<CreatureAI> ai;
+		if (tmpl->resolvedScript)
+		{
+			ai = tmpl->resolvedScript->CreateAI(*this, *ptr);
+		}
+		else if (!tmpl->aiName.empty())
+		{
+			if (auto* arch = BuiltInAIRegistry().Get(tmpl->aiName))
+				ai = arch->CreateAI(*this, *ptr);
+		}
+		if (!ai)
+		{
+			ai = std::make_unique<CreatureAI>(*this, *ptr, tmpl);
+		}
+		m_MobAIs[id] = std::move(ai);
 
 		// Track spawn point for respawning
 		if (spawnPointId > 0)
@@ -183,7 +226,7 @@ namespace MMO {
 		return creature;
 	}
 
-	ScriptedAI* MapInstance::GetMobAI(EntityId entityId)
+	CreatureAI* MapInstance::GetMobAI(EntityId entityId)
 	{
 		auto it = m_MobAIs.find(entityId);
 		return it != m_MobAIs.end() ? it->second.get() : nullptr;
@@ -193,6 +236,11 @@ namespace MMO {
 	{
 		// Remove from grid (marks despawned flag for visibility system)
 		m_Grid.RemoveEntity(id);
+
+		// Drop trigger inside-set without firing OnExit — scripts shouldn't
+		// run during teardown, and the entity isn't in a valid state to
+		// receive callbacks (player may have already disconnected).
+		m_EntityTriggerInside.erase(id);
 
 		m_Entities.erase(id);
 		m_Players.erase(id);
@@ -238,6 +286,7 @@ namespace MMO {
 		// Clean up associated data
 		m_MobAIs.erase(id);
 		m_EntityToSpawnPoint.erase(id);
+		m_EntityTriggerInside.erase(id);
 
 		std::cout << "[Map:" << m_Template->name << "] Released entity: " << entity->GetName()
 				  << " (ID: " << id << ")" << '\n';
@@ -358,9 +407,137 @@ namespace MMO {
 		return nullptr;
 	}
 
+	// ============================================================
+	// TRIGGER VOLUMES
+	// ============================================================
+
+	void MapInstance::BuildTriggerCellIndex()
+	{
+		m_TriggerCellIndex.clear();
+		if (!m_Template)
+			return;
+
+		for (size_t i = 0; i < m_Template->triggerVolumes.size(); ++i)
+		{
+			const ServerTriggerVolume& v = m_Template->triggerVolumes[i];
+			const float reach = v.BoundingRadiusXY();
+
+			// Bucket the volume into every cell its XY footprint can touch.
+			const Vec2 mn(v.position.x - reach, v.position.y - reach);
+			const Vec2 mx(v.position.x + reach, v.position.y + reach);
+			const CellCoord cmn = Grid::PositionToCell(mn);
+			const CellCoord cmx = Grid::PositionToCell(mx);
+			for (int32_t cy = cmn.y; cy <= cmx.y; ++cy)
+			{
+				for (int32_t cx = cmn.x; cx <= cmx.x; ++cx)
+				{
+					m_TriggerCellIndex[CellCoord{cx, cy}].push_back(i);
+				}
+			}
+		}
+
+		if (!m_Template->triggerVolumes.empty())
+		{
+			std::cout << "[Map:" << m_Template->name << "] Indexed "
+					  << m_Template->triggerVolumes.size() << " trigger volumes into "
+					  << m_TriggerCellIndex.size() << " grid cells" << '\n';
+		}
+	}
+
+	void MapInstance::CheckTriggers(EntityId entityId, Vec2 /*oldPos*/, Vec2 newPos)
+	{
+		if (m_Template->triggerVolumes.empty())
+			return;
+
+		Entity* entity = GetEntity(entityId);
+		if (!entity)
+			return;
+
+		const bool isPlayer = entity->GetType() == EntityType::PLAYER;
+		const auto* movement = entity->GetMovement();
+		const float vertical = movement ? movement->height : 0.0f;
+
+		const CellCoord cell = Grid::PositionToCell(newPos);
+		auto cellIt = m_TriggerCellIndex.find(cell);
+
+		std::unordered_set<size_t> nowInside;
+		if (cellIt != m_TriggerCellIndex.end())
+		{
+			for (size_t idx : cellIt->second)
+			{
+				const ServerTriggerVolume& v = m_Template->triggerVolumes[idx];
+
+				if (isPlayer && !v.triggerPlayers)
+					continue;
+				if (!isPlayer && !v.triggerCreatures)
+					continue;
+
+				if (v.triggerOnce && m_TriggersFiredOnce.count(idx))
+					continue;
+
+				if (v.Contains(newPos, vertical))
+					nowInside.insert(idx);
+			}
+		}
+
+		auto& prevInside = m_EntityTriggerInside[entityId];
+
+		for (size_t idx : nowInside)
+		{
+			if (prevInside.count(idx))
+				continue;
+			const ServerTriggerVolume& v = m_Template->triggerVolumes[idx];
+			FireTriggerScript(*entity, v, TriggerEventKind::ON_ENTER);
+			if (v.triggerOnce)
+				m_TriggersFiredOnce.insert(idx);
+		}
+		for (size_t idx : prevInside)
+		{
+			if (nowInside.count(idx))
+			{
+				const ServerTriggerVolume& v = m_Template->triggerVolumes[idx];
+				if (v.triggerEvent == TriggerEventKind::ON_STAY)
+					FireTriggerScript(*entity, v, TriggerEventKind::ON_STAY);
+				continue;
+			}
+			const ServerTriggerVolume& v = m_Template->triggerVolumes[idx];
+			FireTriggerScript(*entity, v, TriggerEventKind::ON_EXIT);
+		}
+
+		prevInside = std::move(nowInside);
+	}
+
+	void MapInstance::FireTriggerScript(Entity& entity, const ServerTriggerVolume& trigger,
+										TriggerEventKind kind)
+	{
+		// Forward to InstanceState if present (allows encounter to react to area triggers)
+		if (m_InstanceState)
+			m_InstanceState->OnAreaTrigger(entity, trigger);
+
+		TriggerScript* script = trigger.resolvedScript;
+		if (!script)
+			return;
+
+		switch (kind)
+		{
+		case TriggerEventKind::ON_ENTER:
+			script->OnEnter(*this, entity, trigger);
+			break;
+		case TriggerEventKind::ON_EXIT:
+			script->OnExit(*this, entity, trigger);
+			break;
+		case TriggerEventKind::ON_STAY:
+			script->OnStay(*this, entity, trigger);
+			break;
+		}
+	}
+
 	void MapInstance::Update(float dt)
 	{
 		m_Time += dt;
+
+		if (m_InstanceState)
+			m_InstanceState->Update(dt);
 
 		// Update grid activation (AzerothCore-style lazy loading)
 		UpdateGridActivation(dt);
@@ -411,6 +588,7 @@ namespace MMO {
 				{
 					bool isPlayer = (entity->GetType() == EntityType::PLAYER);
 					m_Grid.MoveEntity(id, oldPos, newPos, isPlayer);
+					CheckTriggers(id, oldPos, newPos);
 				}
 			}
 		}
@@ -440,7 +618,7 @@ namespace MMO {
 		if (it == m_MobAIs.end())
 			return;
 
-		ScriptedAI* ai = it->second.get();
+		CreatureAI* ai = it->second.get();
 		auto aggro = mob->GetAggro();
 		auto combat = mob->GetCombat();
 		auto movement = mob->GetMovement();
@@ -473,7 +651,7 @@ namespace MMO {
 						targetId = player->GetId();
 						target = player;
 						aggro->AddThreat(targetId, 1.0f);
-						ai->OnEnterCombat(target);
+						ai->OnEnterCombat(*target);
 						break;
 					}
 				}
@@ -545,18 +723,7 @@ namespace MMO {
 				movement->velocity = Vec2(0, 0);
 			}
 
-			// Run AI for abilities with callbacks
-			CastAbilityFn castFn = [this](EntityId src, EntityId tgt, AbilityId ability) {
-				ProcessAbility(src, tgt, ability);
-			};
-			SummonCreatureFn summonFn = [this](uint32_t creatureId, Vec2 pos, EntityId summoner) {
-				return SummonCreature(creatureId, pos, summoner);
-			};
-			DespawnCreatureFn despawnFn = [this](EntityId entityId) {
-				RemoveEntity(entityId);
-			};
-
-			ai->Update(dt, target, castFn, summonFn, despawnFn);
+			ai->Update(dt, target, *this);
 		}
 		else
 		{
@@ -1154,19 +1321,15 @@ namespace MMO {
 			EntityId summonerId = target->GetSummoner();
 			if (summonerId != 0)
 			{
-				ScriptedAI* summonerAI = GetMobAI(summonerId);
+				CreatureAI* summonerAI = GetMobAI(summonerId);
 				if (summonerAI)
-				{
-					summonerAI->OnSummonDied(target);
-				}
+					summonerAI->OnSummonDied(*target);
 			}
 
 			// Notify this entity's AI that it died
-			ScriptedAI* targetAI = GetMobAI(target->GetId());
+			CreatureAI* targetAI = GetMobAI(target->GetId());
 			if (targetAI)
-			{
 				targetAI->OnDeath(source);
-			}
 		}
 	}
 

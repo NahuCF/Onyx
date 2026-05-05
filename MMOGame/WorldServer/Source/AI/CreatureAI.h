@@ -1,0 +1,90 @@
+#pragma once
+
+#include "../Scripting/IEntity.h"
+#include "../Scripting/IMapContext.h"
+#include "AIDefines.h"
+#include "CreatureTemplate.h"
+#include "EventMap.h"
+#include "SummonList.h"
+#include <unordered_set>
+
+namespace MMO {
+
+	// ============================================================
+	// CREATURE AI — per-mob runtime AI instance.
+	//
+	// NOT a ScriptObject. Created by CreatureScript::CreateAI() and
+	// owned by MapInstance::m_MobAIs. Holds all per-mob runtime
+	// state: event scheduler, summon list, phase, combat timer.
+	//
+	// Subclasses override the virtual event callbacks.
+	// Data-driven ability scheduling runs in the base class.
+	// ============================================================
+
+	class CreatureAI
+	{
+	public:
+		CreatureAI(IMapContext& ctx, IEntity& owner, const CreatureTemplate* tmpl)
+			: m_Ctx(ctx), m_Owner(owner), m_Template(tmpl)
+		{}
+
+		virtual ~CreatureAI() = default;
+
+		// ========================================
+		// Event handlers (override in scripts)
+		// ========================================
+
+		virtual void OnEnterCombat(IEntity& target);
+		virtual void OnEvade();
+		virtual void OnDeath(IEntity* killer);
+		virtual void OnDamageTaken(IEntity& attacker, int32_t damage);
+		virtual void OnSummonDied(IEntity& summon);
+		virtual void OnPhaseTransition(uint32_t oldPhase, uint32_t newPhase);
+
+		// ========================================
+		// Main update (called by MapInstance)
+		// ========================================
+
+		virtual void Update(float dt, IEntity* target, IMapContext& ctx);
+
+		// ========================================
+		// Accessors
+		// ========================================
+
+		bool IsInCombat() const { return m_InCombat; }
+		uint32_t GetCurrentPhase() const { return m_CurrentPhase; }
+		float GetCombatTime() const { return m_CombatTime; }
+		IEntity& GetOwner() { return m_Owner; }
+		const CreatureTemplate* GetTemplate() const { return m_Template; }
+		SummonList& GetSummons() { return m_Summons; }
+		EventMap& GetEvents() { return m_Events; }
+
+	protected:
+		// ========================================
+		// Phase management
+		// ========================================
+
+		void SetPhase(uint32_t phase);
+		void CheckPhaseTriggers();
+		void TransitionToPhase(uint32_t newPhase, const PhaseTrigger& trigger);
+		void TriggerPhase(uint32_t newPhase);
+
+		// ========================================
+		// Member variables
+		// ========================================
+
+		IMapContext& m_Ctx;
+		IEntity& m_Owner;
+		const CreatureTemplate* m_Template;
+		EventMap m_Events;
+		SummonList m_Summons;
+
+		bool m_InCombat = false;
+		float m_CombatTime = 0.0f;
+		uint32_t m_CurrentPhase = 1;
+
+		// Track which phase transitions have been triggered (prevent re-triggering)
+		std::unordered_set<uint64_t> m_TriggeredPhases;
+	};
+
+} // namespace MMO

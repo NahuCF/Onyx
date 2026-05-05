@@ -1,5 +1,9 @@
 #include "MapManager.h"
 #include "../../../Shared/Source/Database/Database.h"
+#include "../../../Shared/Source/Scripting/ScriptRegistry.h"
+#include "../AI/CreatureScript.h"
+#include "../AI/CreatureTemplates.h"
+#include "../Triggers/TriggerScript.h"
 #include "Items/Items.h"
 #include "MapInstance.h"
 #include <iostream>
@@ -65,10 +69,86 @@ namespace MMO {
 				tmpl.mobSpawns.push_back(spawn);
 			}
 
+			// Load trigger volumes for this map
+			auto dbTriggers = db.LoadTriggerVolumes(t.id);
+			tmpl.triggerVolumes.reserve(dbTriggers.size());
+			for (auto& tv : dbTriggers)
+			{
+				ServerTriggerVolume v;
+				v.guid = tv.guid;
+				v.shape = static_cast<TriggerShapeKind>(tv.shape);
+				v.position = Vec2(tv.positionX, tv.positionY);
+				v.positionZ = tv.positionZ;
+				v.orientation = tv.orientation;
+				v.halfExtentX = tv.halfExtentX;
+				v.halfExtentY = tv.halfExtentY;
+				v.halfExtentZ = tv.halfExtentZ;
+				v.radius = tv.radius;
+				v.triggerEvent = static_cast<TriggerEventKind>(tv.triggerEvent);
+				v.triggerOnce = tv.triggerOnce;
+				v.triggerPlayers = tv.triggerPlayers;
+				v.triggerCreatures = tv.triggerCreatures;
+				v.scriptName = tv.scriptName;
+				v.eventId = tv.eventId;
+				tmpl.triggerVolumes.push_back(std::move(v));
+			}
+			std::cout << "[MapManager] Map " << t.id << " '" << t.name << "': "
+					  << tmpl.mobSpawns.size() << " spawns, "
+					  << tmpl.portals.size() << " portals, "
+					  << tmpl.triggerVolumes.size() << " trigger volumes" << '\n';
+
 			m_Templates[tmpl.id] = std::move(tmpl);
 		}
 
 		std::cout << "[MapManager] Initialized with " << m_Templates.size() << " map templates from database" << '\n';
+
+		// ----------------------------------------------------------------
+		// Boot-time script resolution — cache pointers so dispatching is a
+		// null-check + vtable call with no hash lookup in the tick path.
+		// ----------------------------------------------------------------
+
+		auto& triggerReg = ScriptRegistry<TriggerScript>::Instance();
+		auto& creatureReg = ScriptRegistry<CreatureScript>::Instance();
+
+		for (auto& [id, tmpl] : m_Templates)
+		{
+			// Resolve trigger volume scripts
+			for (auto& vol : tmpl.triggerVolumes)
+			{
+				if (vol.scriptName.empty())
+					continue;
+				vol.resolvedScript = triggerReg.Get(vol.scriptName);
+				if (!vol.resolvedScript)
+				{
+					std::cerr << "[Scripts] WARNING: trigger volume '" << vol.guid
+							  << "' references unknown script '" << vol.scriptName << "'\n";
+				}
+				else
+				{
+					std::cout << "[Scripts] Resolved trigger volume '" << vol.guid
+							  << "' -> " << vol.scriptName << '\n';
+				}
+			}
+
+			// Resolve creature template scripts
+			auto& registry = CreatureTemplates::GetTemplateRegistry();
+			for (auto& [tid, ctmpl] : registry)
+			{
+				if (ctmpl.scriptName.empty())
+					continue;
+				ctmpl.resolvedScript = creatureReg.Get(ctmpl.scriptName);
+				if (!ctmpl.resolvedScript)
+				{
+					std::cerr << "[Scripts] WARNING: creature_template entry=" << ctmpl.id
+							  << " references unknown script '" << ctmpl.scriptName << "'\n";
+				}
+				else
+				{
+					std::cout << "[Scripts] Resolved creature entry=" << ctmpl.id
+							  << " -> " << ctmpl.scriptName << '\n';
+				}
+			}
+		}
 	}
 
 	MapInstance* MapManager::GetMapInstance(uint32_t templateId)

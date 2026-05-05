@@ -3,37 +3,53 @@
 #include "../../../Shared/Source/Packets/Packets.h"
 #include "../../../Shared/Source/Spells/AbilityData.h"
 #include "../../../Shared/Source/Types/Types.h"
+#include "../AI/InstanceScript.h"
 #include "../Entity/Entity.h"
 #include "../Grid/Grid.h"
+#include "../Scripting/IMapContext.h"
 #include "MapDefines.h"
 #include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace MMO {
 
 	// Forward declarations
-	class ScriptedAI;
+	class CreatureAI;
 
 	// ============================================================
 	// MAP INSTANCE
 	// ============================================================
 
-	class MapInstance
+	class MapInstance : public IMapContext
 	{
 	public:
 		MapInstance(uint32_t instanceId, const MapTemplate* tmpl);
 		~MapInstance();
 
-		// Getters
+		// ========================================
+		// IMapContext implementation
+		// ========================================
+
+		std::string_view GetMapName() const override { return m_Template->name; }
+		float GetTime() const override { return m_Time; }
+		Entity* GetEntity(EntityId id) override;
+		Entity* SummonCreature(uint32_t templateId, Vec2 position, EntityId summonerId) override;
+		void RemoveEntity(EntityId id) override;
+		void ProcessAbility(EntityId sourceId, EntityId targetId, AbilityId abilityId) override;
+
+		// ========================================
+		// MapInstance-specific API
+		// ========================================
+
 		uint32_t GetInstanceId() const { return m_InstanceId; }
 		uint32_t GetTemplateId() const { return m_Template->id; }
 		const MapTemplate* GetTemplate() const { return m_Template; }
 		const std::string& GetName() const { return m_Template->name; }
 		Vec2 GetSpawnPoint() const { return m_Template->spawnPoint; }
-		float GetTime() const { return m_Time; }
 
 		// Entity management
 		Entity* CreatePlayer(CharacterId characterId, const std::string& name,
@@ -41,13 +57,10 @@ namespace MMO {
 							 float height, float orientation,
 							 int32_t currentHealth, int32_t currentMana);
 		Entity* CreateMob(uint32_t creatureTemplateId, Vec2 position, uint32_t spawnPointId = 0);
-		Entity* SummonCreature(uint32_t creatureTemplateId, Vec2 position, EntityId summonerId);
-		void RemoveEntity(EntityId id);
-		Entity* GetEntity(EntityId id);
 
 		// Entity transfer (AzerothCore style - move instead of recreate)
-		std::unique_ptr<Entity> ReleaseEntity(EntityId id);	 // Remove and return ownership
-		Entity* AdoptEntity(std::unique_ptr<Entity> entity); // Take ownership of existing entity
+		std::unique_ptr<Entity> ReleaseEntity(EntityId id);
+		Entity* AdoptEntity(std::unique_ptr<Entity> entity);
 
 		// Player management
 		void RegisterPlayer(EntityId entityId, uint32_t peerId, CharacterId characterId, AccountId accountId);
@@ -65,10 +78,9 @@ namespace MMO {
 		// Game logic
 		void Update(float dt);
 		void ProcessInput(EntityId playerId, const C_Input& input);
-		void ProcessAbility(EntityId sourceId, EntityId targetId, AbilityId abilityId);
 		void ProcessTargetSelection(EntityId playerId, EntityId targetId);
 
-		// Portal checking - returns portal if player is in one, nullptr otherwise
+		// Portal checking
 		const Portal* CheckPortal(Vec2 position);
 
 		// Events
@@ -106,12 +118,12 @@ namespace MMO {
 		// XP system
 		void AwardXP(Entity* player, Entity* mob);
 
-		// Grid system for spatial queries and dirty tracking
+		// Grid system
 		Grid& GetGrid() { return m_Grid; }
 		const Grid& GetGrid() const { return m_Grid; }
 
 		// AI access (for summoner notification)
-		ScriptedAI* GetMobAI(EntityId entityId);
+		CreatureAI* GetMobAI(EntityId entityId);
 
 		// Dirty flag helpers
 		void MarkPositionDirty(EntityId id);
@@ -121,25 +133,26 @@ namespace MMO {
 		void MarkCastingDirty(EntityId id);
 		void MarkMoveStateDirty(EntityId id);
 
-		// For immediate broadcasting - callback when entity changes
 		using BroadcastCallback = std::function<void(EntityId entityId, const DirtyFlags& flags)>;
 		void SetBroadcastCallback(BroadcastCallback callback) { m_BroadcastCallback = callback; }
 
+		// Trigger volumes
+		void BuildTriggerCellIndex();
+		void CheckTriggers(EntityId entityId, Vec2 oldPos, Vec2 newPos);
+		void FireTriggerScript(Entity& entity, const ServerTriggerVolume& trigger, TriggerEventKind kind);
 
 	private:
 		EntityId GenerateEntityId();
 		void UpdateMobAI(Entity* mob, float dt);
 		void UpdateCasts(float dt);
 		void UpdateProjectiles(float dt);
-		void UpdateGridActivation(float dt); // AzerothCore-style grid loading
-
-		// Grid-based mob spawning (AzerothCore-style)
-		void SpawnCellMobs(CellCoord coord);   // Spawn mobs for activated cell
-		void DespawnCellMobs(CellCoord coord); // Despawn mobs for deactivated cell
+		void UpdateGridActivation(float dt);
+		void SpawnCellMobs(CellCoord coord);
+		void DespawnCellMobs(CellCoord coord);
 		void UpdateRespawns(float dt);
 		void UpdateLoot(float dt);
-		void UpdateRegeneration(float dt); // Health/mana regeneration
-		void UpdateAuras(float dt);		   // Aura tick processing
+		void UpdateRegeneration(float dt);
+		void UpdateAuras(float dt);
 		void ExecuteAbility(EntityId sourceId, EntityId targetId, AbilityId abilityId, Vec2 targetPosition);
 		int32_t CalculateEffectDamage(Entity* source, const SpellEffect& effect);
 		void ProcessSpellEffect(Entity* source, Entity* target, const SpellEffect& effect, AbilityId abilityId);
@@ -148,7 +161,7 @@ namespace MMO {
 		void ApplyHeal(Entity* source, Entity* target, int32_t amount, AbilityId abilityId);
 		void ApplyAura(Entity* source, Entity* target, const SpellEffect& effect, AbilityId abilityId);
 		void BroadcastAuraUpdate(EntityId targetId, const Aura& aura, AuraUpdateType updateType);
-		void SendAllAuras(EntityId targetId, uint32_t peerId); // Send full aura list to specific player
+		void SendAllAuras(EntityId targetId, uint32_t peerId);
 
 		uint32_t m_InstanceId;
 		const MapTemplate* m_Template;
@@ -156,8 +169,11 @@ namespace MMO {
 		std::unordered_map<EntityId, std::unique_ptr<Entity>> m_Entities;
 		std::unordered_map<EntityId, PlayerInfo> m_Players;
 		std::unordered_map<uint32_t, EntityId> m_PeerToEntity;
-		std::unordered_map<EntityId, std::unique_ptr<ScriptedAI>> m_MobAIs;
-		std::unordered_map<EntityId, uint32_t> m_EntityToSpawnPoint; // Maps entity to spawn point ID
+		std::unordered_map<EntityId, std::unique_ptr<CreatureAI>> m_MobAIs;
+		std::unordered_map<EntityId, uint32_t> m_EntityToSpawnPoint;
+
+		// Per-instance encounter script (null if map has none configured)
+		std::unique_ptr<InstanceState> m_InstanceState;
 
 		std::vector<GameEvent> m_PendingEvents;
 		std::vector<PendingAuraUpdate> m_PendingAuraUpdates;
@@ -165,19 +181,21 @@ namespace MMO {
 		std::vector<PendingRespawn> m_PendingRespawns;
 		std::unordered_map<EntityId, LootData> m_Lootables;
 
-		// Grid system for spatial partitioning and dirty tracking
 		Grid m_Grid;
 		BroadcastCallback m_BroadcastCallback;
 
 		EntityId m_NextProjectileId = 10000;
 		float m_Time = 0.0f;
 
-		// Regeneration system (AzerothCore-style tick every 2 seconds)
+		std::unordered_map<CellCoord, std::vector<size_t>, CellCoordHash> m_TriggerCellIndex;
+		std::unordered_map<EntityId, std::unordered_set<size_t>> m_EntityTriggerInside;
+		std::unordered_set<size_t> m_TriggersFiredOnce;
+
 		float m_RegenTimer = 0.0f;
-		static constexpr float REGEN_TICK_INTERVAL = 2.0f;		// Every 2 seconds
-		static constexpr float PLAYER_HEALTH_REGEN_PCT = 0.02f; // 2% per tick out of combat
-		static constexpr float PLAYER_MANA_REGEN_PCT = 0.03f;	// 3% per tick (if 5s rule passed)
-		static constexpr float MOB_EVADE_REGEN_PCT = 0.05f;		// 5% per tick while evading
+		static constexpr float REGEN_TICK_INTERVAL = 2.0f;
+		static constexpr float PLAYER_HEALTH_REGEN_PCT = 0.02f;
+		static constexpr float PLAYER_MANA_REGEN_PCT = 0.03f;
+		static constexpr float MOB_EVADE_REGEN_PCT = 0.05f;
 	};
 
 } // namespace MMO

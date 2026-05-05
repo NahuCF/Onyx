@@ -1,6 +1,13 @@
 #include "WorldServer.h"
+#include "AI/CreatureScript.h"
+#include "AI/InstanceScript.h"
 #include "Grid/Grid.h"
 #include "Items/Items.h"
+#include "Scripting/GameObjectScript.h"
+#include "Scripting/PlayerScript.h"
+#include "Scripting/QuestScript.h"
+#include "Scripting/SpellScript.h"
+#include "Triggers/TriggerScript.h"
 #ifdef HAS_DATABASE
 #include "../../Shared/Source/Data/GameDataStore.h"
 #include "../../Shared/Source/Database/MigrationRunner.h"
@@ -50,6 +57,15 @@ namespace MMO {
 
 		// Load game data (races, classes, create info)
 		GameDataStore::Instance().LoadFromDatabase(m_Database);
+
+		// Register all scripts before any MapInstance is constructed.
+		RegisterAllCreatureScripts();
+		RegisterAllInstanceScripts();
+		RegisterAllTriggerScripts();
+		RegisterAllGameObjectScripts();
+		RegisterAllQuestScripts();
+		RegisterAllSpellScripts();
+		RegisterAllPlayerScripts();
 
 		// Initialize map manager with templates from DB.
 		MapManager::Instance().Initialize(m_Database);

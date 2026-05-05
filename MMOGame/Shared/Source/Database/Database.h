@@ -74,6 +74,23 @@ namespace MMO {
 		uint32_t maxCount;
 	};
 
+	// trigger_volume row — DB stores Z-up; consumers axis-swap into their own space.
+	struct TriggerVolumeData
+	{
+		std::string guid;
+		uint8_t shape; // 0=BOX, 1=SPHERE, 2=CAPSULE
+		float positionX, positionY, positionZ;
+		float orientation;
+		float halfExtentX, halfExtentY, halfExtentZ;
+		float radius;
+		uint8_t triggerEvent; // 0=ON_ENTER, 1=ON_EXIT, 2=ON_STAY
+		bool triggerOnce;
+		bool triggerPlayers;
+		bool triggerCreatures;
+		std::string scriptName;
+		uint32_t eventId;
+	};
+
 	struct CooldownData
 	{
 		AbilityId abilityId;
@@ -118,6 +135,7 @@ namespace MMO {
 		std::vector<MapTemplateData> LoadAllMapTemplates();
 		std::vector<PortalData> LoadPortals(uint32_t mapId);
 		std::vector<CreatureSpawnData> LoadCreatureSpawns(uint32_t mapId);
+		std::vector<TriggerVolumeData> LoadTriggerVolumes(uint32_t mapId);
 
 		// Race/Class template loading
 		std::vector<RaceTemplate> LoadRaceTemplates();

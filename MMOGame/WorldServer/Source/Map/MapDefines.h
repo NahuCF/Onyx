@@ -11,6 +11,7 @@ namespace MMO {
 
 	// Forward declarations
 	class CreatureTemplate;
+	class TriggerScript;
 
 	// ============================================================
 	// PORTAL
@@ -57,6 +58,63 @@ namespace MMO {
 	};
 
 	// ============================================================
+	// SERVER TRIGGER VOLUME
+	// ============================================================
+	//
+	// Server-side runtime form of an editor TriggerVolume. Stored in MapTemplate
+	// (immutable for the lifetime of an instance) and indexed by MapInstance
+	// into per-cell buckets for cheap movement-driven testing.
+
+	enum class TriggerShapeKind : uint8_t
+	{
+		BOX = 0,
+		SPHERE = 1,
+		CAPSULE = 2,
+	};
+
+	enum class TriggerEventKind : uint8_t
+	{
+		ON_ENTER = 0,
+		ON_EXIT = 1,
+		ON_STAY = 2,
+	};
+
+	struct ServerTriggerVolume
+	{
+		std::string guid;
+		TriggerShapeKind shape = TriggerShapeKind::BOX;
+
+		Vec2 position;
+		float positionZ = 0.0f;
+		float orientation = 0.0f;
+
+		float halfExtentX = 1.0f;
+		float halfExtentY = 1.0f;
+		float halfExtentZ = 1.0f;
+		float radius = 1.0f;
+
+		TriggerEventKind triggerEvent = TriggerEventKind::ON_ENTER;
+		bool triggerOnce = false;
+		bool triggerPlayers = true;
+		bool triggerCreatures = false;
+
+		std::string scriptName;
+		uint32_t eventId = 0;
+
+		// Resolved at MapManager::Initialize — no name lookup per dispatch.
+		TriggerScript* resolvedScript = nullptr;
+
+		// XY-only (sphere or oriented-box) — used by the cell-bucket fast path.
+		bool ContainsXY(Vec2 point) const;
+
+		// Full 3D containment for entities that carry a vertical position.
+		bool Contains(Vec2 ground, float vertical) const;
+
+		// Worst-case XY radius — used when bucketing the volume into grid cells.
+		float BoundingRadiusXY() const;
+	};
+
+	// ============================================================
 	// MAP TEMPLATE (Static Definition)
 	// ============================================================
 
@@ -67,8 +125,10 @@ namespace MMO {
 		float width;
 		float height;
 		Vec2 spawnPoint; // Default player spawn
+		std::string instanceScriptName; // Bound InstanceScript (empty = none)
 		std::vector<Portal> portals;
 		std::vector<MobSpawnPoint> mobSpawns;
+		std::vector<ServerTriggerVolume> triggerVolumes;
 	};
 
 	// ============================================================

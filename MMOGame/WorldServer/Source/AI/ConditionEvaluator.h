@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Entity/Entity.h"
+#include "../Scripting/IEntity.h"
 #include "AIDefines.h"
 #include <vector>
 
@@ -13,7 +13,7 @@ namespace MMO {
 	class ConditionEvaluator
 	{
 	public:
-		static bool Evaluate(const Condition& cond, Entity* self, Entity* target,
+		static bool Evaluate(const Condition& cond, IEntity* self, IEntity* target,
 							 float combatTime = 0.0f, bool hasSummons = false)
 		{
 			switch (cond.type)
@@ -23,83 +23,67 @@ namespace MMO {
 
 			case ConditionType::HEALTH_BELOW:
 			{
-				auto health = self->GetHealth();
-				if (!health)
+				if (!self)
 					return false;
-				float pct = health->Percent() * 100.0f;
-				return pct < cond.value;
+				return self->GetHealthPercent() * 100.0f < cond.value;
 			}
 
 			case ConditionType::HEALTH_ABOVE:
 			{
-				auto health = self->GetHealth();
-				if (!health)
+				if (!self)
 					return false;
-				float pct = health->Percent() * 100.0f;
-				return pct > cond.value;
+				return self->GetHealthPercent() * 100.0f > cond.value;
 			}
 
 			case ConditionType::MANA_BELOW:
 			{
-				auto mana = self->GetMana();
-				if (!mana)
+				if (!self)
 					return false;
-				float pct = mana->Percent() * 100.0f;
-				return pct < cond.value;
+				return self->GetManaPercent() * 100.0f < cond.value;
 			}
 
 			case ConditionType::MANA_ABOVE:
 			{
-				auto mana = self->GetMana();
-				if (!mana)
+				if (!self)
 					return false;
-				float pct = mana->Percent() * 100.0f;
-				return pct > cond.value;
+				return self->GetManaPercent() * 100.0f > cond.value;
 			}
 
 			case ConditionType::TARGET_HEALTH_BELOW:
 			{
 				if (!target)
 					return false;
-				auto health = target->GetHealth();
-				if (!health)
-					return false;
-				float pct = health->Percent() * 100.0f;
-				return pct < cond.value;
+				return target->GetHealthPercent() * 100.0f < cond.value;
 			}
 
 			case ConditionType::TARGET_HEALTH_ABOVE:
 			{
 				if (!target)
 					return false;
-				auto health = target->GetHealth();
-				if (!health)
-					return false;
-				float pct = health->Percent() * 100.0f;
-				return pct > cond.value;
+				return target->GetHealthPercent() * 100.0f > cond.value;
 			}
 
 			case ConditionType::IN_RANGE:
 			{
-				if (!target)
+				if (!self || !target)
 					return false;
-				auto selfMove = self->GetMovement();
-				auto targetMove = target->GetMovement();
-				if (!selfMove || !targetMove)
-					return false;
-				float dist = Vec2::Distance(selfMove->position, targetMove->position);
+				Vec2 selfPos = self->GetPosition();
+				Vec2 tgtPos = target->GetPosition();
+				float dx = selfPos.x - tgtPos.x;
+				float dy = selfPos.y - tgtPos.y;
+				float dist = std::sqrt(dx * dx + dy * dy);
 				return dist <= cond.value;
 			}
 
 			case ConditionType::OUT_OF_RANGE:
 			{
-				if (!target)
+				if (!self || !target)
 					return false;
-				auto selfMove = self->GetMovement();
-				auto targetMove = target->GetMovement();
-				if (!selfMove || !targetMove)
-					return false;
-				float dist = Vec2::Distance(selfMove->position, targetMove->position);
+				Vec2 selfPos = self->GetPosition();
+				Vec2 tgtPos = target->GetPosition();
+				float dx = selfPos.x - tgtPos.x;
+				float dy = selfPos.y - tgtPos.y;
+				float dist = std::sqrt(dx * dx + dy * dy);
 				return dist > cond.value;
 			}
 
@@ -116,12 +100,10 @@ namespace MMO {
 				return !hasSummons;
 
 			case ConditionType::HAS_BUFF:
-				// TODO: Implement buff system
-				return false;
+				return false; // TODO: buff system
 
 			case ConditionType::NOT_HAS_BUFF:
-				// TODO: Implement buff system
-				return true;
+				return true; // TODO: buff system
 
 			case ConditionType::RANDOM_CHANCE:
 				return (rand() % 100) < static_cast<int>(cond.value);
@@ -131,15 +113,13 @@ namespace MMO {
 			}
 		}
 
-		static bool EvaluateAll(const std::vector<Condition>& conditions, Entity* self, Entity* target,
+		static bool EvaluateAll(const std::vector<Condition>& conditions, IEntity* self, IEntity* target,
 								float combatTime = 0.0f, bool hasSummons = false)
 		{
 			for (const auto& cond : conditions)
 			{
 				if (!Evaluate(cond, self, target, combatTime, hasSummons))
-				{
 					return false;
-				}
 			}
 			return true;
 		}

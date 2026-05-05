@@ -675,6 +675,50 @@ namespace MMO {
 		return spawns;
 	}
 
+	std::vector<TriggerVolumeData> Database::LoadTriggerVolumes(uint32_t mapId)
+	{
+		std::vector<TriggerVolumeData> volumes;
+		try
+		{
+			pqxx::work txn(*m_Connection);
+			pqxx::result result = txn.exec_params(
+				"SELECT guid, shape, position_x, position_y, position_z, orientation, "
+				"       half_extent_x, half_extent_y, half_extent_z, radius, "
+				"       trigger_event, trigger_once, trigger_players, trigger_creatures, "
+				"       script_name, event_id "
+				"FROM trigger_volume WHERE map_id = $1 ORDER BY guid",
+				mapId);
+			txn.commit();
+
+			for (const auto& row : result)
+			{
+				TriggerVolumeData v;
+				v.guid = row[0].as<std::string>();
+				v.shape = static_cast<uint8_t>(row[1].as<int>());
+				v.positionX = row[2].as<float>();
+				v.positionY = row[3].as<float>();
+				v.positionZ = row[4].as<float>();
+				v.orientation = row[5].as<float>();
+				v.halfExtentX = row[6].as<float>();
+				v.halfExtentY = row[7].as<float>();
+				v.halfExtentZ = row[8].as<float>();
+				v.radius = row[9].as<float>();
+				v.triggerEvent = static_cast<uint8_t>(row[10].as<int>());
+				v.triggerOnce = row[11].as<bool>();
+				v.triggerPlayers = row[12].as<bool>();
+				v.triggerCreatures = row[13].as<bool>();
+				v.scriptName = row[14].as<std::string>();
+				v.eventId = row[15].as<uint32_t>();
+				volumes.push_back(std::move(v));
+			}
+		}
+		catch (const std::exception& e)
+		{
+			std::cerr << "LoadTriggerVolumes failed: " << e.what() << '\n';
+		}
+		return volumes;
+	}
+
 	// ============================================================
 	// RACE/CLASS TEMPLATE LOADING
 	// ============================================================

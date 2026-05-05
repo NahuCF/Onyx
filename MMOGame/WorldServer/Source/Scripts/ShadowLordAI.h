@@ -1,160 +1,140 @@
 #pragma once
 
+#include "../../../Shared/Source/Scripting/ScriptRegistry.h"
 #include "../../../Shared/Source/Spells/SpellDefines.h"
-#include "../AI/ScriptRegistry.h"
-#include "../AI/ScriptedAI.h"
-#include "../Entity/AuraComponent.h"
+#include "../AI/CreatureAI.h"
+#include "../AI/CreatureScript.h"
 #include <iostream>
 
 namespace MMO {
 
 	// ============================================================
-	// SHADOW LORD AI - Example custom boss script
+	// SHADOW LORD AI
 	// ============================================================
 	//
-	// This demonstrates the AzerothCore approach to boss mechanics:
-	// - Use AURAS for temporary effects like invulnerability
-	// - Track summons via SummonList
-	// - Remove auras when conditions are met (all adds dead)
+	// Per-mob runtime: phase management + DAMAGE_IMMUNITY aura.
+	//   Phase 1: normal combat
+	//   Phase 2 (< 50% HP): summon 3 Shadow Servants, apply DAMAGE_IMMUNITY
+	//   Phase 3 (all adds dead): remove immunity, enrage
 	//
+	// Uses IEntity& for all owner-side aura operations so this class
+	// can be unit-tested with a MockEntity stub.
 	// ============================================================
 
-	class ShadowLordAI : public ScriptedAI
+	class ShadowLordAI : public CreatureAI
 	{
 	public:
-		ShadowLordAI(Entity* owner, const CreatureTemplate* tmpl)
-			: ScriptedAI(owner, tmpl) {}
+		ShadowLordAI(IMapContext& ctx, IEntity& owner, const CreatureTemplate* tmpl)
+			: CreatureAI(ctx, owner, tmpl)
+		{}
 
-		// Custom events (beyond template abilities)
+		// Custom event IDs (beyond template abilities)
 		enum CustomEvents
 		{
 			EVENT_INVULNERABILITY_CHECK = 100,
-			EVENT_ENRAGE_WARNING = 101
+			EVENT_ENRAGE_WARNING = 101,
 		};
 
-		void OnEnterCombat(Entity* target) override
+		void OnEnterCombat(IEntity& target) override
 		{
-			ScriptedAI::OnEnterCombat(target);
-
-			// Clear any leftover immunity from previous attempts
+			CreatureAI::OnEnterCombat(target);
 			RemoveInvulnerabilityAura();
-
-			std::cout << "[ShadowLord] Entering combat!" << '\n';
+			std::cout << "[ShadowLord] Entering combat!\n";
 		}
 
 		void OnPhaseTransition(uint32_t oldPhase, uint32_t newPhase) override
 		{
-			ScriptedAI::OnPhaseTransition(oldPhase, newPhase);
+			CreatureAI::OnPhaseTransition(oldPhase, newPhase);
 
 			if (newPhase == 2)
 			{
-				// Phase 2: Apply DAMAGE_IMMUNITY aura (AzerothCore style)
-				// The aura system handles all immunity checks automatically
 				ApplyInvulnerabilityAura();
-				std::cout << "[ShadowLord] Phase 2: INVULNERABLE until adds die!" << '\n';
+				std::cout << "[ShadowLord] Phase 2: INVULNERABLE until adds die!\n";
 			}
 			else if (newPhase == 3)
 			{
-				// Phase 3: Remove invulnerability, enrage
 				RemoveInvulnerabilityAura();
-
-				// Could also apply an enrage aura here:
-				// ApplyEnrageAura();  // e.g., +50% damage dealt
-				std::cout << "[ShadowLord] Phase 3: ENRAGED! Attacks faster!" << '\n';
+				std::cout << "[ShadowLord] Phase 3: ENRAGED! Attacks faster!\n";
 			}
 		}
 
-		void OnSummonDied(Entity* summon) override
+		void OnSummonDied(IEntity& summon) override
 		{
 			std::cout << "[ShadowLord] A Shadow Servant has fallen! ("
-					  << m_Summons.Count() - 1 << " remaining)" << '\n';
+					  << m_Summons.Count() - 1 << " remaining)\n";
 
-			ScriptedAI::OnSummonDied(summon);
+			CreatureAI::OnSummonDied(summon);
 
-			// AzerothCore pattern: Check if all adds are dead
-			// If so, remove invulnerability and transition phase
 			if (m_Summons.Count() == 0)
 			{
-				std::cout << "[ShadowLord] All adds defeated! Removing invulnerability!" << '\n';
+				std::cout << "[ShadowLord] All adds defeated! Removing invulnerability!\n";
 				RemoveInvulnerabilityAura();
-
-				// Could trigger phase 3 here:
-				// SetPhase(3);
 			}
 		}
 
 		void OnEvade() override
 		{
-			ScriptedAI::OnEvade();
-
-			// Clean up auras when boss resets
+			CreatureAI::OnEvade();
 			RemoveInvulnerabilityAura();
 		}
 
-		void OnDeath(Entity* killer) override
+		void OnDeath(IEntity* killer) override
 		{
-			ScriptedAI::OnDeath(killer);
-
-			// Clean up auras on death
+			CreatureAI::OnDeath(killer);
 			RemoveInvulnerabilityAura();
 		}
 
 	private:
-		// ============================================================
-		// AURA HELPERS (AzerothCore style)
-		// ============================================================
-
-		// Apply DAMAGE_IMMUNITY aura - boss takes no damage
 		void ApplyInvulnerabilityAura()
 		{
-			auto auras = m_Owner->GetAuras();
-			if (!auras)
+			if (m_Owner.HasAuraType(AuraType::DAMAGE_IMMUNITY))
 				return;
 
-			// Check if already has immunity
-			if (auras->HasAuraType(AuraType::DAMAGE_IMMUNITY))
-			{
-				return;
-			}
+			Aura aura;
+			aura.sourceAbility = AbilityId::NONE;
+			aura.casterId = m_Owner.GetId();
+			aura.type = AuraType::DAMAGE_IMMUNITY;
+			aura.value = 0;
+			aura.duration = 600.0f;
+			aura.maxDuration = 600.0f;
+			aura.tickInterval = 0.0f;
 
-			// Create immunity aura with very long duration (until manually removed)
-			Aura immunityAura;
-			immunityAura.sourceAbility = AbilityId::NONE; // Applied by script, not ability
-			immunityAura.casterId = m_Owner->GetId();
-			immunityAura.type = AuraType::DAMAGE_IMMUNITY;
-			immunityAura.value = 0;
-			immunityAura.duration = 600.0f; // 10 minutes (effectively permanent until removed)
-			immunityAura.maxDuration = 600.0f;
-			immunityAura.tickInterval = 0.0f; // No periodic effect
-
-			m_InvulnerabilityAuraId = auras->AddAura(immunityAura);
-			std::cout << "[ShadowLord] Applied DAMAGE_IMMUNITY aura (ID: " << m_InvulnerabilityAuraId << ")" << '\n';
+			m_InvulnerabilityAuraId = m_Owner.AddAura(aura);
+			std::cout << "[ShadowLord] Applied DAMAGE_IMMUNITY aura (ID: "
+					  << m_InvulnerabilityAuraId << ")\n";
 		}
 
-		// Remove DAMAGE_IMMUNITY aura
 		void RemoveInvulnerabilityAura()
 		{
-			auto auras = m_Owner->GetAuras();
-			if (!auras)
-				return;
-
 			if (m_InvulnerabilityAuraId != 0)
 			{
-				auras->RemoveAura(m_InvulnerabilityAuraId);
-				std::cout << "[ShadowLord] Removed DAMAGE_IMMUNITY aura" << '\n';
+				m_Owner.RemoveAura(m_InvulnerabilityAuraId);
+				std::cout << "[ShadowLord] Removed DAMAGE_IMMUNITY aura\n";
 				m_InvulnerabilityAuraId = 0;
 			}
 			else
 			{
-				// Fallback: remove all immunity auras
-				auras->RemoveAurasByType(AuraType::DAMAGE_IMMUNITY);
+				m_Owner.RemoveAurasByType(AuraType::DAMAGE_IMMUNITY);
 			}
 		}
 
 		uint32_t m_InvulnerabilityAuraId = 0;
 	};
 
-	// Register the Shadow Lord script
-	REGISTER_CREATURE_SCRIPT("shadow_lord", ShadowLordAI)
+	// ============================================================
+	// SHADOW LORD SCRIPT — registered factory singleton
+	// ============================================================
+
+	class ShadowLordScript : public CreatureScript
+	{
+	public:
+		ShadowLordScript() : CreatureScript("shadow_lord") {}
+
+		std::unique_ptr<CreatureAI> CreateAI(IMapContext& map, IEntity& mob,
+		                                     const CreatureTemplate* tmpl) const override
+		{
+			return std::make_unique<ShadowLordAI>(map, mob, tmpl);
+		}
+	};
 
 } // namespace MMO

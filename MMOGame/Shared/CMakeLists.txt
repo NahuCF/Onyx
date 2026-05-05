@@ -33,6 +33,9 @@ set(SHARED_HEADERS
     Source/Model/OmdlFormat.h
     Source/Model/OmdlWriter.h
     Source/Model/OmdlReader.h
+    Source/Scripting/ScriptObject.h
+    Source/Scripting/ScriptRegistry.h
+    Source/Scripting/HookRegistry.h
 )
 
 # Check for libpqxx - optional for client, required for servers.
@@ -157,4 +160,10 @@ source_group("Model" FILES
     Source/Model/OmdlWriter.cpp
     Source/Model/OmdlReader.h
     Source/Model/OmdlReader.cpp
+)
+
+source_group("Scripting" FILES
+    Source/Scripting/ScriptObject.h
+    Source/Scripting/ScriptRegistry.h
+    Source/Scripting/HookRegistry.h
 )

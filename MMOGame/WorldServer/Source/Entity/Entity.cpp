@@ -206,6 +206,57 @@ namespace MMO {
 	{
 	}
 
+	// ============================================================
+	// IENTITY IMPLEMENTATION
+	// ============================================================
+
+	Vec2 Entity::GetPosition() const
+	{
+		return m_Movement ? m_Movement->position : Vec2{};
+	}
+
+	float Entity::GetHeight() const
+	{
+		return m_Movement ? m_Movement->height : 0.0f;
+	}
+
+	float Entity::GetHealthPercent() const
+	{
+		return m_Health ? m_Health->Percent() : 0.0f;
+	}
+
+	float Entity::GetManaPercent() const
+	{
+		return m_Mana ? m_Mana->Percent() : 0.0f;
+	}
+
+	bool Entity::IsDead() const
+	{
+		return m_Health ? m_Health->IsDead() : false;
+	}
+
+	uint32_t Entity::AddAura(const Aura& aura)
+	{
+		return m_Auras ? m_Auras->AddAura(aura) : 0;
+	}
+
+	void Entity::RemoveAura(uint32_t auraId)
+	{
+		if (m_Auras)
+			m_Auras->RemoveAura(auraId);
+	}
+
+	void Entity::RemoveAurasByType(AuraType type)
+	{
+		if (m_Auras)
+			m_Auras->RemoveAurasByType(type);
+	}
+
+	bool Entity::HasAuraType(AuraType type) const
+	{
+		return m_Auras ? m_Auras->HasAuraType(type) : false;
+	}
+
 	void Entity::AddHealthComponent(int32_t max)
 	{
 		m_Health = std::make_unique<HealthComponent>();

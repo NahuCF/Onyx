@@ -6,6 +6,8 @@
 
 namespace MMO {
 
+	class CreatureScript;
+
 	// ============================================================
 	// CREATURE TEMPLATE
 	// ============================================================
@@ -24,8 +26,8 @@ namespace MMO {
 		uint32_t minMoney = 0;
 		uint32_t maxMoney = 0;
 		CreatureRank rank = CreatureRank::NORMAL;
-		float corpseDecayTime = 0.0f; // 0 = use rank default
-		float respawnTime = 0.0f;	  // 0 = use rank default
+		float corpseDecayTime = 0.0f;
+		float respawnTime = 0.0f;
 
 		// Phase-aware abilities
 		std::vector<AbilityRule> abilities;
@@ -35,16 +37,20 @@ namespace MMO {
 		// Loot
 		std::vector<LootTableEntry> lootTable;
 
-		// Custom script (empty = use default AI)
+		// AI selection (DB columns: scripts > ai_name > default)
+		// scriptName maps to the 'scripts' DB column: hand-coded CreatureScript.
+		// aiName maps to the 'ai_name' DB column: data-driven BuiltInAI archetype.
 		std::string scriptName;
+		std::string aiName;
 
-		// Get effective corpse decay time (template override or rank default)
+		// Resolved at boot from ScriptRegistry<CreatureScript> — no lookup per spawn.
+		CreatureScript* resolvedScript = nullptr;
+
 		float GetCorpseDecayTime() const
 		{
 			return corpseDecayTime > 0 ? corpseDecayTime : GetDefaultCorpseDecayTime(rank);
 		}
 
-		// Get effective respawn time (template override or rank default)
 		float GetRespawnTime() const
 		{
 			return respawnTime > 0 ? respawnTime : GetDefaultRespawnTime(rank);

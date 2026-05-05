@@ -2,6 +2,7 @@
 
 #include "../../../Shared/Source/Items/Items.h"
 #include "../../../Shared/Source/Types/Types.h"
+#include "../Scripting/IEntity.h"
 #include "AuraComponent.h"
 #include "Components.h"
 #include <memory>
@@ -14,15 +15,35 @@ namespace MMO {
 	// ENTITY
 	// ============================================================
 
-	class Entity
+	class Entity : public IEntity
 	{
 	public:
 		Entity(EntityId id, EntityType type, const std::string& name);
 		virtual ~Entity() = default;
 
-		EntityId GetId() const { return m_Id; }
-		EntityType GetType() const { return m_Type; }
-		const std::string& GetName() const { return m_Name; }
+		// ========================================
+		// IEntity implementation
+		// ========================================
+
+		EntityId GetId() const override { return m_Id; }
+		EntityType GetType() const override { return m_Type; }
+		const std::string& GetName() const override { return m_Name; }
+
+		Vec2 GetPosition() const override;
+		float GetHeight() const override;
+		float GetHealthPercent() const override;
+		float GetManaPercent() const override;
+		bool IsDead() const override;
+
+		uint32_t AddAura(const Aura& aura) override;
+		void RemoveAura(uint32_t auraId) override;
+		void RemoveAurasByType(AuraType type) override;
+		bool HasAuraType(AuraType type) const override;
+
+		// ========================================
+		// Entity-specific API (not on IEntity)
+		// ========================================
+
 		CharacterClass GetClass() const { return m_Class; }
 		uint32_t GetLevel() const { return m_Level; }
 
@@ -94,7 +115,7 @@ namespace MMO {
 		std::string m_Name;
 		CharacterClass m_Class = CharacterClass::NONE;
 		uint32_t m_Level = 1;
-		EntityId m_SummonerId = 0; // Who summoned this entity (0 = not summoned)
+		EntityId m_SummonerId = 0;
 
 		std::unique_ptr<HealthComponent> m_Health;
 		std::unique_ptr<ManaComponent> m_Mana;
