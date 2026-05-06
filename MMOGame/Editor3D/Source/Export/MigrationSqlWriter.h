@@ -8,6 +8,7 @@ namespace MMO {
 
 	class SpawnPoint;
 	class PlayerSpawn;
+	class TriggerVolume;
 
 	// MigrationSqlWriter — generates idempotent UPSERT/DELETE SQL for DB-bound
 	// authored entities. The output is consumed two ways:
@@ -35,6 +36,13 @@ namespace MMO {
 		static void EmitPlayerCreateInfo(
 			const std::vector<const PlayerSpawn*>& spawns,
 			uint32_t mapId,
+			std::ostream& out);
+
+		// trigger_volume UPSERT for the given map + scoped DELETE removing any
+		// row whose guid is no longer authored in this map.
+		static void EmitTriggerVolumesForMap(
+			uint32_t mapId,
+			const std::vector<const TriggerVolume*>& volumes,
 			std::ostream& out);
 	};
 

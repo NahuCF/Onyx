@@ -107,7 +107,11 @@ namespace MMO {
 			cmdLine.data(),	  // command line (must be writable)
 			nullptr, nullptr, // security attrs
 			FALSE,			  // inherit handles
-			CREATE_UNICODE_ENVIRONMENT,
+			// CREATE_NEW_CONSOLE: each subprocess gets its own console window so
+			// LoginServer/WorldServer/Client logs are visible during Run Locally.
+			// Without this, stdout/stderr go to NUL because the editor (a GUI app)
+			// has no console to inherit.
+			CREATE_UNICODE_ENVIRONMENT | CREATE_NEW_CONSOLE,
 			envBlock.data(),
 			wcwd.empty() ? nullptr : wcwd.c_str(),
 			&si, &m_Pi);

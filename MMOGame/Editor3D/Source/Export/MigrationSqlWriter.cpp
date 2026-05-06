@@ -2,6 +2,7 @@
 
 #include "../../../Shared/Source/World/PlayerSpawn.h"
 #include "../../../Shared/Source/World/SpawnPoint.h"
+#include "../../../Shared/Source/World/TriggerVolume.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -186,6 +187,82 @@ namespace MMO {
 			{
 				out << "(" << rows[i].race << ", " << rows[i].cls << ")"
 					<< (i + 1 == rows.size() ? "" : ", ");
+			}
+			out << ")";
+		}
+		out << ";\n";
+
+		out << "COMMIT;\n";
+	}
+
+	void MigrationSqlWriter::EmitTriggerVolumesForMap(
+		uint32_t mapId,
+		const std::vector<const TriggerVolume*>& volumes,
+		std::ostream& out)
+	{
+		out << "-- trigger_volume for map_id=" << mapId << "\n";
+		out << "BEGIN;\n";
+
+		if (!volumes.empty())
+		{
+			out << "INSERT INTO trigger_volume "
+				   "(guid, map_id, shape, position_x, position_y, position_z, orientation, "
+				   "half_extent_x, half_extent_y, half_extent_z, radius, "
+				   "trigger_event, trigger_once, trigger_players, trigger_creatures, "
+				   "script_name, event_id) VALUES\n";
+
+			for (size_t i = 0; i < volumes.size(); ++i)
+			{
+				const TriggerVolume* v = volumes[i];
+				const glm::vec3 pos = v->GetPosition();
+				const float yaw = ExtractYaw(v->GetRotation());
+				const glm::vec3 he = v->GetHalfExtents();
+
+				// Axis swap: editor Y-up (X/Z = ground, Y = vertical) → server Z-up.
+				out << "  ("
+					<< Quote(GuidToText(v->GetGuid())) << ", "
+					<< mapId << ", "
+					<< static_cast<int>(v->GetShape()) << ", "
+					<< pos.x << ", " << pos.z << ", " << pos.y << ", "
+					<< yaw << ", "
+					<< he.x << ", " << he.z << ", " << he.y << ", "
+					<< v->GetRadius() << ", "
+					<< static_cast<int>(v->GetTriggerEvent()) << ", "
+					<< (v->IsTriggerOnce() ? "TRUE" : "FALSE") << ", "
+					<< (v->TriggerPlayers() ? "TRUE" : "FALSE") << ", "
+					<< (v->TriggerCreatures() ? "TRUE" : "FALSE") << ", "
+					<< Quote(v->GetScriptName()) << ", "
+					<< v->GetEventId() << ")"
+					<< (i + 1 == volumes.size() ? "\n" : ",\n");
+			}
+
+			out << "ON CONFLICT (guid) DO UPDATE SET "
+				   "map_id = EXCLUDED.map_id, "
+				   "shape = EXCLUDED.shape, "
+				   "position_x = EXCLUDED.position_x, "
+				   "position_y = EXCLUDED.position_y, "
+				   "position_z = EXCLUDED.position_z, "
+				   "orientation = EXCLUDED.orientation, "
+				   "half_extent_x = EXCLUDED.half_extent_x, "
+				   "half_extent_y = EXCLUDED.half_extent_y, "
+				   "half_extent_z = EXCLUDED.half_extent_z, "
+				   "radius = EXCLUDED.radius, "
+				   "trigger_event = EXCLUDED.trigger_event, "
+				   "trigger_once = EXCLUDED.trigger_once, "
+				   "trigger_players = EXCLUDED.trigger_players, "
+				   "trigger_creatures = EXCLUDED.trigger_creatures, "
+				   "script_name = EXCLUDED.script_name, "
+				   "event_id = EXCLUDED.event_id;\n";
+		}
+
+		out << "DELETE FROM trigger_volume WHERE map_id = " << mapId;
+		if (!volumes.empty())
+		{
+			out << " AND guid NOT IN (";
+			for (size_t i = 0; i < volumes.size(); ++i)
+			{
+				out << Quote(GuidToText(volumes[i]->GetGuid()))
+					<< (i + 1 == volumes.size() ? "" : ", ");
 			}
 			out << ")";
 		}

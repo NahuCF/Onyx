@@ -31,6 +31,25 @@
 
 namespace MMO {
 
+#ifdef HAS_DATABASE
+	namespace {
+		std::string BuildEditorDbConnString()
+		{
+			auto get = [](const char* name, const char* fallback) -> std::string {
+				const char* v = std::getenv(name);
+				return v ? std::string(v) : std::string(fallback);
+			};
+			std::ostringstream s;
+			s << "host=" << get("DB_HOST", "localhost")
+			  << " port=" << get("DB_PORT", "5432")
+			  << " user=" << get("DB_USER", "root")
+			  << " password=" << get("DB_PASS", "root")
+			  << " dbname=" << get("DB_NAME", "mmogame");
+			return s.str();
+		}
+	} // namespace
+#endif
+
 	Editor3DLayer::Editor3DLayer() = default;
 
 	Editor3DLayer::~Editor3DLayer()
@@ -137,6 +156,16 @@ namespace MMO {
 	{
 		if (m_RunSession)
 			m_RunSession->Tick();
+
+#ifdef HAS_DATABASE
+		// Eagerly connect on the first frame so the ~2 s Postgres handshake
+		// + migration cost is paid during editor boot, not when the user
+		// opens a map. (Calling this from OnAttach blocks before the first
+		// frame renders; doing it on a worker races libpq's global init.)
+		if (!m_DatabaseConnectAttempted)
+			EnsureDatabaseConnected();
+#endif
+
 		if (!m_MapLoaded)
 			return;
 
@@ -669,25 +698,6 @@ namespace MMO {
 
 #ifdef HAS_DATABASE
 
-	namespace {
-
-		std::string BuildEditorDbConnString()
-		{
-			auto get = [](const char* name, const char* fallback) -> std::string {
-				const char* v = std::getenv(name);
-				return v ? std::string(v) : std::string(fallback);
-			};
-			std::ostringstream s;
-			s << "host=" << get("DB_HOST", "localhost")
-			  << " port=" << get("DB_PORT", "5432")
-			  << " user=" << get("DB_USER", "root")
-			  << " password=" << get("DB_PASS", "root")
-			  << " dbname=" << get("DB_NAME", "mmogame");
-			return s.str();
-		}
-
-	} // namespace
-
 	bool Editor3DLayer::EnsureDatabaseConnected()
 	{
 		if (m_Database.IsConnected())
@@ -769,11 +779,31 @@ namespace MMO {
 			}
 		}
 
-		if (!creatures.empty() || !grouped.empty())
+		// ── Trigger volumes → TriggerVolume editor objects.
+		auto triggers = m_Database.LoadTriggerVolumes(mapId);
+		for (const auto& tv : triggers)
+		{
+			TriggerVolume* tvObj = m_World.CreateTriggerVolume("Trigger Volume");
+			// Axis swap: DB(x, y_ground, z_vertical) → Editor(x, y_vertical, z_ground)
+			tvObj->SetPosition(glm::vec3(tv.positionX, tv.positionZ, tv.positionY));
+			tvObj->SetRotation(glm::angleAxis(tv.orientation, glm::vec3(0.0f, 1.0f, 0.0f)));
+			tvObj->SetShape(static_cast<TriggerShape>(tv.shape));
+			tvObj->SetHalfExtents(glm::vec3(tv.halfExtentX, tv.halfExtentZ, tv.halfExtentY));
+			tvObj->SetRadius(tv.radius);
+			tvObj->SetTriggerEvent(static_cast<TriggerEvent>(tv.triggerEvent));
+			tvObj->SetTriggerOnce(tv.triggerOnce);
+			tvObj->SetTriggerPlayers(tv.triggerPlayers);
+			tvObj->SetTriggerCreatures(tv.triggerCreatures);
+			tvObj->SetScriptName(tv.scriptName);
+			tvObj->SetEventId(tv.eventId);
+		}
+
+		if (!creatures.empty() || !grouped.empty() || !triggers.empty())
 		{
 			std::cout << "[Editor] Loaded " << creatures.size()
-					  << " creature spawns and " << grouped.size()
-					  << " player spawns from DB for map " << mapId << "." << '\n';
+					  << " creature spawns, " << grouped.size()
+					  << " player spawns, " << triggers.size()
+					  << " trigger volumes from DB for map " << mapId << "." << '\n';
 		}
 	}
 
@@ -798,6 +828,12 @@ namespace MMO {
 		for (const auto& ps : m_World.GetPlayerSpawns())
 			players.push_back(ps.get());
 		MigrationSqlWriter::EmitPlayerCreateInfo(players, m_CurrentMapId, sql);
+
+		std::vector<const TriggerVolume*> triggers;
+		triggers.reserve(m_World.GetTriggerVolumes().size());
+		for (const auto& tv : m_World.GetTriggerVolumes())
+			triggers.push_back(tv.get());
+		MigrationSqlWriter::EmitTriggerVolumesForMap(m_CurrentMapId, triggers, sql);
 
 		const std::string sqlText = sql.str();
 		if (sqlText.empty())
