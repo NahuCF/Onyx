@@ -1,5 +1,6 @@
 #include "Model.h"
 
+#include <cstring>
 #include <functional>
 #include <iostream>
 
@@ -9,11 +10,49 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #define STB_IMAGE_STATIC
 #include <stb_image.h>
 
 namespace Onyx {
+
+	static constexpr const char* kSocketPrefix = "socket_";
+	static constexpr size_t kSocketPrefixLen = 7;
+
+	// Sockets are meshless empties; mesh-bearing nodes are never sockets.
+	static bool IsSocketNode(const aiNode* node)
+	{
+		if (!node || node->mNumMeshes != 0)
+			return false;
+		const char* n = node->mName.C_Str();
+		return std::strncmp(n, kSocketPrefix, kSocketPrefixLen) == 0;
+	}
+
+	// Static-model sockets land in model-root space — same space mesh verts
+	// are baked into in ProcessMesh.
+	static void DecomposeStaticSocket(const glm::mat4& globalTransform,
+									  const char* socketName,
+									  glm::vec3& outTranslation,
+									  glm::quat& outRotation)
+	{
+		outTranslation = glm::vec3(globalTransform[3]);
+		glm::mat3 r(globalTransform);
+		const float lx = glm::length(glm::vec3(r[0]));
+		const float ly = glm::length(glm::vec3(r[1]));
+		const float lz = glm::length(glm::vec3(r[2]));
+		const float maxScaleDev = std::max(std::max(std::abs(lx - 1.0f), std::abs(ly - 1.0f)), std::abs(lz - 1.0f));
+		if (maxScaleDev > 0.01f)
+		{
+			std::cerr << "[Onyx] Static socket '" << socketName
+					  << "' has non-unit scale (" << lx << ", " << ly << ", " << lz
+					  << ") — dropping. Reset socket scale to 1 in DCC tool.\n";
+		}
+		if (lx > 1e-6f) r[0] /= lx;
+		if (ly > 1e-6f) r[1] /= ly;
+		if (lz > 1e-6f) r[2] /= lz;
+		outRotation = glm::normalize(glm::quat_cast(r));
+	}
 
 	unsigned int TextureFromFile(const char* path, const std::string& directory, bool gamma = false);
 
@@ -106,7 +145,7 @@ namespace Onyx {
 	}
 
 	// Static: parse model file into CPU-only data (no GL calls, thread-safe)
-	std::vector<CpuMeshData> Model::ParseFromFile(const std::string& path, std::string& outDirectory, bool loadTexturePaths)
+	std::vector<CpuMeshData> Model::ParseFromFile(const std::string& path, std::string& outDirectory, bool loadTexturePaths, AttachmentSet* outAttachments)
 	{
 		std::vector<CpuMeshData> result;
 
@@ -132,6 +171,15 @@ namespace Onyx {
 			[&](aiNode* node, const glm::mat4& parentTransform) {
 				glm::mat4 nodeTransform = AiMatrixToGlm(node->mTransformation);
 				glm::mat4 globalTransform = parentTransform * nodeTransform;
+
+				if (outAttachments && IsSocketNode(node))
+				{
+					Attachment a;
+					a.name.assign(node->mName.C_Str() + kSocketPrefixLen);
+					a.parentBoneIndex = -1;
+					DecomposeStaticSocket(globalTransform, a.name.c_str(), a.localTranslation, a.localRotation);
+					outAttachments->Add(std::move(a));
+				}
 
 				for (unsigned int i = 0; i < node->mNumMeshes; i++)
 				{
@@ -219,6 +267,23 @@ namespace Onyx {
 
 		processNode(scene->mRootNode, glm::mat4(1.0f));
 		return result;
+	}
+
+	SubmitMeshView Model::GetMeshView(size_t meshIndex) const
+	{
+		SubmitMeshView v;
+		if (meshIndex >= m_Merged.meshInfos.size())
+			return v;
+		const auto& info = m_Merged.meshInfos[meshIndex];
+		v.indexCount = info.indexCount;
+		v.firstIndex = info.firstIndex;
+		v.baseVertex = info.baseVertex;
+		if (meshIndex < m_Meshes.size())
+		{
+			v.localMin = m_Meshes[meshIndex].GetBoundsMin();
+			v.localMax = m_Meshes[meshIndex].GetBoundsMax();
+		}
+		return v;
 	}
 
 	void Model::BuildMergedBuffers()
@@ -329,6 +394,15 @@ namespace Onyx {
 		// Accumulate the transform from parent
 		glm::mat4 nodeTransform = AiMatrixToGlm(node->mTransformation);
 		glm::mat4 globalTransform = parentTransform * nodeTransform;
+
+		if (IsSocketNode(node))
+		{
+			Attachment a;
+			a.name.assign(node->mName.C_Str() + kSocketPrefixLen);
+			a.parentBoneIndex = -1;
+			DecomposeStaticSocket(globalTransform, a.name.c_str(), a.localTranslation, a.localRotation);
+			m_Attachments.Add(std::move(a));
+		}
 
 		for (unsigned int i = 0; i < node->mNumMeshes; i++)
 		{

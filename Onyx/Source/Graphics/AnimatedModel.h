@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Animation.h"
+#include "Attachment.h"
 #include "Buffers.h"
+#include "IRenderable.h"
 #include "Model.h"
 #include "Skeleton.h"
 #include "Texture.h"
@@ -77,7 +79,7 @@ namespace Onyx {
 		PreloadedImage preloadedSpecular;
 	};
 
-	class AnimatedModel
+	class AnimatedModel : public ISkinnedRenderable
 	{
 	public:
 		AnimatedModel() = default;
@@ -131,6 +133,18 @@ namespace Onyx {
 		const MergedBuffers& GetMergedBuffers() const { return m_Merged; }
 		bool HasMergedBuffers() const { return m_Merged.vao != nullptr; }
 
+		// IRenderable / ISkinnedRenderable
+		const VertexArray* GetMergedVAO() const override { return m_Merged.vao.get(); }
+		size_t GetMeshCount() const override { return m_Merged.meshInfos.size(); }
+		SubmitMeshView GetMeshView(size_t meshIndex) const override;
+		size_t GetBoneCount() const override { return m_BoneMatrices.size(); }
+		// Skinning matrices (globalInverse * globalAnim * offset). Not safe to
+		// pass to AttachmentSet::ResolveWorld — sockets need mesh-space bones.
+		const glm::mat4* GetBoneMatricesPtr() const override
+		{
+			return m_BoneMatrices.empty() ? nullptr : m_BoneMatrices.data();
+		}
+
 		struct NodeData
 		{
 			std::string name;
@@ -145,6 +159,9 @@ namespace Onyx {
 			return it != m_NodeMap.end() ? it->second : -1;
 		}
 
+		const AttachmentSet& GetAttachments() const { return m_Attachments; }
+		AttachmentSet& GetAttachments() { return m_Attachments; }
+
 	private:
 		void ProcessNodeImpl(void* node, const void* scene);
 		void ProcessMeshImpl(void* mesh, const void* scene);
@@ -152,6 +169,7 @@ namespace Onyx {
 		void LoadAnimationsImpl(const void* scene);
 		void LoadMaterialsImpl(const void* scene);
 		void BuildNodeHierarchyImpl(void* node, int parentIndex);
+		void CollectAttachmentsImpl();
 
 		std::string m_Path;
 		std::string m_Directory;
@@ -172,6 +190,8 @@ namespace Onyx {
 		std::unordered_map<std::string, int> m_NodeMap;
 
 		MergedBuffers m_Merged;
+
+		AttachmentSet m_Attachments;
 
 		bool m_HasGPU = false;
 

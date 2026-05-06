@@ -48,6 +48,24 @@ namespace MMO {
 			file.write(reinterpret_cast<const char*>(data.indexBlob.data()), data.indexBlob.size());
 		}
 
+		// Attachments table (v3+). Per entry: u8 id; if Custom, u16 nameLen+chars;
+		// i32 parentBoneIndex; float[3] translation; float[4] rotation (xyzw).
+		const uint32_t attachmentCount = static_cast<uint32_t>(data.attachments.size());
+		file.write(reinterpret_cast<const char*>(&attachmentCount), sizeof(attachmentCount));
+
+		for (const auto& a : data.attachments)
+		{
+			const uint8_t idByte = static_cast<uint8_t>(a.id);
+			file.write(reinterpret_cast<const char*>(&idByte), sizeof(idByte));
+
+			if (a.id == SocketId::Custom)
+				WriteStringField(file, a.name);
+
+			file.write(reinterpret_cast<const char*>(&a.parentBoneIndex), sizeof(a.parentBoneIndex));
+			file.write(reinterpret_cast<const char*>(a.localTranslation), sizeof(a.localTranslation));
+			file.write(reinterpret_cast<const char*>(a.localRotation), sizeof(a.localRotation));
+		}
+
 		return file.good();
 	}
 

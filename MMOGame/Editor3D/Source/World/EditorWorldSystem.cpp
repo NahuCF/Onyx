@@ -1,5 +1,6 @@
 #include "EditorWorldSystem.h"
 #include "../Export/MigrationSqlWriter.h"
+#include "../Terrain/MaterialSerializer.h"
 #include "EditorWorld.h"
 #include <Core/Application.h>
 #include <Graphics/AssetManager.h>
@@ -14,6 +15,7 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <unordered_set>
 
 using Shared::WorldToChunkX;
 using Shared::WorldToChunkZ;
@@ -1432,6 +1434,24 @@ namespace Editor3D {
 			omdl.header.boundsMax[1] = globalMax.y;
 			omdl.header.boundsMax[2] = globalMax.z;
 
+			const auto& srcAttachments = model->GetAttachments().All();
+			omdl.attachments.reserve(srcAttachments.size());
+			for (const auto& src : srcAttachments)
+			{
+				MMO::OmdlAttachment dst;
+				dst.id = MMO::SocketNameToId(src.name);
+				dst.name = src.name;
+				dst.parentBoneIndex = src.parentBoneIndex;
+				dst.localTranslation[0] = src.localTranslation.x;
+				dst.localTranslation[1] = src.localTranslation.y;
+				dst.localTranslation[2] = src.localTranslation.z;
+				dst.localRotation[0] = src.localRotation.x;
+				dst.localRotation[1] = src.localRotation.y;
+				dst.localRotation[2] = src.localRotation.z;
+				dst.localRotation[3] = src.localRotation.w;
+				omdl.attachments.push_back(std::move(dst));
+			}
+
 			if (MMO::WriteOmdl(omdlFullPath, omdl))
 			{
 				modelPathRemap[modelPath] = omdlRelative;
@@ -1485,6 +1505,12 @@ namespace Editor3D {
 			result.materialsExported++;
 		}
 
+		// Per-layer terrain materials referenced from chunks. Collected during
+		// the chunk export loop, written to Data/materials/terrain/<id>.terrainmat
+		// afterwards so the client's ClientTerrainMaterialLibrary can build the
+		// same texture arrays the editor uses.
+		std::unordered_set<std::string> terrainMaterialIds;
+
 		// Export chunks as runtime .chunk files
 		// We need to iterate ALL known chunk files, not just currently loaded chunks
 		for (int32_t chunkKey : m_KnownChunkFiles)
@@ -1525,6 +1551,11 @@ namespace Editor3D {
 			if (chunk->GetTerrain())
 			{
 				fileData.terrain = chunk->GetTerrain()->GetData();
+				for (int i = 0; i < MMO::TERRAIN_MAX_LAYERS; i++)
+				{
+					if (!fileData.terrain.materialIds[i].empty())
+						terrainMaterialIds.insert(fileData.terrain.materialIds[i]);
+				}
 			}
 
 			// Lights — convert EditorLight to ChunkLightData
@@ -1603,6 +1634,63 @@ namespace Editor3D {
 			if (temporarilyLoaded)
 			{
 				m_Chunks.erase(chunkKey);
+			}
+		}
+
+		// Export terrain materials referenced by any chunk's per-layer material IDs.
+		// These mirror the editor's TerrainMaterialLibrary on disk so the client can
+		// rebuild the same diffuse/normal/RMA texture arrays. Synthetic
+		// "__solid_R_G_B" paths pass through verbatim; real texture files are copied
+		// next to the .terrainmat and the path rewritten to a Data-relative form.
+		{
+			std::string terrainMatDir = materialsDir + "/terrain";
+			std::filesystem::create_directories(terrainMatDir);
+
+			auto resolveTerrainTexture = [&](const std::string& srcPath) -> std::string {
+				if (srcPath.empty())
+					return "";
+				if (srcPath.rfind("__solid_", 0) == 0)
+					return srcPath;
+				std::string fullSrc = srcPath;
+				if (!std::filesystem::exists(fullSrc))
+				{
+					// Editor stores some paths relative to MMOGame/Editor3D/assets;
+					// fall back to that root the same way TerrainMaterialLibrary does.
+					std::string fallback = "MMOGame/Editor3D/assets/" + srcPath;
+					if (std::filesystem::exists(fallback))
+						fullSrc = fallback;
+				}
+				if (!std::filesystem::exists(fullSrc))
+					return srcPath; // pass through; client will warn at load
+				std::string texName = std::filesystem::path(fullSrc).filename().string();
+				std::string destPath = terrainMatDir + "/" + texName;
+				if (CopyFileIfNeeded(fullSrc, destPath))
+					result.texturesCopied++;
+				return std::string("materials/terrain/") + texName;
+			};
+
+			for (const std::string& matId : terrainMaterialIds)
+			{
+				if (matId.empty())
+					continue;
+				const Onyx::Material* mat = assets.GetMaterial(matId);
+				if (!mat)
+				{
+					result.errors.push_back("Terrain material not in AssetManager: " + matId);
+					continue;
+				}
+
+				Onyx::Material runtimeMat = *mat;
+				runtimeMat.albedoPath = resolveTerrainTexture(mat->albedoPath);
+				runtimeMat.normalPath = resolveTerrainTexture(mat->normalPath);
+				runtimeMat.rmaPath = resolveTerrainTexture(mat->rmaPath);
+				runtimeMat.filePath.clear();
+
+				std::string outPath = terrainMatDir + "/" + matId + ".terrainmat";
+				if (Editor3D::SaveMaterial(runtimeMat, outPath))
+					result.materialsExported++;
+				else
+					result.errors.push_back("Failed to write terrain material: " + outPath);
 			}
 		}
 

@@ -13,6 +13,7 @@ set(SHARED_SOURCES
     Source/Terrain/TerrainMeshGenerator.cpp
     Source/Model/OmdlWriter.cpp
     Source/Model/OmdlReader.cpp
+    Source/Model/SocketId.cpp
 )
 
 set(SHARED_HEADERS
@@ -33,6 +34,7 @@ set(SHARED_HEADERS
     Source/Model/OmdlFormat.h
     Source/Model/OmdlWriter.h
     Source/Model/OmdlReader.h
+    Source/Model/SocketId.h
     Source/Scripting/ScriptObject.h
     Source/Scripting/ScriptRegistry.h
     Source/Scripting/HookRegistry.h
@@ -160,6 +162,8 @@ source_group("Model" FILES
     Source/Model/OmdlWriter.cpp
     Source/Model/OmdlReader.h
     Source/Model/OmdlReader.cpp
+    Source/Model/SocketId.h
+    Source/Model/SocketId.cpp
 )
 
 source_group("Scripting" FILES

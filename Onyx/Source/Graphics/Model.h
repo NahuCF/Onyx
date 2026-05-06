@@ -9,7 +9,9 @@
 #include <assimp/scene.h>
 #include <glm/glm.hpp>
 
+#include "Attachment.h"
 #include "Buffers.h"
+#include "IRenderable.h"
 #include "Mesh.h"
 #include "VertexLayout.h"
 
@@ -47,7 +49,7 @@ namespace Onyx {
 		glm::vec3 boundsMax{0.0f};
 	};
 
-	class Model
+	class Model : public IRenderable
 	{
 	public:
 		Model(const char* path, bool loadTextures = true)
@@ -80,7 +82,19 @@ namespace Onyx {
 		const MergedBuffers& GetMergedBuffers() const { return m_Merged; }
 		bool HasMergedBuffers() const { return m_Merged.vao != nullptr; }
 
-		static std::vector<CpuMeshData> ParseFromFile(const std::string& path, std::string& outDirectory, bool loadTexturePaths = true);
+		// IRenderable
+		const VertexArray* GetMergedVAO() const override { return m_Merged.vao.get(); }
+		size_t GetMeshCount() const override { return m_Merged.meshInfos.size(); }
+		SubmitMeshView GetMeshView(size_t meshIndex) const override;
+
+		const AttachmentSet& GetAttachments() const { return m_Attachments; }
+		AttachmentSet& GetAttachments() { return m_Attachments; }
+
+		// outAttachments is optional; pass nullptr to skip attachment collection.
+		static std::vector<CpuMeshData> ParseFromFile(const std::string& path,
+													  std::string& outDirectory,
+													  bool loadTexturePaths = true,
+													  AttachmentSet* outAttachments = nullptr);
 
 	private:
 		void LoadModel(std::string path);
@@ -94,6 +108,8 @@ namespace Onyx {
 		bool m_LoadTextures = true;
 
 		MergedBuffers m_Merged;
+
+		AttachmentSet m_Attachments;
 	};
 
 } // namespace Onyx

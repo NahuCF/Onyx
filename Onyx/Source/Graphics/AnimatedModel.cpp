@@ -14,6 +14,9 @@
 
 namespace Onyx {
 
+	static constexpr const char* kAnimSocketPrefix = "socket_";
+	static constexpr size_t kAnimSocketPrefixLen = 7;
+
 	AnimatedModel::~AnimatedModel() = default;
 
 #ifdef ONYX_USE_ASSIMP
@@ -119,6 +122,8 @@ namespace Onyx {
 			}
 		}
 
+		CollectAttachmentsImpl();
+
 		m_BoneMatrices.resize(m_Skeleton.GetBoneCount(), glm::mat4(1.0f));
 		m_HasGPU = true;
 
@@ -180,6 +185,8 @@ namespace Onyx {
 				}
 			}
 		}
+
+		model->CollectAttachmentsImpl();
 
 		model->m_BoneMatrices.resize(model->m_Skeleton.GetBoneCount(), glm::mat4(1.0f));
 		// m_HasGPU stays false — caller must invoke UploadGPUResources() on main thread
@@ -410,6 +417,60 @@ namespace Onyx {
 	}
 
 #ifdef ONYX_USE_ASSIMP
+
+	// Must run after BuildNodeHierarchyImpl + bone-parent fix-up so all bones
+	// are known. Folds non-bone intermediate parents into the local transform.
+	void AnimatedModel::CollectAttachmentsImpl()
+	{
+		for (size_t i = 0; i < m_NodeHierarchy.size(); ++i)
+		{
+			const NodeData& node = m_NodeHierarchy[i];
+			if (node.name.size() < kAnimSocketPrefixLen)
+				continue;
+			if (node.name.compare(0, kAnimSocketPrefixLen, kAnimSocketPrefix) != 0)
+				continue;
+
+			glm::mat4 local = node.transform;
+			int parentIdx = node.parentIndex;
+			int parentBoneIndex = -1;
+
+			while (parentIdx >= 0)
+			{
+				const NodeData& p = m_NodeHierarchy[parentIdx];
+				const int boneIdx = m_Skeleton.GetBoneIndex(p.name);
+				if (boneIdx >= 0)
+				{
+					parentBoneIndex = boneIdx;
+					break;
+				}
+				local = p.transform * local;
+				parentIdx = p.parentIndex;
+			}
+
+			Attachment a;
+			a.name.assign(node.name, kAnimSocketPrefixLen, std::string::npos);
+			a.parentBoneIndex = parentBoneIndex;
+			a.localTranslation = glm::vec3(local[3]);
+
+			glm::mat3 r(local);
+			const float lx = glm::length(glm::vec3(r[0]));
+			const float ly = glm::length(glm::vec3(r[1]));
+			const float lz = glm::length(glm::vec3(r[2]));
+			const float maxScaleDev = std::max(std::max(std::abs(lx - 1.0f), std::abs(ly - 1.0f)), std::abs(lz - 1.0f));
+			if (maxScaleDev > 0.01f)
+			{
+				std::cerr << "[Onyx] Socket '" << a.name << "' on '" << m_Path
+						  << "' has non-unit scale (" << lx << ", " << ly << ", " << lz
+						  << ") — dropping. Reset socket scale to 1 in DCC tool.\n";
+			}
+			if (lx > 1e-6f) r[0] /= lx;
+			if (ly > 1e-6f) r[1] /= ly;
+			if (lz > 1e-6f) r[2] /= lz;
+			a.localRotation = glm::normalize(glm::quat_cast(r));
+
+			m_Attachments.Add(std::move(a));
+		}
+	}
 
 	void AnimatedModel::BuildNodeHierarchyImpl(void* nodePtr, int parentIndex)
 	{
@@ -902,6 +963,21 @@ namespace Onyx {
 			names.push_back(anim->GetName());
 		}
 		return names;
+	}
+
+	SubmitMeshView AnimatedModel::GetMeshView(size_t meshIndex) const
+	{
+		SubmitMeshView v;
+		if (meshIndex >= m_Merged.meshInfos.size())
+			return v;
+		const auto& info = m_Merged.meshInfos[meshIndex];
+		v.indexCount = info.indexCount;
+		v.firstIndex = info.firstIndex;
+		v.baseVertex = info.baseVertex;
+		// AnimatedModel only tracks whole-model bounds today; reuse for each mesh.
+		v.localMin = m_BoundsMin;
+		v.localMax = m_BoundsMax;
+		return v;
 	}
 
 	void AnimatedModel::BuildMergedBuffers()

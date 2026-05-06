@@ -1,5 +1,7 @@
 #pragma once
 
+#include "SocketId.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -13,9 +15,10 @@ namespace MMO {
 	// snorm16x2 oct-normal + half2 UV + snorm16x2 oct-tangent + snorm16x2 bitangent-sign),
 	// indices are uint32_t (or uint16_t when OMDL_FLAG_U16_INDICES is set in the header).
 	// Reader memory-maps the file and points the VBO at the vertex blob — no Assimp at runtime.
+	// v3 appended an ATCH attachments table after the index blob.
 
 	constexpr uint32_t OMDL_MAGIC = 0x4F4D444C; // "OMDL"
-	constexpr uint32_t OMDL_VERSION = 2;        // v2 = quantized 28 B vertex + flags
+	constexpr uint32_t OMDL_VERSION = 3;        // v3 = v2 + ATCH attachments table
 	constexpr uint32_t OMDL_VERTEX_BYTES = 28;  // sizeof(Onyx::MeshVertex)
 
 	// flags bits
@@ -44,6 +47,15 @@ namespace MMO {
 		std::string normalPath;
 	};
 
+	struct OmdlAttachment
+	{
+		SocketId id = SocketId::Custom;
+		std::string name;				  // authored for Custom; canonical for well-known
+		int32_t parentBoneIndex = -1;	  // -1 = model-space
+		float localTranslation[3] = {0};
+		float localRotation[4] = {0, 0, 0, 1}; // x, y, z, w
+	};
+
 	// Writer-side: owns blob bytes via std::vector. Used by WriteOmdl + the editor exporter.
 	struct OmdlData
 	{
@@ -51,6 +63,7 @@ namespace MMO {
 		std::vector<OmdlMeshInfo> meshes;
 		std::vector<uint8_t> vertexBlob; // totalVertices * 28 bytes (MeshVertex)
 		std::vector<uint8_t> indexBlob;  // totalIndices * (header.flags & OMDL_FLAG_U16_INDICES ? 2 : 4) bytes
+		std::vector<OmdlAttachment> attachments;
 	};
 
 	// Reader-side: zero-copy view into a memory-mapped file. ReadOmdl returns this.
@@ -66,6 +79,7 @@ namespace MMO {
 		size_t      vertexBytes = 0;
 		const void* indexData = nullptr;
 		size_t      indexBytes = 0;
+		std::vector<OmdlAttachment> attachments;
 
 		std::unique_ptr<OmdlMapping> mapping; // RAII: owns the file mapping
 

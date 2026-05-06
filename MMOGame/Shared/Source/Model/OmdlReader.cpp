@@ -195,6 +195,53 @@ namespace MMO {
 		out.indexData = ip;
 		out.indexBytes = indexBytes;
 
+		// Attachments table (v3+). Layout matches the writer.
+		uint32_t attachmentCount = 0;
+		if (!c.Read(&attachmentCount, sizeof(attachmentCount)))
+		{
+			std::cerr << "[OmdlReader] Truncated attachment count in: " << path << "\n";
+			return false;
+		}
+		out.attachments.resize(attachmentCount);
+		for (uint32_t i = 0; i < attachmentCount; i++)
+		{
+			auto& a = out.attachments[i];
+
+			uint8_t idByte = 0;
+			if (!c.Read(&idByte, sizeof(idByte)))
+			{
+				std::cerr << "[OmdlReader] Truncated attachment record in: " << path << "\n";
+				return false;
+			}
+			a.id = static_cast<SocketId>(idByte);
+
+			if (a.id == SocketId::Custom)
+			{
+				if (!ReadStringField(c, a.name))
+				{
+					std::cerr << "[OmdlReader] Truncated custom attachment name in: " << path << "\n";
+					return false;
+				}
+			}
+			else if (const char* n = SocketIdToName(a.id))
+			{
+				a.name.assign(n);
+			}
+			else
+			{
+				// Unknown well-known ID (newer engine?) — sentinel so entries don't collide.
+				a.name = "__unknown_" + std::to_string(idByte);
+			}
+
+			if (!c.Read(&a.parentBoneIndex, sizeof(a.parentBoneIndex)) ||
+				!c.Read(a.localTranslation, sizeof(a.localTranslation)) ||
+				!c.Read(a.localRotation, sizeof(a.localRotation)))
+			{
+				std::cerr << "[OmdlReader] Truncated attachment transform in: " << path << "\n";
+				return false;
+			}
+		}
+
 		// Hand the mapping to OmdlMapped so it stays alive while pointers are used.
 		out.mapping = std::move(mapping);
 		return true;
