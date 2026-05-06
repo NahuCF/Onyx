@@ -30,6 +30,17 @@ endif()
 # OpenSSL for password hashing (apt: libssl-dev / vcpkg: openssl)
 find_package(OpenSSL)
 
+# nlohmann/json - JSON for Modern C++. Used by Editor3D for material I/O and
+# by Client for ClientTerrainMaterialLibrary parsing the same .terrainmat
+# files. Declared here so any MMOGame subproject can link nlohmann_json.
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG        v3.11.3
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 # ========== Shared Library ==========
 add_subdirectory(Shared)
 

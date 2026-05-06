@@ -1,8 +1,12 @@
 #include "GameRenderer.h"
 #include <GL/glew.h>
+#include <Graphics/PostProcess/SSAOEffect.h>
 #include <Model/OmdlReader.h>
+#include <filesystem>
+#include <fstream>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
+#include <nlohmann/json.hpp>
 
 namespace MMO {
 
@@ -21,18 +25,34 @@ namespace MMO {
 			"MMOGame/Client/assets/shaders/entity.vert",
 			"MMOGame/Client/assets/shaders/entity.frag");
 
-		m_ModelShader = std::make_unique<Onyx::Shader>(
-			"MMOGame/Client/assets/shaders/model.vert",
-			"MMOGame/Client/assets/shaders/model.frag");
+		m_BlitShader = std::make_unique<Onyx::Shader>(
+			"MMOGame/Client/assets/shaders/blit.vert",
+			"MMOGame/Client/assets/shaders/blit.frag");
+
+		// Engine SceneRenderer drives static-mesh draws, batching, frustum
+		// culling, and shadows. Shaders come from the engine asset dir.
+		m_SceneRenderer = std::make_unique<Onyx::SceneRenderer>();
+		m_SceneRenderer->Init(&Onyx::Application::GetInstance().GetAssetManager(),
+							  "Onyx/Assets/Shaders/");
+		m_SceneRenderer->SetShadowsEnabled(true);
 
 		// Create 1x1 white texture as diffuse fallback
 		m_WhiteTexture = Onyx::Texture::CreateSolidColor(255, 255, 255, 255);
 
-		// Init cube mesh for entity rendering
+		// Init meshes / quads
 		InitCubeMesh();
+		InitBlitQuad();
+
+		// Scene framebuffer + post-process stack mirror the editor's setup so
+		// the client gets the same MSAA + SSAO. Both lazy-resize to viewport.
+		m_SceneFramebuffer = std::make_unique<Onyx::Framebuffer>();
+		m_PostProcessStack.Init();
+		m_PostProcessStack.AddEffect<Onyx::SSAOEffect>();
+		m_PostProcessReady = true;
 
 		m_Initialized = true;
-		std::cout << "[GameRenderer] Initialized (direct backbuffer)" << '\n';
+		std::cout << "[GameRenderer] Initialized (SceneRenderer + MSAA " << m_MSAASamples
+				  << "x + post-process)" << '\n';
 	}
 
 	void GameRenderer::BeginFrame(const glm::vec3& playerPos, float dt,
@@ -44,6 +64,8 @@ namespace MMO {
 		m_ViewportWidth = viewportWidth;
 		m_ViewportHeight = viewportHeight;
 
+		EnsureFramebuffer(viewportWidth, viewportHeight);
+
 		// Update camera
 		m_Camera.SetTarget(playerPos);
 		m_Camera.Update(dt);
@@ -52,9 +74,37 @@ namespace MMO {
 		m_ViewMatrix = m_Camera.GetViewMatrix();
 		m_ProjMatrix = m_Camera.GetProjectionMatrix(aspect);
 
-		// Render directly to the default framebuffer (backbuffer)
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		Onyx::RenderCommand::SetViewport(0, 0, m_ViewportWidth, m_ViewportHeight);
+		// Push lights + matrices into the SceneRenderer for this frame.
+		Onyx::DirectionalLight sun;
+		sun.direction = m_SunDirection;
+		sun.color = m_SunColor;
+		sun.enabled = true;
+		m_SceneRenderer->SetDirectionalLight(sun);
+		m_SceneRenderer->SetAmbientStrength(m_AmbientStrength);
+		m_SceneRenderer->Begin(m_ViewMatrix, m_ProjMatrix, m_Camera.GetPosition());
+
+		// Submit static objects + run shadow pass UP FRONT so the cascade depth
+		// textures are populated before the terrain samples them. The terrain
+		// uses its own shader (still its own pass) and binds the shadow map at
+		// slot 6 — shadows must be written before RenderTerrain runs.
+		for (const auto& obj : m_StaticObjects)
+		{
+			if (!obj.model)
+				continue;
+			const size_t meshCount = obj.model->GetMeshCount();
+			for (size_t i = 0; i < meshCount; i++)
+			{
+				m_SceneRenderer->SubmitStatic(obj.model,
+											  static_cast<uint32_t>(i),
+											  obj.modelMatrix,
+											  /*albedoPath=*/"",
+											  /*normalPath=*/"");
+			}
+		}
+		m_SceneRenderer->RenderShadows();
+
+		// Render scene into the MSAA framebuffer; post-process + blit happen in EndFrame.
+		m_SceneFramebuffer->Bind();
 		Onyx::RenderCommand::SetClearColor(0.4f, 0.6f, 0.9f, 1.0f); // Sky blue
 		Onyx::RenderCommand::Clear();
 		Onyx::RenderCommand::EnableDepthTest();
@@ -69,12 +119,113 @@ namespace MMO {
 		m_TerrainShader->Bind();
 		m_TerrainShader->SetMat4("u_View", m_ViewMatrix);
 		m_TerrainShader->SetMat4("u_Projection", m_ProjMatrix);
-		m_TerrainShader->SetVec3("u_LightDir", m_SunDirection);
-		m_TerrainShader->SetVec3("u_LightColor", m_SunColor);
-		m_TerrainShader->SetFloat("u_AmbientStrength", m_AmbientStrength);
 
-		terrain.Render(m_TerrainShader.get());
+		// Same texture-slot layout as Editor3D's RenderTerrain so the terrain
+		// shader is shared verbatim: 0=heightmap, 1/2=splatmaps, 3/4/5=texture
+		// arrays, 6=cascaded shadow map.
+		m_SceneRenderer->UploadLightUniforms(m_TerrainShader.get());
+		m_TerrainShader->SetInt("u_Heightmap", 0);
+		m_TerrainShader->SetInt("u_Splatmap0", 1);
+		m_TerrainShader->SetInt("u_Splatmap1", 2);
+		m_TerrainShader->SetInt("u_DiffuseArray", 3);
+		m_TerrainShader->SetInt("u_NormalArray", 4);
+		m_TerrainShader->SetInt("u_RMAArray", 5);
+		m_TerrainShader->SetInt("u_ShadowMap", 6);
+
+		// CHUNK_RESOLUTION + 2 padding == 67. Texel size is the inverse so the
+		// shader's offset math works for sobel filtering.
+		const float paddedRes = static_cast<float>(TERRAIN_CHUNK_RESOLUTION + 2);
+		m_TerrainShader->SetFloat("u_HeightmapTexelSize", 1.0f / paddedRes);
+		m_TerrainShader->SetFloat("u_ChunkSize", TERRAIN_CHUNK_SIZE);
+		m_TerrainShader->SetInt("u_UsePixelNormals", 1);
+		m_TerrainShader->SetInt("u_EnablePBR", 0);
+
+		m_SceneRenderer->UploadShadowUniforms(m_TerrainShader.get(), 6);
+
+		if (auto* dArr = m_TerrainMaterials.GetDiffuseArray())
+			dArr->Bind(3);
+		if (auto* nArr = m_TerrainMaterials.GetNormalArray())
+			nArr->Bind(4);
+		if (auto* rArr = m_TerrainMaterials.GetRMAArray())
+			rArr->Bind(5);
+
+		terrain.Render(m_TerrainShader.get(),
+					   [this](const ClientTerrainChunk& chunk, Onyx::Shader* shader) {
+						   const float originX = static_cast<float>(chunk.data.chunkX) * TERRAIN_CHUNK_SIZE;
+						   const float originZ = static_cast<float>(chunk.data.chunkZ) * TERRAIN_CHUNK_SIZE;
+						   shader->SetVec2("u_ChunkOrigin", originX, originZ);
+
+						   int arrayIndices[TERRAIN_MAX_LAYERS];
+						   float tilingScales[TERRAIN_MAX_LAYERS];
+						   float normalStrengths[TERRAIN_MAX_LAYERS];
+						   for (int i = 0; i < TERRAIN_MAX_LAYERS; i++)
+						   {
+							   const auto& matId = chunk.data.materialIds[i];
+							   arrayIndices[i] = m_TerrainMaterials.GetMaterialArrayIndex(matId);
+							   tilingScales[i] = m_TerrainMaterials.GetTilingScale(matId);
+							   normalStrengths[i] = m_TerrainMaterials.GetNormalStrength(matId);
+						   }
+						   shader->SetIntArray("u_LayerArrayIndex[0]", arrayIndices, TERRAIN_MAX_LAYERS);
+						   shader->SetFloatArray("u_LayerTiling[0]", tilingScales, TERRAIN_MAX_LAYERS);
+						   shader->SetFloatArray("u_LayerNormalStrength[0]", normalStrengths, TERRAIN_MAX_LAYERS);
+					   });
+
 		m_TerrainShader->UnBind();
+	}
+
+	void GameRenderer::LoadTerrainMaterials(const std::string& dataDir)
+	{
+		// Scan Data/materials/terrain/*.terrainmat → vector<Material> →
+		// Onyx::TerrainMaterialLibrary::Build. The JSON shape mirrors the
+		// editor's MaterialSerializer::SaveMaterial; we accept both "albedo"
+		// and the legacy "diffuse" key for backward compat.
+		m_TerrainMaterials.SetAssetRoot(dataDir);
+
+		std::vector<Onyx::Material> materials;
+		std::string dir = dataDir + "/materials/terrain";
+		if (!std::filesystem::exists(dir))
+		{
+			std::cout << "[GameRenderer] No terrain materials dir: " << dir << '\n';
+			m_TerrainMaterials.Build(materials);
+			return;
+		}
+
+		for (const auto& entry : std::filesystem::directory_iterator(dir))
+		{
+			if (entry.path().extension() != ".terrainmat")
+				continue;
+
+			std::ifstream file(entry.path());
+			if (!file.is_open())
+				continue;
+
+			nlohmann::json j;
+			try
+			{
+				file >> j;
+			}
+			catch (const nlohmann::json::parse_error& e)
+			{
+				std::cerr << "[GameRenderer] Parse error in " << entry.path()
+						  << ": " << e.what() << '\n';
+				continue;
+			}
+
+			Onyx::Material mat;
+			mat.id = j.value("id", entry.path().stem().string());
+			mat.name = j.value("name", "Unnamed");
+			mat.albedoPath = j.contains("albedo") ? j.value("albedo", "")
+												  : j.value("diffuse", "");
+			mat.normalPath = j.value("normal", "");
+			mat.rmaPath = j.value("rma", "");
+			mat.tilingScale = j.value("tilingScale", 8.0f);
+			mat.normalStrength = j.value("normalStrength", 1.0f);
+			materials.push_back(std::move(mat));
+		}
+
+		m_TerrainMaterials.Build(materials);
+		std::cout << "[GameRenderer] Loaded " << materials.size()
+				  << " terrain materials from " << dir << '\n';
 	}
 
 	void GameRenderer::RenderStaticObjects()
@@ -82,48 +233,9 @@ namespace MMO {
 		if (!m_Initialized || m_StaticObjects.empty())
 			return;
 
-		m_ModelShader->Bind();
-		m_ModelShader->SetMat4("u_View", m_ViewMatrix);
-		m_ModelShader->SetMat4("u_Projection", m_ProjMatrix);
-		m_ModelShader->SetVec3("u_LightDir", m_SunDirection);
-		m_ModelShader->SetVec3("u_LightColor", m_SunColor);
-		m_ModelShader->SetFloat("u_AmbientStrength", m_AmbientStrength);
-		m_ModelShader->SetInt("u_AlbedoMap", 0);
-
-		for (const auto& obj : m_StaticObjects)
-		{
-			if (!obj.model)
-				continue;
-
-			m_ModelShader->SetMat4("u_Model", obj.modelMatrix);
-			obj.model->vao->Bind();
-
-			for (size_t i = 0; i < obj.model->meshes.size(); i++)
-			{
-				const auto& mesh = obj.model->meshes[i];
-
-				// Bind per-mesh albedo texture
-				if (i < obj.model->albedoTextures.size() && obj.model->albedoTextures[i])
-				{
-					obj.model->albedoTextures[i]->Bind(0);
-				}
-				else
-				{
-					m_WhiteTexture->Bind(0);
-				}
-
-				glDrawElementsBaseVertex(
-					GL_TRIANGLES,
-					static_cast<GLsizei>(mesh.indexCount),
-					obj.model->indexType,
-					reinterpret_cast<void*>(static_cast<uintptr_t>(mesh.firstIndex * obj.model->indexByteSize)),
-					mesh.baseVertex);
-			}
-
-			obj.model->vao->UnBind();
-		}
-
-		m_ModelShader->UnBind();
+		// Submission and shadow pass run in BeginFrame (so the terrain pass
+		// can sample the cascades). All that's left is the lit batched draws.
+		m_SceneRenderer->RenderBatches();
 	}
 
 	void GameRenderer::LoadStaticObjects(const ClientTerrainSystem& terrain, const std::string& dataDir)
@@ -342,6 +454,27 @@ namespace MMO {
 		if (!m_Initialized)
 			return;
 
+		Onyx::RenderCommand::ResetState();
+		m_SceneFramebuffer->UnBind();
+
+		// Resolve MSAA into a regular texture so post-process / blit can sample.
+		m_SceneFramebuffer->Resolve();
+
+		uint32_t finalTexture = m_SceneFramebuffer->GetColorBufferID();
+		if (m_PostProcessReady && m_PostProcessStack.HasEnabledEffects())
+		{
+			finalTexture = m_PostProcessStack.Execute(
+				m_SceneFramebuffer->GetColorBufferID(),
+				m_SceneFramebuffer->GetFrameBufferID(),
+				m_ViewportWidth, m_ViewportHeight,
+				m_ProjMatrix);
+		}
+
+		// Composite the final image to the backbuffer so ImGui (drawn next)
+		// renders on top. Depth must stay disabled here — we're just sampling
+		// a texture into a fullscreen quad.
+		BlitTextureToBackbuffer(finalTexture);
+
 		Onyx::RenderCommand::DisableDepthTest();
 	}
 
@@ -372,6 +505,69 @@ namespace MMO {
 		m_CubeVAO->Bind();
 		Onyx::RenderCommand::DrawIndexed(*m_CubeVAO, m_CubeIndexCount);
 		m_CubeVAO->UnBind();
+	}
+
+	void GameRenderer::EnsureFramebuffer(uint32_t viewportWidth, uint32_t viewportHeight)
+	{
+		if (!m_SceneFramebuffer)
+			return;
+		if (m_SceneFramebuffer->GetWidth() == viewportWidth &&
+			m_SceneFramebuffer->GetHeight() == viewportHeight &&
+			m_SceneFramebuffer->GetSamples() == m_MSAASamples)
+		{
+			return;
+		}
+		m_SceneFramebuffer->Create(viewportWidth, viewportHeight, m_MSAASamples);
+		m_PostProcessStack.Resize(viewportWidth, viewportHeight);
+	}
+
+	void GameRenderer::InitBlitQuad()
+	{
+		// Fullscreen NDC quad with UVs. Two triangles, six indices.
+		float quadVerts[] = {
+			// pos.xy   uv.xy
+			-1.0f, -1.0f, 0.0f, 0.0f,
+			 1.0f, -1.0f, 1.0f, 0.0f,
+			 1.0f,  1.0f, 1.0f, 1.0f,
+			-1.0f,  1.0f, 0.0f, 1.0f,
+		};
+		uint32_t quadIndices[] = {0, 1, 2, 0, 2, 3};
+
+		Onyx::RenderCommand::ResetState();
+
+		m_BlitVAO = std::make_unique<Onyx::VertexArray>();
+		m_BlitVBO = std::make_unique<Onyx::VertexBuffer>(quadVerts, sizeof(quadVerts));
+		m_BlitEBO = std::make_unique<Onyx::IndexBuffer>(quadIndices, sizeof(quadIndices));
+
+		Onyx::VertexLayout layout({
+			{Onyx::VertexAttributeType::Float2}, // position
+			{Onyx::VertexAttributeType::Float2}	 // uv
+		});
+		m_BlitVAO->SetVertexBuffer(m_BlitVBO.get());
+		m_BlitVAO->SetLayout(layout);
+		m_BlitVAO->SetIndexBuffer(m_BlitEBO.get());
+		m_BlitVAO->UnBind();
+	}
+
+	void GameRenderer::BlitTextureToBackbuffer(uint32_t textureId)
+	{
+		// Default framebuffer (the GLFW backbuffer)
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		Onyx::RenderCommand::SetViewport(0, 0, m_ViewportWidth, m_ViewportHeight);
+		Onyx::RenderCommand::DisableDepthTest();
+		Onyx::RenderCommand::DisableCulling();
+
+		m_BlitShader->Bind();
+		m_BlitShader->SetInt("u_Source", 0);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, textureId);
+
+		m_BlitVAO->Bind();
+		Onyx::RenderCommand::DrawIndexed(*m_BlitVAO, 6);
+		m_BlitVAO->UnBind();
+
+		m_BlitShader->UnBind();
 	}
 
 	void GameRenderer::InitCubeMesh()

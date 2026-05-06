@@ -27,6 +27,7 @@ target_include_directories(MMOClient PRIVATE
 target_link_libraries(MMOClient PRIVATE
     MMOShared
     Onyx
+    nlohmann_json::nlohmann_json
 )
 
 set_target_properties(MMOClient PROPERTIES

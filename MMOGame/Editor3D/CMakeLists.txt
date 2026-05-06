@@ -10,14 +10,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(ImGuiFileDialog)
 
-# nlohmann/json - JSON for Modern C++
-FetchContent_Declare(
-    nlohmann_json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG        v3.11.3
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(nlohmann_json)
+# nlohmann/json is fetched in MMOGame/CMakeLists.txt so all subprojects share it.
 
 # ImGuiFileDialog needs imgui headers
 target_include_directories(ImGuiFileDialog PUBLIC ${imgui_SOURCE_DIR})

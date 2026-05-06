@@ -27,20 +27,20 @@ public:
 
 	void OnUpdate() override
 	{
-		// Frame limiter (VSync fallback for WSL2)
-		constexpr float TARGET_FPS = 60.0f;
-		constexpr float TARGET_FRAME_TIME = 1.0f / TARGET_FPS;
+		// Frame limiter disabled for FPS testing — was capping at 60
+		// constexpr float TARGET_FPS = 60.0f;
+		// constexpr float TARGET_FRAME_TIME = 1.0f / TARGET_FPS;
 
 		auto now = std::chrono::steady_clock::now();
 		float dt = std::chrono::duration<float>(now - m_LastFrameTime).count();
 
-		if (dt < TARGET_FRAME_TIME)
-		{
-			auto sleepTime = std::chrono::duration<float>(TARGET_FRAME_TIME - dt);
-			std::this_thread::sleep_for(sleepTime);
-			now = std::chrono::steady_clock::now();
-			dt = std::chrono::duration<float>(now - m_LastFrameTime).count();
-		}
+		// if (dt < TARGET_FRAME_TIME)
+		// {
+		// 	auto sleepTime = std::chrono::duration<float>(TARGET_FRAME_TIME - dt);
+		// 	std::this_thread::sleep_for(sleepTime);
+		// 	now = std::chrono::steady_clock::now();
+		// 	dt = std::chrono::duration<float>(now - m_LastFrameTime).count();
+		// }
 		m_LastFrameTime = now;
 
 		// Calculate FPS (smoothed) and show in window title
@@ -64,6 +64,7 @@ public:
 		if (!m_RendererInitialized)
 		{
 			m_Renderer->Init();
+			Onyx::Application::GetInstance().GetWindow()->SetVSync(false);
 			m_RendererInitialized = true;
 		}
 
@@ -80,6 +81,7 @@ public:
 				char mapDir[64];
 				snprintf(mapDir, sizeof(mapDir), "Data/maps/%03u", mapId);
 				m_TerrainSystem->LoadZone(mapId, mapDir);
+				m_Renderer->LoadTerrainMaterials("Data");
 				m_Renderer->LoadStaticObjects(*m_TerrainSystem, "Data");
 				m_CurrentMapId = mapId;
 			}

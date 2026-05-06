@@ -2,11 +2,10 @@
 
 #include "MaterialSerializer.h"
 #include <Graphics/Material.h>
+#include <Graphics/TerrainMaterialLibrary.h>
 #include <Graphics/Texture.h>
 #include <Graphics/TextureArray.h>
-#include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace Onyx {
@@ -15,6 +14,14 @@ namespace Onyx {
 
 namespace Editor3D {
 
+	// Editor authoring shim around Onyx::TerrainMaterialLibrary. Owns the
+	// AssetManager wiring, file authoring (Create/Save/Update), the
+	// asset-relative texture cache used by panel UI, and a dirty bit so the
+	// viewport rebuilds GPU arrays only when something actually changed.
+	//
+	// Pure runtime concerns — texture arrays, per-id array index, the
+	// __solid_R_G_B parser, default fallback textures — live in the engine
+	// library this composes.
 	class TerrainMaterialLibrary
 	{
 	public:
@@ -31,44 +38,35 @@ namespace Editor3D {
 		Onyx::Texture* GetNormalTexture(const std::string& materialId);
 		Onyx::Texture* GetRMATexture(const std::string& materialId);
 
-		Onyx::Texture* GetDefaultDiffuse() { return m_DefaultDiffuse.get(); }
-		Onyx::Texture* GetDefaultNormal() { return m_DefaultNormal.get(); }
-		Onyx::Texture* GetDefaultRMA() { return m_DefaultRMA.get(); }
+		Onyx::Texture* GetDefaultDiffuse() { return m_Library.GetDefaultDiffuse(); }
+		Onyx::Texture* GetDefaultNormal() { return m_Library.GetDefaultNormal(); }
+		Onyx::Texture* GetDefaultRMA() { return m_Library.GetDefaultRMA(); }
 
-		const std::string& GetAssetRoot() const { return m_AssetRoot; }
+		const std::string& GetAssetRoot() const { return m_Library.GetAssetRoot(); }
 
-		Onyx::Texture* LoadOrGetCachedTexture(const std::string& path);
+		Onyx::Texture* LoadOrGetCachedTexture(const std::string& path)
+		{
+			return m_Library.LoadOrGetCachedTexture(path);
+		}
 
+		// Rebuild the engine library's texture arrays from the current
+		// AssetManager material list. The viewport calls this on dirty.
 		void RebuildTextureArrays();
-		int GetMaterialArrayIndex(const std::string& materialId) const;
-		Onyx::TextureArray* GetDiffuseArray() { return m_DiffuseArray.get(); }
-		Onyx::TextureArray* GetNormalArray() { return m_NormalArray.get(); }
-		Onyx::TextureArray* GetRMAArray() { return m_RMAArray.get(); }
+		int GetMaterialArrayIndex(const std::string& materialId) const
+		{
+			return m_Library.GetMaterialArrayIndex(materialId);
+		}
+		Onyx::TextureArray* GetDiffuseArray() { return m_Library.GetDiffuseArray(); }
+		Onyx::TextureArray* GetNormalArray() { return m_Library.GetNormalArray(); }
+		Onyx::TextureArray* GetRMAArray() { return m_Library.GetRMAArray(); }
 		bool IsArraysDirty() const { return m_ArraysDirty; }
 		void MarkArraysDirty() { m_ArraysDirty = true; }
 
 	private:
-		void CreateDefaultTextures();
-		Onyx::Texture* GetMaterialTexture(const std::string& materialId,
-										  std::string Onyx::Material::* pathMember, Onyx::Texture* fallback);
-		void LoadArrayLayer(Onyx::TextureArray* array, int layer,
-							const std::string& path, uint8_t fallbackR, uint8_t fallbackG, uint8_t fallbackB);
-
-		std::string m_AssetRoot;
-		std::string m_MaterialsDir;
+		Onyx::TerrainMaterialLibrary m_Library;
 
 		Onyx::AssetManager* m_AssetManager = nullptr;
-
-		std::unordered_map<std::string, std::unique_ptr<Onyx::Texture>> m_TextureCache;
-
-		std::unique_ptr<Onyx::Texture> m_DefaultDiffuse;
-		std::unique_ptr<Onyx::Texture> m_DefaultNormal;
-		std::unique_ptr<Onyx::Texture> m_DefaultRMA;
-
-		std::unique_ptr<Onyx::TextureArray> m_DiffuseArray;
-		std::unique_ptr<Onyx::TextureArray> m_NormalArray;
-		std::unique_ptr<Onyx::TextureArray> m_RMAArray;
-		std::unordered_map<std::string, int> m_MaterialArrayIndex;
+		std::string m_MaterialsDir;
 		bool m_ArraysDirty = true;
 	};
 

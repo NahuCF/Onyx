@@ -76,8 +76,15 @@ namespace MMO {
 		if (chunk.data.heightmap.empty())
 			return;
 
-		// Use shared generator — defaults: 65 res, sobel normals, no diamond grid
+		// Match the editor's defaults: 65 res, sobel normals, smooth normals,
+		// diamond grid, and a padded heightmap so the terrain shader's pixel-
+		// normal path (u_UsePixelNormals=1) has the same data the editor uses.
 		TerrainMeshOptions opts;
+		opts.sobelNormals = true;
+		opts.smoothNormals = true;
+		opts.diamondGrid = true;
+		opts.generatePaddedHeightmap = true;
+
 		TerrainMeshData meshData;
 		GenerateTerrainMesh(chunk.data, opts, meshData);
 
@@ -100,8 +107,22 @@ namespace MMO {
 		chunk.vao->SetIndexBuffer(chunk.ebo.get());
 		chunk.vao->UnBind();
 
+		UploadHeightmapTexture(chunk, meshData);
+
 		// Model matrix is identity (vertices are already in world space)
 		chunk.modelMatrix = glm::mat4(1.0f);
+	}
+
+	void ClientTerrainSystem::UploadHeightmapTexture(ClientTerrainChunk& chunk, const TerrainMeshData& meshData)
+	{
+		if (meshData.paddedHeightmap.empty() || meshData.paddedHeightmapResolution <= 0)
+			return;
+
+		chunk.paddedHeightmapResolution = meshData.paddedHeightmapResolution;
+		chunk.heightmapTexture = Onyx::Texture::CreateFloatTexture(
+			meshData.paddedHeightmap.data(),
+			meshData.paddedHeightmapResolution,
+			meshData.paddedHeightmapResolution);
 	}
 
 	void ClientTerrainSystem::UploadSplatmapTextures(ClientTerrainChunk& chunk)
@@ -118,8 +139,11 @@ namespace MMO {
 			rgba1.data(), TERRAIN_SPLATMAP_RESOLUTION, TERRAIN_SPLATMAP_RESOLUTION, 4);
 	}
 
-	void ClientTerrainSystem::Render(Onyx::Shader* shader)
+	void ClientTerrainSystem::Render(Onyx::Shader* shader, const PerChunkSetup& perChunkSetup)
 	{
+		// Texture slot conventions match Editor3D's RenderTerrain so the same
+		// terrain.frag shader works for both: 0=heightmap, 1=splatmap0,
+		// 2=splatmap1, 3=diffuseArray, 4=normalArray, 5=rmaArray, 6=shadow.
 		for (auto& [key, chunk] : m_Chunks)
 		{
 			if (!chunk->vao || chunk->indexCount == 0)
@@ -127,16 +151,15 @@ namespace MMO {
 
 			shader->SetMat4("u_Model", chunk->modelMatrix);
 
+			if (chunk->heightmapTexture)
+				chunk->heightmapTexture->Bind(0);
 			if (chunk->splatmapTexture0)
-			{
-				chunk->splatmapTexture0->Bind(0);
-				shader->SetInt("u_Splatmap0", 0);
-			}
+				chunk->splatmapTexture0->Bind(1);
 			if (chunk->splatmapTexture1)
-			{
-				chunk->splatmapTexture1->Bind(1);
-				shader->SetInt("u_Splatmap1", 1);
-			}
+				chunk->splatmapTexture1->Bind(2);
+
+			if (perChunkSetup)
+				perChunkSetup(*chunk, shader);
 
 			chunk->vao->Bind();
 			Onyx::RenderCommand::DrawIndexed(*chunk->vao, chunk->indexCount);
