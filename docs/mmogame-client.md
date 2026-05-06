@@ -102,6 +102,8 @@ struct RuntimeModel {
     vector<OmdlMeshInfo>     meshes;
     vector<unique_ptr<Texture>> albedoTextures;  // per mesh
     uint32_t totalIndices;
+    uint32_t indexType;        // GL_UNSIGNED_INT or GL_UNSIGNED_SHORT
+    uint32_t indexByteSize;    // 4 or 2
 };
 
 unordered_map<string, unique_ptr<RuntimeModel>> m_ModelCache;
@@ -109,12 +111,13 @@ unordered_map<string, unique_ptr<RuntimeModel>> m_ModelCache;
 
 `LoadRuntimeModel(path)`:
 1. Cache hit? return.
-2. `ReadOmdl(path, data)` from shared library.
-3. Allocate VAO/VBO/EBO from raw `data.vertexBlob` and `data.indexBlob`.
-4. Set layout via `MeshVertex::GetLayout()` (pos3 + normal3 + uv2 + tangent3 + bitangent3, 5 attributes, 56 bytes).
-5. Derive base directory (`"Data/models/foo.omdl"` → `"Data/"`).
-6. Per-mesh: load albedo from `dataDir + meshInfo.albedoPath`.
-7. Cache and return.
+2. `ReadOmdl(path, data)` from shared library — `data` is an `OmdlMapped`, a zero-copy view into a `mmap`'d file (Win32 `MapViewOfFile` / POSIX `mmap`). No `std::vector` copy.
+3. Read `data.header.flags`: `OMDL_FLAG_U16_INDICES` selects `indexType` and `indexByteSize`.
+4. Allocate VAO/VBO/EBO. `glBufferData` reads straight from `data.vertexData`/`data.indexData` — straight from the mapped page → VRAM, no intermediate buffer.
+5. Set layout via `MeshVertex::GetLayout()` (v2 quantized 28 B layout — pos float3 + snorm16x2 oct-normal + half2 UV + snorm16x2 oct-tangent + snorm16x2 bitangent-sign).
+6. Derive base directory (`"Data/models/foo.omdl"` → `"Data/"`).
+7. Per-mesh: load albedo from `dataDir + meshInfo.albedoPath`.
+8. Cache and return. The `OmdlMapped` goes out of scope here — its destructor unmaps the file (the GPU buffers already hold their own copy).
 
 `LoadStaticObjects(terrain, dataDir)`:
 1. Iterate `terrain.GetAllObjects()` — each is a `ChunkObjectData`.
@@ -122,7 +125,7 @@ unordered_map<string, unique_ptr<RuntimeModel>> m_ModelCache;
 3. Build model matrix: translate → rotateY → rotateX → rotateZ → scale.
 4. Append `StaticWorldObject { model*, modelMatrix }` to `m_StaticObjects`.
 
-`RenderStaticObjects()` binds the model shader, iterates `m_StaticObjects`, and per mesh issues `glDrawElementsBaseVertex(meshInfo.indexCount, …, meshInfo.firstIndex, meshInfo.baseVertex)`.
+`RenderStaticObjects()` binds the model shader, iterates `m_StaticObjects`, and per mesh issues `glDrawElementsBaseVertex(meshInfo.indexCount, model->indexType, meshInfo.firstIndex * model->indexByteSize, meshInfo.baseVertex)`. The model vertex shader decodes oct-encoded normals via `OctDecode(a_OctNormal)` — see [shaders/model.vert](../MMOGame/Client/assets/shaders/model.vert).
 
 ## ClientTerrainSystem
 

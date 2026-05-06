@@ -54,12 +54,22 @@ Lights are configured between `Begin()` and `RenderBatches()`:
 
 ### `Onyx::Model` — static
 
-Vertex layout (`MeshVertex`, 56 bytes):
-- 0 = position (vec3)
-- 1 = normal (vec3)
-- 2 = texCoord (vec2)
-- 3 = tangent (vec3)
-- 4 = bitangent (vec3)
+Vertex layout (`MeshVertex`, **28 bytes** — quantized v2 layout, also written verbatim into `.omdl` files):
+| Loc | Field | C++ type | GL type | Notes |
+|---:|---|---|---|---|
+| 0 | position | `float[3]` | `vec3` | full precision; offset 0 |
+| 1 | octNormal | `int16_t[2]` snorm | `vec2` (snorm) | oct-encoded unit normal (Cigolle 2014) |
+| 2 | uvHalf | `uint16_t[2]` half | `vec2` | half-float UV |
+| 3 | octTangent | `int16_t[2]` snorm | `vec2` (snorm) | oct-encoded unit tangent |
+| 4 | bitangentSign | `int16_t[2]` snorm | `vec2` (snorm) | `.x` carries sign of bitangent; `.y` reserved |
+
+Vertex shaders decode oct → `vec3` and reconstruct bitangent as `cross(N, T) * sign(bitangentSign.x)`. The bitangent never travels over the bus.
+
+Encoding helpers in [Mesh.h](../Onyx/Source/Graphics/Mesh.h): `OctEncodeNormal`, `FloatToHalf`, `MakeMeshVertex`. `Model::ParseFromFile` calls `MakeMeshVertex` after applying the world transform.
+
+`VertexLayout` ([VertexLayout.h](../Onyx/Source/Graphics/VertexLayout.h)) gained `SNorm16`, `SNorm16x2`, `Half2` types. `VertexArray::SetLayout` ([Buffers.cpp](../Onyx/Source/Graphics/Buffers.cpp)) dispatches them to `glVertexAttribPointer` with `GL_SHORT`+`GL_TRUE` (snorm) or `GL_HALF_FLOAT`+`GL_FALSE` respectively.
+
+`Model::ParseFromFile` (and `LoadModel`) pass `aiProcess_JoinIdenticalVertices` to Assimp — the welding step typically drops vertex count by 2–5×.
 
 Constructors:
 - `Model(path, loadTextures=true)` — synchronous Assimp parse + GPU upload.
@@ -72,9 +82,16 @@ API:
 
 ### `Onyx::AnimatedModel` — skinned
 
-Layout adds:
+`SkinnedVertex` is **independent** of `MeshVertex`'s quantized layout — it stays full-precision floats (80 bytes total) because the skinned shaders consume `vec3` normal/tangent/bitangent directly:
+- 0 = position (vec3, float)
+- 1 = normal (vec3, float)
+- 2 = texCoords (vec2, float)
+- 3 = tangent (vec3, float)
+- 4 = bitangent (vec3, float)
 - 5 = boneIds (ivec4)
 - 6 = boneWeights (vec4)
+
+Quantizing skinned verts is future work and would require updating `skinned*.vert` in lockstep. Static `MeshVertex` and `SkinnedVertex` no longer share a layout — `SkinnedVertex::GetLayout()` builds its own.
 
 Skinned shaders fall back to identity if `totalWeight < 0.01`.
 

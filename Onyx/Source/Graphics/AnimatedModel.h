@@ -25,10 +25,19 @@ namespace Onyx {
 
 		void AddBoneData(int boneId, float weight);
 
+		// Independent of MeshVertex's quantized v2 layout — SkinnedVertex stays
+		// full-precision floats (the skinned shaders still consume vec3 normal/
+		// tangent/bitangent directly). Quantizing skinned verts is future work
+		// and would require updating skinned*.vert in lockstep.
 		static VertexLayout GetLayout()
 		{
-			VertexLayout layout = MeshVertex::GetLayout();
-			layout.PushInt(4);	 // boneIds    (location 5)
+			VertexLayout layout;
+			layout.PushFloat(3); // position    (location 0)
+			layout.PushFloat(3); // normal      (location 1)
+			layout.PushFloat(2); // texCoords   (location 2)
+			layout.PushFloat(3); // tangent     (location 3)
+			layout.PushFloat(3); // bitangent   (location 4)
+			layout.PushInt(4);   // boneIds     (location 5)
 			layout.PushFloat(4); // boneWeights (location 6)
 			return layout;
 		}

@@ -154,48 +154,98 @@ Runtime `.chunk` files written by `ExportForRuntime` use the same on-disk format
 
 ## `.omdl` custom model format
 
-GPU-ready model binary. Vertices in exact `MeshVertex` layout (56 bytes: pos3 + normal3 + uv2 + tangent3 + bitangent3). Client does `fread()` → `glBufferData()` — no Assimp at runtime.
+GPU-ready model binary. Vertices live on disk in the exact 28-byte `MeshVertex` layout the GPU consumes — no parsing, no decoding step. The runtime memory-maps the file and points `glBufferData` straight at the mapping (zero-copy load).
 
 ```
-OMDL_MAGIC = 0x4F4D444C   // "OMDL"
-OMDL_VERSION = 1
+OMDL_MAGIC   = 0x4F4D444C   // "OMDL"
+OMDL_VERSION = 2            // v2: quantized 28 B vertex + flags
 ```
 
-`OmdlFormat.h` structs:
+### Why this format
+
+Three optimizations stacked into one format:
+
+1. **Welded vertices.** Editor3D import runs Assimp with `aiProcess_JoinIdenticalVertices`. On the test models this dropped Celtic_Idol from 17,088 → 3,269 unique verts (5.2×) and testJunto2 from 1.97M → 815k (2.4×). Halves GPU vertex shader invocations as well as shrinking files.
+2. **Quantized vertex layout.** 28 bytes per vertex instead of 56:
+   | Field | Type | Bytes | Notes |
+   |---|---|---:|---|
+   | position | `float[3]` | 12 | world coords need full precision |
+   | octNormal | `int16_t[2]` snorm | 4 | oct-encoded unit normal (Cigolle 2014) |
+   | uvHalf | `uint16_t[2]` | 4 | half-float UV |
+   | octTangent | `int16_t[2]` snorm | 4 | oct-encoded unit tangent |
+   | bitangentSign | `int16_t[2]` snorm | 4 | `.x` carries sign of bitangent; `.y` reserved |
+
+   The vertex shader decodes oct → `vec3` and reconstructs bitangent as `cross(N, T) * sign(.x)`, so the bitangent never travels over the bus.
+3. **u16 indices when small.** If `totalVertices < 65536`, `OMDL_FLAG_U16_INDICES` is set and indices are `uint16_t` (half the bytes). Otherwise `uint32_t`.
+
+### `OmdlFormat.h` structs
 
 ```cpp
+constexpr uint32_t OMDL_VERTEX_BYTES      = 28;
+constexpr uint32_t OMDL_FLAG_U16_INDICES  = 1u << 0;
+
 struct OmdlHeader {
     uint32_t magic, version;
+    uint32_t flags;                      // OMDL_FLAG_U16_INDICES, …
     uint32_t meshCount, totalVertices, totalIndices;
-    float boundsMin[3], boundsMax[3];
+    float    boundsMin[3], boundsMax[3];
 };
 
 struct OmdlMeshInfo {
-    uint32_t indexCount, firstIndex, baseVertex;
-    float boundsMin[3], boundsMax[3];
-    std::string albedoPath;   // length-prefixed, relative to Data/
-    std::string normalPath;   // length-prefixed, relative to Data/
+    uint32_t indexCount, firstIndex;
+    int32_t  baseVertex;
+    float    boundsMin[3], boundsMax[3];
+    std::string albedoPath;   // length-prefixed (u16 len), relative to Data/
+    std::string normalPath;
 };
 
+// Writer-side (used by editor exporter): owns blobs in std::vector.
 struct OmdlData {
     OmdlHeader header;
     std::vector<OmdlMeshInfo> meshes;
-    std::vector<uint8_t> vertexBlob;  // totalVertices * sizeof(MeshVertex) = 56 each
-    std::vector<uint8_t> indexBlob;   // totalIndices * sizeof(uint32_t) = 4 each
+    std::vector<uint8_t> vertexBlob;     // totalVertices * 28 bytes
+    std::vector<uint8_t> indexBlob;      // totalIndices * (u16 ? 2 : 4) bytes
+};
+
+// Reader-side (used by client): zero-copy view into a memory-mapped file.
+// Pointers valid as long as OmdlMapped lives — the mapping is unmapped
+// in its destructor. Move-only.
+struct OmdlMapped {
+    OmdlHeader header;
+    std::vector<OmdlMeshInfo> meshes;
+    const void* vertexData;  size_t vertexBytes;
+    const void* indexData;   size_t indexBytes;
+    std::unique_ptr<OmdlMapping> mapping;  // RAII unmap
 };
 ```
 
-File layout on disk:
+### File layout on disk
 
 ```
-OmdlHeader               (fixed)
-OmdlMeshInfo[meshCount]  (variable — strings are length-prefixed)
-MeshVertex[totalVertices]
-uint32_t[totalIndices]
+OmdlHeader               (fixed, includes flags field)
+OmdlMeshInfo[meshCount]  (variable — strings are u16-len-prefixed)
+MeshVertex[totalVertices]    raw bytes, 28 each
+uint16_t[totalIndices]   if OMDL_FLAG_U16_INDICES, else uint32_t[totalIndices]
 ```
 
-API:
-- `bool WriteOmdl(const std::string& path, const OmdlData& data)` — `Model/OmdlWriter.h` — used by Editor3D export.
-- `bool ReadOmdl(const std::string& path, OmdlData& out)` — `Model/OmdlReader.h` — used by the Client.
+### API
 
-The Client uses `glDrawElementsBaseVertex()` per `OmdlMeshInfo` to render each mesh out of the merged VBO/EBO. See [mmogame-client.md](mmogame-client.md) for runtime model loading details and [export-pipeline.md](export-pipeline.md) for the producer side.
+- `bool WriteOmdl(const std::string& path, const OmdlData& data)` — [Model/OmdlWriter.h](../MMOGame/Shared/Source/Model/OmdlWriter.h) — used by the editor exporter.
+- `bool ReadOmdl(const std::string& path, OmdlMapped& out)` — [Model/OmdlReader.h](../MMOGame/Shared/Source/Model/OmdlReader.h) — used by the client. mmaps the file (Win32 `CreateFileMapping`/`MapViewOfFile` or POSIX `mmap`), validates the header, walks the mesh-info section, and fills the blob view pointers — no copies.
+
+### Render side
+
+The Client uses `glDrawElementsBaseVertex()` per `OmdlMeshInfo` to render each mesh out of the merged VBO/EBO. The index type comes from the header flags: `GL_UNSIGNED_SHORT` for u16, `GL_UNSIGNED_INT` for u32. See [mmogame-client.md](mmogame-client.md) for runtime model loading details and [export-pipeline.md](export-pipeline.md) for the producer side.
+
+### Performance
+
+Best-of-5 Release runs vs Assimp+walk on the same file ([MMOGame/Benchmarks/OmdlVsFbx.cpp](../MMOGame/Benchmarks/OmdlVsFbx.cpp)):
+
+| Model | FBX (Assimp) | OMDL v2 | Speedup | File: FBX → OMDL |
+|---|---:|---:|---:|---|
+| Celtic_Idol (3,269 verts) | 7.93 ms | **0.080 ms** | **99×** | 4.62 MB → 126 KB |
+| testJunto2 (815,558 verts) | 8,576 ms | **9.51 ms** | **902×** | 22.3 MB → 30.7 MB |
+
+### Migration
+
+OMDL v2 is a clean break — the reader rejects v1 files with a clear error. Re-export from the editor (`Save → Export Runtime Data` or equivalent) to upgrade existing `Data/models/*.omdl`.

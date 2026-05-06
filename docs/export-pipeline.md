@@ -73,16 +73,17 @@ Collect every unique `modelPath` referenced by chunks and the editor world's sta
 
 For each unique source model:
 
-1. Load via `AssetManager` (already cached from editor use).
+1. Load via `AssetManager` (already cached from editor use). Vertices arrive welded (`aiProcess_JoinIdenticalVertices`) and quantized into the v2 28-byte `MeshVertex` layout — see [engine-rendering.md](engine-rendering.md#onyxmodel--static).
 2. Build an `OmdlData`:
    - `header.meshCount = meshes.size()`
    - `header.totalVertices`, `header.totalIndices` — sums.
-   - Allocate `vertexBlob` (`totalVertices * sizeof(MeshVertex) = 56` bytes/vertex).
-   - Allocate `indexBlob` (`totalIndices * sizeof(uint32_t) = 4` bytes/index).
+   - `header.flags = (totalVertices < 65536) ? OMDL_FLAG_U16_INDICES : 0`.
+   - Allocate `vertexBlob` (`totalVertices * sizeof(MeshVertex) = 28` bytes/vertex).
+   - Allocate `indexBlob` (`totalIndices * (u16 ? 2 : 4)` bytes/index).
    - For each source mesh:
      - Fill `OmdlMeshInfo { indexCount, firstIndex, baseVertex, boundsMin/Max, albedoPath, normalPath }`.
      - Copy referenced textures into `materials/{modelStem}/`, remap paths to be relative to `Data/`.
-     - `memcpy` mesh vertices/indices into the blobs at the right offsets.
+     - `memcpy` mesh vertices into the blob; for indices, narrow `uint32_t` → `uint16_t` per-element when `OMDL_FLAG_U16_INDICES` is set, else `memcpy` raw.
    - Set global bounds.
 3. `WriteOmdl(modelsDir + "/" + omdlName, omdl)`.
 4. Record the remap: `modelPathRemap[sourcePath] = "models/" + omdlName`.
