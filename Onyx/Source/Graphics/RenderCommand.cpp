@@ -150,10 +150,10 @@ namespace Onyx {
 		glDrawArrays(GL_LINE_STRIP, 0, vertexCount);
 	}
 
-	void RenderCommand::DrawBatched(const VertexArray& vao, uint32_t drawCount)
+	void RenderCommand::DrawBatched(const VertexArray& vao, uint32_t drawCount, uint32_t indexType)
 	{
 		vao.Bind();
-		glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
+		glMultiDrawElementsIndirect(GL_TRIANGLES, indexType, nullptr,
 									static_cast<GLsizei>(drawCount), 0);
 	}
 

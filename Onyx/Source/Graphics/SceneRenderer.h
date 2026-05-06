@@ -6,6 +6,7 @@
 #include "CascadedShadowMap.h"
 #include "Framebuffer.h"
 #include "Frustum.h"
+#include "IRenderable.h"
 #include "Model.h"
 #include "Shader.h"
 #include <functional>
@@ -105,16 +106,35 @@ namespace Onyx {
 		void SetSplitLambda(float lambda);
 		void SetShowCascades(bool show);
 
-		void SubmitStatic(Model* model, uint32_t meshIndex,
+		// Interface-based submission. Either of the typed overloads below routes here.
+		void SubmitStatic(IRenderable* renderable, uint32_t meshIndex,
 						  const glm::mat4& worldTransform,
 						  const std::string& albedoPath,
 						  const std::string& normalPath);
+
+		void SubmitSkinned(ISkinnedRenderable* renderable,
+						   const glm::mat4& worldTransform,
+						   const std::vector<glm::mat4>& boneMatrices,
+						   const std::string& albedoPath = "",
+						   const std::string& normalPath = "");
+
+		// Typed convenience overloads — equivalent to passing the model as IRenderable*.
+		void SubmitStatic(Model* model, uint32_t meshIndex,
+						  const glm::mat4& worldTransform,
+						  const std::string& albedoPath,
+						  const std::string& normalPath)
+		{
+			SubmitStatic(static_cast<IRenderable*>(model), meshIndex, worldTransform, albedoPath, normalPath);
+		}
 
 		void SubmitSkinned(AnimatedModel* model,
 						   const glm::mat4& worldTransform,
 						   const std::vector<glm::mat4>& boneMatrices,
 						   const std::string& albedoPath = "",
-						   const std::string& normalPath = "");
+						   const std::string& normalPath = "")
+		{
+			SubmitSkinned(static_cast<ISkinnedRenderable*>(model), worldTransform, boneMatrices, albedoPath, normalPath);
+		}
 
 		void RenderShadows(ShadowCasterCallback extraShadows = nullptr);
 		void RenderBatches();
@@ -128,18 +148,21 @@ namespace Onyx {
 	private:
 		struct StaticBatch
 		{
-			Model* model = nullptr;
+			IRenderable* renderable = nullptr;
 			std::string albedoPath;
 			std::string normalPath;
 			std::vector<StaticDrawData> drawData;
 			std::vector<DrawIndirectCommand> commands;
 			std::vector<MeshBounds> bounds;
+			std::vector<Texture*> albedoOverrides; // per-draw, nullable
+			std::vector<Texture*> normalOverrides; // per-draw, nullable
 			uint32_t totalTriangles = 0;
+			uint32_t indexType = 0x1405; // GL_UNSIGNED_INT
 		};
 
 		struct SkinnedSubmission
 		{
-			AnimatedModel* model = nullptr;
+			ISkinnedRenderable* renderable = nullptr;
 			glm::mat4 transform;
 			std::vector<glm::mat4> boneMatrices;
 			std::string albedoPath;
@@ -148,7 +171,7 @@ namespace Onyx {
 
 		struct SkinnedBatch
 		{
-			AnimatedModel* model = nullptr;
+			ISkinnedRenderable* renderable = nullptr;
 			std::string albedoPath;
 			std::string normalPath;
 			std::vector<SkinnedDrawData> drawData;

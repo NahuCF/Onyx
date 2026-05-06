@@ -76,65 +76,79 @@ namespace Onyx {
 			m_CSM->Resize(resolution);
 	}
 
-	void SceneRenderer::SubmitStatic(Model* model, uint32_t meshIndex,
+	void SceneRenderer::SubmitStatic(IRenderable* renderable, uint32_t meshIndex,
 									 const glm::mat4& worldTransform,
 									 const std::string& albedoPath,
 									 const std::string& normalPath)
 	{
-		if (!model)
-			return;
-		if (!model->HasMergedBuffers())
-			model->BuildMergedBuffers();
-		if (!model->HasMergedBuffers())
+		if (!renderable)
 			return;
 
-		const auto& merged = model->GetMergedBuffers();
-		if (meshIndex >= merged.meshInfos.size())
+		// For engine Model, lazy-build merged buffers. Other implementations
+		// (RuntimeModel) own their VAO at construction and skip this.
+		if (auto* m = dynamic_cast<Model*>(renderable))
+		{
+			if (!m->HasMergedBuffers())
+				m->BuildMergedBuffers();
+		}
+
+		if (!renderable->GetMergedVAO())
 			return;
 
-		uint64_t key = MakeBatchKey(model, albedoPath, normalPath);
+		if (meshIndex >= renderable->GetMeshCount())
+			return;
+
+		uint64_t key = MakeBatchKey(renderable, albedoPath, normalPath);
 
 		auto& batch = m_StaticBatches[key];
-		if (!batch.model)
+		if (!batch.renderable)
 		{
-			batch.model = model;
+			batch.renderable = renderable;
 			batch.albedoPath = albedoPath;
 			batch.normalPath = normalPath;
+			batch.indexType = renderable->GetIndexType();
 		}
 
 		batch.drawData.push_back({worldTransform});
 
-		const auto& info = merged.meshInfos[meshIndex];
+		const SubmitMeshView view = renderable->GetMeshView(meshIndex);
 		DrawIndirectCommand cmd;
-		cmd.count = info.indexCount;
+		cmd.count = view.indexCount;
 		cmd.instanceCount = 1;
-		cmd.firstIndex = info.firstIndex;
-		cmd.baseVertex = info.baseVertex;
+		cmd.firstIndex = view.firstIndex;
+		cmd.baseVertex = view.baseVertex;
 		cmd.baseInstance = 0;
 		batch.commands.push_back(cmd);
 
-		const auto& mesh = model->GetMeshes()[meshIndex];
 		glm::vec3 wMin, wMax;
-		TransformAABB(mesh.GetBoundsMin(), mesh.GetBoundsMax(), worldTransform, wMin, wMax);
+		TransformAABB(view.localMin, view.localMax, worldTransform, wMin, wMax);
 		batch.bounds.push_back({wMin, wMax});
 
-		batch.totalTriangles += info.indexCount / 3;
+		batch.albedoOverrides.push_back(renderable->GetMeshAlbedoOverride(meshIndex));
+		batch.normalOverrides.push_back(renderable->GetMeshNormalOverride(meshIndex));
+
+		batch.totalTriangles += view.indexCount / 3;
 	}
 
-	void SceneRenderer::SubmitSkinned(AnimatedModel* model,
+	void SceneRenderer::SubmitSkinned(ISkinnedRenderable* renderable,
 									  const glm::mat4& worldTransform,
 									  const std::vector<glm::mat4>& boneMatrices,
 									  const std::string& albedoPath,
 									  const std::string& normalPath)
 	{
-		if (!model)
-			return;
-		if (!model->HasMergedBuffers())
-			model->BuildMergedBuffers();
-		if (!model->HasMergedBuffers())
+		if (!renderable)
 			return;
 
-		m_SkinnedQueue.push_back({model, worldTransform, boneMatrices, albedoPath, normalPath});
+		if (auto* m = dynamic_cast<AnimatedModel*>(renderable))
+		{
+			if (!m->HasMergedBuffers())
+				m->BuildMergedBuffers();
+		}
+
+		if (!renderable->GetMergedVAO())
+			return;
+
+		m_SkinnedQueue.push_back({renderable, worldTransform, boneMatrices, albedoPath, normalPath});
 	}
 
 	void SceneRenderer::RenderShadows(ShadowCasterCallback extraShadows)
@@ -262,8 +276,9 @@ namespace Onyx {
 									 culledData.size() * sizeof(StaticDrawData), 0);
 				m_StaticCmdBO->Upload(culledCmds.data(),
 									  culledCmds.size() * sizeof(DrawIndirectCommand));
-				RenderCommand::DrawBatched(*batch.model->GetMergedBuffers().vao,
-										   static_cast<uint32_t>(culledCmds.size()));
+				RenderCommand::DrawBatched(*batch.renderable->GetMergedVAO(),
+										   static_cast<uint32_t>(culledCmds.size()),
+										   batch.indexType);
 			}
 
 			m_StaticCmdBO->UnBind();
@@ -282,7 +297,7 @@ namespace Onyx {
 										  batch.drawData.size() * sizeof(SkinnedDrawData), 0);
 					m_SkinnedCmdBO->Upload(batch.commands.data(),
 										   batch.commands.size() * sizeof(DrawIndirectCommand));
-					RenderCommand::DrawBatched(*batch.model->GetMergedBuffers().vao,
+					RenderCommand::DrawBatched(*batch.renderable->GetMergedVAO(),
 											   static_cast<uint32_t>(batch.commands.size()));
 				}
 
@@ -327,6 +342,12 @@ namespace Onyx {
 			uint32_t totalMeshes = static_cast<uint32_t>(batch.bounds.size());
 			m_Stats.meshesSubmitted += totalMeshes;
 
+			// Track which submission index each surviving command came from, so we
+			// can pick the right per-draw albedo/normal override (currently we bind
+			// the first surviving override for the whole batch — any further
+			// per-draw texture variation requires splitting batches by override).
+			Texture* firstAlbedoOverride = nullptr;
+			Texture* firstNormalOverride = nullptr;
 			uint32_t culledTriangles = 0;
 			for (size_t i = 0; i < batch.bounds.size(); i++)
 			{
@@ -335,6 +356,8 @@ namespace Onyx {
 					culledData.push_back(batch.drawData[i]);
 					culledCmds.push_back(batch.commands[i]);
 					culledTriangles += batch.commands[i].count / 3;
+					if (!firstAlbedoOverride) firstAlbedoOverride = batch.albedoOverrides[i];
+					if (!firstNormalOverride) firstNormalOverride = batch.normalOverrides[i];
 				}
 			}
 
@@ -343,8 +366,10 @@ namespace Onyx {
 			if (culledCmds.empty())
 				continue;
 
-			Texture* albedo = m_AssetManager->ResolveTexture(batch.albedoPath);
-			Texture* normal = m_AssetManager->ResolveTexture(batch.normalPath);
+			Texture* albedo = firstAlbedoOverride ? firstAlbedoOverride
+												  : m_AssetManager->ResolveTexture(batch.albedoPath);
+			Texture* normal = firstNormalOverride ? firstNormalOverride
+												  : m_AssetManager->ResolveTexture(batch.normalPath);
 			(albedo ? albedo : m_AssetManager->GetDefaultAlbedo())->Bind(0);
 
 			if (normal)
@@ -365,7 +390,7 @@ namespace Onyx {
 			m_StaticCmdBO->Upload(culledCmds.data(),
 								  culledCmds.size() * sizeof(DrawIndirectCommand));
 
-			RenderCommand::DrawBatched(*batch.model->GetMergedBuffers().vao, drawCount);
+			RenderCommand::DrawBatched(*batch.renderable->GetMergedVAO(), drawCount, batch.indexType);
 
 			m_Stats.batchedMeshCount += drawCount;
 			m_Stats.batchedDrawCalls++;
@@ -399,11 +424,14 @@ namespace Onyx {
 			Texture* albedo = m_AssetManager->ResolveTexture(batch.albedoPath);
 			Texture* normal = m_AssetManager->ResolveTexture(batch.normalPath);
 
-			if (!albedo && !batch.model->GetMaterials().empty())
+			// AnimatedModel-specific fallback: assimp-loaded material diffuse texture
+			if (!albedo)
 			{
-				auto& mat = batch.model->GetMaterials()[0];
-				if (mat.diffuseTexture)
-					albedo = mat.diffuseTexture.get();
+				if (auto* anim = dynamic_cast<AnimatedModel*>(batch.renderable))
+				{
+					if (!anim->GetMaterials().empty() && anim->GetMaterials()[0].diffuseTexture)
+						albedo = anim->GetMaterials()[0].diffuseTexture.get();
+				}
 			}
 
 			(albedo ? albedo : m_AssetManager->GetDefaultAlbedo())->Bind(0);
@@ -426,7 +454,7 @@ namespace Onyx {
 			m_SkinnedCmdBO->Upload(batch.commands.data(),
 								   batch.commands.size() * sizeof(DrawIndirectCommand));
 
-			RenderCommand::DrawBatched(*batch.model->GetMergedBuffers().vao,
+			RenderCommand::DrawBatched(*batch.renderable->GetMergedVAO(),
 									   static_cast<uint32_t>(batch.commands.size()));
 
 			m_Stats.skinnedDrawCalls++;
@@ -444,14 +472,14 @@ namespace Onyx {
 	{
 		for (const auto& sub : m_SkinnedQueue)
 		{
-			const auto& merged = sub.model->GetMergedBuffers();
+			const size_t meshCount = sub.renderable->GetMeshCount();
 
-			uint64_t key = MakeBatchKey(sub.model, sub.albedoPath, sub.normalPath);
+			uint64_t key = MakeBatchKey(sub.renderable, sub.albedoPath, sub.normalPath);
 
 			auto& batch = out[key];
-			if (!batch.model)
+			if (!batch.renderable)
 			{
-				batch.model = sub.model;
+				batch.renderable = sub.renderable;
 				batch.albedoPath = sub.albedoPath;
 				batch.normalPath = sub.normalPath;
 			}
@@ -462,9 +490,9 @@ namespace Onyx {
 			batch.packedBones.insert(batch.packedBones.end(),
 									 sub.boneMatrices.begin(), sub.boneMatrices.end());
 
-			for (uint32_t meshIdx = 0; meshIdx < merged.meshInfos.size(); meshIdx++)
+			for (size_t meshIdx = 0; meshIdx < meshCount; meshIdx++)
 			{
-				const auto& info = merged.meshInfos[meshIdx];
+				const SubmitMeshView view = sub.renderable->GetMeshView(meshIdx);
 
 				SkinnedDrawData dd;
 				dd.model = sub.transform;
@@ -475,14 +503,14 @@ namespace Onyx {
 				batch.drawData.push_back(dd);
 
 				DrawIndirectCommand cmd;
-				cmd.count = info.indexCount;
+				cmd.count = view.indexCount;
 				cmd.instanceCount = 1;
-				cmd.firstIndex = info.firstIndex;
-				cmd.baseVertex = info.baseVertex;
+				cmd.firstIndex = view.firstIndex;
+				cmd.baseVertex = view.baseVertex;
 				cmd.baseInstance = 0;
 				batch.commands.push_back(cmd);
 
-				batch.totalTriangles += info.indexCount / 3;
+				batch.totalTriangles += view.indexCount / 3;
 			}
 		}
 	}

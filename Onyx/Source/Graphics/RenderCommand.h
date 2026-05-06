@@ -15,7 +15,7 @@ namespace Onyx {
 		static void DrawLineLoop(const VertexArray& vao, uint32_t vertexCount);
 		static void DrawLineStrip(const VertexArray& vao, uint32_t vertexCount);
 
-		static void DrawBatched(const VertexArray& vao, uint32_t drawCount);
+		static void DrawBatched(const VertexArray& vao, uint32_t drawCount, uint32_t indexType = 0x1405 /* GL_UNSIGNED_INT */);
 		static void DrawBatchedIndirectCount(const VertexArray& vao, uint32_t countBufferID,
 											 uint32_t maxDrawCount);
 		static void DispatchCompute(uint32_t x, uint32_t y, uint32_t z);
