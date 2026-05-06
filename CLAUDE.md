@@ -8,6 +8,12 @@ Onyx is a C++/OpenGL game engine with an integrated 3D editor (`MMOEditor3D`). O
 
 Detailed documentation is split under [docs/](docs/) — see the index below.
 
+## Engineering philosophy
+
+**Build the best long-term solution, not the cheapest short-term one.** When proposing approaches, optimize for the engine and game we want to ship — not for what's fastest to wire up today. Do not recommend "good enough" shortcuts (ImGui for shipping HUDs, pre-rendered glyph PNGs, hand-rolled one-offs) when the project will need a proper system anyway. Surface the real long-term path first; if a shortcut is genuinely warranted (throwaway prototype, unblocking a dependency), call it out explicitly as a stop-gap with the proper plan named.
+
+This applies to architecture decisions, library choices, and tooling: prefer the right foundation over a quick patch, even when the patch would land sooner.
+
 ## Quick build
 
 ```bash
