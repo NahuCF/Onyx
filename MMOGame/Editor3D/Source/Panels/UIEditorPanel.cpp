@@ -5,8 +5,10 @@
 #include <UI/Layout.h>
 #include <UI/Manager.h>
 #include <UI/Text/FontAtlas.h>
+#include <UI/Widgets/Button.h>
 #include <UI/Widgets/DebugRect.h>
 #include <UI/Widgets/Label.h>
+#include <UI/Widgets/TextInput.h>
 
 #include <GL/glew.h>
 #include <imgui.h>
@@ -15,11 +17,13 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <iostream>
 #include <string>
 
 namespace MMO {
 
 	using Onyx::UI::AnchorEdge;
+	using Onyx::UI::Button;
 	using Onyx::UI::Color;
 	using Onyx::UI::ContainerMode;
 	using Onyx::UI::DebugRect;
@@ -33,6 +37,7 @@ namespace MMO {
 	using Onyx::UI::MouseButton;
 	using Onyx::UI::Rect2D;
 	using Onyx::UI::SizeMode;
+	using Onyx::UI::TextInput;
 	using Onyx::UI::UIRenderer;
 	using Onyx::UI::Widget;
 	using Onyx::UI::WidgetTree;
@@ -200,18 +205,42 @@ namespace MMO {
 
 		PushAnchored(card.get(), MakeText(font, "Onyx Online", 36.0f, 0xeef0f6FF, UIRenderer::TextAlignH::Center),
 					 AnchorEdge::Top, glm::vec2(0, 30), glm::vec2(360, 50));
+
 		PushAnchored(card.get(), MakeText(font, "Username", 13.0f, 0xa0a8b8FF),
 					 AnchorEdge::TopLeft, glm::vec2(40, 110), glm::vec2(280, 18));
-		PushAnchored(card.get(), MakeRect(0x2a3140FF, "username-field"),
+		auto userField = std::make_unique<TextInput>(font, 14.0f);
+		userField->SetId("username-field");
+		userField->SetPlaceholder("your username");
+		userField->SetMaxLength(32);
+		PushAnchored(card.get(), std::move(userField),
 					 AnchorEdge::TopLeft, glm::vec2(40, 132), glm::vec2(300, 36));
+
 		PushAnchored(card.get(), MakeText(font, "Password", 13.0f, 0xa0a8b8FF),
 					 AnchorEdge::TopLeft, glm::vec2(40, 188), glm::vec2(280, 18));
-		PushAnchored(card.get(), MakeRect(0x2a3140FF, "password-field"),
+		auto passField = std::make_unique<TextInput>(font, 14.0f);
+		passField->SetId("password-field");
+		passField->SetPlaceholder("password");
+		passField->SetPasswordMode(true);
+		passField->SetMaxLength(64);
+		PushAnchored(card.get(), std::move(passField),
 					 AnchorEdge::TopLeft, glm::vec2(40, 210), glm::vec2(300, 36));
-		PushAnchored(card.get(), MakeRect(0x3a7bd5FF, "login-button", true),
+
+		Widget* rootPtr = root.get();
+		auto signIn = std::make_unique<Button>(font, "Sign In", 16.0f);
+		signIn->SetId("login-button");
+		signIn->ApplyStyle(Button::Style::Primary);
+		signIn->SetOnClick([rootPtr] {
+			auto* user = dynamic_cast<TextInput*>(rootPtr->FindById("username-field"));
+			auto* pass = dynamic_cast<TextInput*>(rootPtr->FindById("password-field"));
+			std::cout << "[stage:login] Sign In - user='"
+					  << (user ? user->GetText() : std::string("?"))
+					  << "' pass.len="
+					  << (pass ? pass->GetText().size() : 0)
+					  << '\n';
+		});
+		PushAnchored(card.get(), std::move(signIn),
 					 AnchorEdge::TopLeft, glm::vec2(40, 280), glm::vec2(300, 44));
-		PushAnchored(card.get(), MakeText(font, "Sign In", 16.0f, 0xffffffFF, UIRenderer::TextAlignH::Center),
-					 AnchorEdge::TopLeft, glm::vec2(40, 290), glm::vec2(300, 24));
+
 		PushAnchored(card.get(), MakeText(font, "Server: localhost:7000", 12.0f, 0x808898FF, UIRenderer::TextAlignH::Center),
 					 AnchorEdge::Bottom, glm::vec2(0, -20), glm::vec2(300, 16));
 
@@ -1235,11 +1264,59 @@ namespace MMO {
 			m_Tree->DispatchInput(e);
 		}
 
-		m_PrevMouse        = mouseCanvas;
-		m_PrevButtons[0]   = currButtons[0];
-		m_PrevButtons[1]   = currButtons[1];
-		m_PrevButtons[2]   = currButtons[2];
-		m_PrevMouseValid   = true;
+		// Keyboard forwarding for focused TextInput. Gate on the panel's
+		// window hierarchy having focus so we don't steal keys from other
+		// panels, and on our tree owning a focused widget.
+		const bool panelFocused =
+			ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+		if (panelFocused && m_Tree->GetFocus())
+		{
+			// Char input — ImGui buffers typed unicode in InputQueueCharacters.
+			for (int i = 0; i < io.InputQueueCharacters.Size; ++i)
+			{
+				const ImWchar ch = io.InputQueueCharacters[i];
+				if (ch == 0) continue;
+				InputEvent ce{};
+				ce.type      = InputEventType::Char;
+				ce.character = static_cast<uint32_t>(ch);
+				ce.mods      = mods;
+				m_Tree->DispatchInput(ce);
+			}
+
+			// Editing keys — map ImGui key to GLFW key code (what
+			// InputEvent.keyCode carries). `repeat=true` so held arrows
+			// auto-repeat.
+			static const struct { ImGuiKey key; uint32_t glfw; } kKeyMap[] = {
+				{ ImGuiKey_Tab,         258 },
+				{ ImGuiKey_LeftArrow,   263 },
+				{ ImGuiKey_RightArrow,  262 },
+				{ ImGuiKey_Home,        268 },
+				{ ImGuiKey_End,         269 },
+				{ ImGuiKey_Backspace,   259 },
+				{ ImGuiKey_Delete,      261 },
+				{ ImGuiKey_Enter,       257 },
+				{ ImGuiKey_KeypadEnter, 335 },
+				{ ImGuiKey_Space,       32  },
+				{ ImGuiKey_Escape,      256 },
+			};
+			for (const auto& m : kKeyMap)
+			{
+				if (ImGui::IsKeyPressed(m.key, true))
+				{
+					InputEvent ke{};
+					ke.type    = InputEventType::KeyDown;
+					ke.keyCode = m.glfw;
+					ke.mods    = mods;
+					m_Tree->DispatchInput(ke);
+				}
+			}
+		}
+
+		m_PrevMouse      = mouseCanvas;
+		m_PrevButtons[0] = currButtons[0];
+		m_PrevButtons[1] = currButtons[1];
+		m_PrevButtons[2] = currButtons[2];
+		m_PrevMouseValid = true;
 	}
 
 	// =========================================================================
