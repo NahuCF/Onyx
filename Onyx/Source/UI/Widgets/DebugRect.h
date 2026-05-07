@@ -19,6 +19,12 @@ namespace Onyx::UI {
 
 		uint32_t GetClickCount() const { return m_Clicks; }
 
+		const Color& GetBaseColor() const { return m_Base; }
+		void SetBaseColor(const Color& c) { m_Base = c; }
+
+		const std::string& GetLabel() const { return m_Label; }
+		void SetLabel(std::string label) { m_Label = std::move(label); }
+
 	private:
 		Color m_Base;
 		std::string m_Label;

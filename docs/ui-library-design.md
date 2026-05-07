@@ -35,6 +35,12 @@ Status: **design locked, implementation in progress.** Architectural decisions Q
 - **Q14 — `foreach` keys: unique within scope.** Duplicate key → warning + index-fallback for the offending run. Missing `key=` → index-based reconciliation (fine for append-only, ugly for reorders). Recommendation: always provide a key for reorder-prone lists. Iteration cap at 10,000 still applies.
 - **Q15 — Hover/pressed/focused track at the event-handling widget.** State sits on the topmost ancestor with `onclick` / `draggable` / `focusable` on the hit path. Children below it don't independently get `:hover`. No propagation needed because hit-testing terminates at the right widget. Matches every shipping UI library; cleaner than CSS `:has()`.
 
+### Editor and stage lifecycle (Q16-Q18)
+
+- **Q16 — UIEditor primary navigation: stage selector, not file picker.** Top-bar dropdown picks **stage** (Login / CharSelect / In-Game / In-Game+Inventory / Combat-LowHP / etc.); selecting a stage mounts the right screens, activates the right theme, and loads the right mock profile in one click. Files are leaves inside stages; double-click a widget on canvas drills into its source `.ui`. Reasoning: in a real game screens compose (modal over HUD, tooltip over modal); file-by-file editing hides interactions. References: Unreal UMG tabs, FFXIV HUD layout editor, Figma pages.
+- **Q17 — Client references screens by typed enum + manifest, not paths.** `UIStage::{Login, CharSelect, InGame, …}` mapped through `assets/ui/manifest.json` to `.ui` paths + theme + default mock + transitions. `m_UI->ShowStage(UIStage::Login)` mounts the configured screen. Manifest is hot-reloadable; renames don't require a client recompile. Server events are ID-mapped through the same manifest.
+- **Q18 — Server is UI-agnostic.** Servers send typed events with payloads (`QuestOffer{npc, title, body, choices[]}`, `VendorOpen{npc, items[]}`, `SystemMessage{title, body}`); the client picks the matching `.ui` for each event type from the manifest. Decouples server/client teams; UI changes don't require server redeploy. For arbitrary GM-authored content, one generic `system_modal.ui` driven by `{title, body, button}` — never UI markup over the wire.
+
 ### Wrappers and locale rules
 
 - **`Onyx::UI::Pending<T>` / `Stale<T>`** live in the library (`Onyx/Source/UI/Wrappers.h`). `GameClient` (MMO layer) wraps values returned from bindings; the library reads them and renders `:pending` / `:stale` pseudo-states. Library never imports MMO; MMO imports library.
@@ -446,6 +452,158 @@ audio.SubscribeToUIBus([&](const UIAudioEvent& e){
 
 **Built-in events:** pseudo-state entries, `Modal::OnOpen` / `OnClose`, `Toast::OnShow`, `DragSystem::OnDragStart` / `OnDrop`, `Tooltip::OnShow`.
 
+### Stages, file layout, and server-driven UI
+
+The library is organized around **stages** (login / character select / in-game / dead / etc.), not arbitrary file paths. Each stage names a root screen; overlays and server-event UI compose on top.
+
+#### File layout
+
+```
+MMOGame/assets/ui/
+├── manifest.json            ← stage → screen + theme + default mock; event → screen; resolutions
+├── login/
+│   ├── login.ui
+│   ├── login.mock.json      ← preview-only fake bindings (gitignored)
+│   └── login.notes.md
+├── character_select/
+│   ├── character_select.ui
+│   └── character_select.mock.json
+├── hud/
+│   ├── hud.ui               ← root: action bar, unit frames, chat, minimap
+│   ├── action_bar.ui        ← <include>'d into hud.ui
+│   ├── unit_frame.ui
+│   ├── chat.ui
+│   └── hud.mock.json
+├── inventory/
+│   ├── inventory.ui         ← modal, pushed as overlay
+│   ├── item_tooltip.ui
+│   └── inventory.mock.json
+├── system/
+│   ├── system_modal.ui      ← generic server-message modal (Q18)
+│   ├── quest_offer.ui       ← bound to server QuestOffer event
+│   └── vendor.ui            ← bound to server VendorOpen event
+├── components/
+│   ├── unit_frame.ui        ← shared <include> targets
+│   ├── tooltip.ui
+│   ├── item_icon.ui
+│   └── drag_ghost.ui
+├── themes/
+│   ├── dark.json
+│   └── high_contrast.json
+├── locales/
+│   ├── en.json
+│   └── es.json
+├── mocks/
+│   ├── low_hp_combat.json   ← reusable mock profile (cross-screen)
+│   ├── full_inventory.json
+│   └── dead_target.json
+└── fonts/
+    ├── Roboto-Medium.ttf
+    └── Roboto-Medium.atlas.bin
+```
+
+Stages own their root `.ui` plus any inner files used only by that stage; cross-stage shared content lives in `components/`. Each screen can have a sibling `.mock.json` for editor-only preview values (gitignored — not shipped). Reusable mock profiles live in `mocks/` and are referenced from the manifest or selected in the editor's mock dropdown.
+
+#### Stage management
+
+```cpp
+enum class UIStage : uint8_t {
+    Login,
+    CharacterSelect,
+    Loading,
+    InGame,
+    DeathScreen,
+    GameOver,
+    Cinematic,
+    Disconnected,
+};
+```
+
+`UIStageController` (engine) owns:
+- Enum-to-screen mapping (read from `manifest.json`)
+- Stage transitions (mount new root, unmount old; preserve overlays where relevant)
+- Overlay stack (inventory, settings, social — pushed on top of any stage)
+- Server-event dispatch (`QuestOffer` from server → push `quest_offer.ui` as overlay, bound to event payload)
+
+```cpp
+m_UI->ShowStage(UIStage::Login);
+m_UI->TransitionTo(UIStage::CharacterSelect);  // mounts char-select; unmounts login
+m_UI->PushOverlay("inventory");                // pushes inv on top of current stage
+m_UI->DispatchEvent("QuestOffer", payload);    // pushes quest_offer.ui bound to payload
+```
+
+#### Manifest schema
+
+`assets/ui/manifest.json`:
+
+```json
+{
+    "stages": {
+        "Login":           { "screen": "login/login.ui",                       "theme": "dark", "mock": "default" },
+        "CharacterSelect": { "screen": "character_select/character_select.ui", "theme": "dark" },
+        "InGame":          { "screen": "hud/hud.ui",                           "theme": "dark", "mock": "default_combat" },
+        "DeathScreen":     { "screen": "system/death.ui",                      "theme": "dark" }
+    },
+    "overlays": {
+        "inventory":  "inventory/inventory.ui",
+        "settings":   "settings/settings.ui",
+        "social":     "social/social.ui"
+    },
+    "events": {
+        "QuestOffer":  "system/quest_offer.ui",
+        "VendorOpen":  "system/vendor.ui",
+        "SystemModal": "system/system_modal.ui"
+    },
+    "resolutions": [
+        { "name": "16:9 1080p",     "width": 1920, "height": 1080, "safeAreaInset": 0 },
+        { "name": "16:9 1440p",     "width": 2560, "height": 1440, "safeAreaInset": 0 },
+        { "name": "21:9 ultrawide", "width": 2560, "height": 1080, "safeAreaInset": 64 },
+        { "name": "4:3 1024",       "width": 1024, "height": 768,  "safeAreaInset": 0 }
+    ]
+}
+```
+
+Manifest is hot-reloadable. New stages added by editing the JSON + extending the enum (the only client-side touch). Renames and theme/mock swaps don't require a client rebuild. The editor's stage dropdown reads this manifest as its source of truth.
+
+#### Server-driven UI
+
+Servers never reference `.ui` files. They send typed events with payloads; the client owns the rendering decision.
+
+```cpp
+// Server side — pure data:
+client.Send<QuestOffer>({
+    .npcId   = questgiver.Id(),
+    .title   = quest.Title(),
+    .body    = quest.Description(),
+    .choices = { "Accept", "Decline", "Tell me more" },
+});
+
+// Client side — manifest dispatch:
+ui.RegisterEventHandler<QuestOffer>([&](const QuestOffer& evt) {
+    m_UI->DispatchEvent("QuestOffer", evt);  // pushes system/quest_offer.ui bound to evt
+});
+```
+
+`system/quest_offer.ui` binds the payload:
+
+```xml
+<modal id="quest-offer">
+    <label class="quest-title" text="{evt.title}"/>
+    <label class="quest-body"  text="{evt.body}"/>
+    <stack direction="horizontal" gap="8">
+        <button foreach="choice in evt.choices" text="{choice}" onclick="quest_choice"/>
+    </stack>
+</modal>
+```
+
+**Why this shape:**
+- Server team writes packet definitions; UI team writes `.ui` files. Independent iteration loops.
+- The same protocol can drive a different client (custom HUD addon, mobile companion, headless test bot) without server changes.
+- UI changes don't require server redeploy.
+- Adversarial inputs are bounded: the server can't send arbitrary markup, only typed payload fields.
+
+**Generic content escape hatch:** for genuinely arbitrary content (GM broadcasts, MOTD, error messages) use a single `system/system_modal.ui` driven by `{title, body, button}`. Servers send `SystemModal{title, body, button}`; the client renders in a fixed layout. Never put markup in the packet — even for "dynamic" UI, the schema stays typed.
+
 ### Authoring (data-driven, two paths)
 
 #### Path 1 — Visual editor (`UIEditor` panel in MMOEditor3D)
@@ -855,13 +1013,91 @@ Consumes the engine's socket and projection systems. UI library work is mostly t
 - Creature without sockets (legacy model) falls back to AABB-top anchor; nameplate still appears in a sensible place
 - Custom socket on a boss model resolves correctly via name lookup
 
-### M12 — `UIEditor` panel in MMOEditor3D
+### M12 — `UIEditor` workspace in MMOEditor3D
+
+The UIEditor is a **workspace mode** of MMOEditor3D, not a single panel — when activated, the docking layout reflows to a UI-authoring preset. Primary navigation is the **stage selector** (Q16): pick a stage and the canvas mounts that stage's screens with the right theme and mock; the file browser is secondary.
+
+#### Workspace mockup
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ MMOEditor3D                                            [Workspace: World │ ▶UI │ Terrain │ Animate]│
+├────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Stage: [In-Game + Inventory ▼]   Mock: [LowHP-Combat ▼]   Theme: [Dark ▼]   Locale: [en ▼]        │
+│ Res:   [1920×1080 (16:9) ▼]   ☑ Safe area   ☐ Z-X-Ray   ☐ Overflow   ⏵ Live: MMOClient connected │
+├──────────────────────────┬───────────────────────────────────────────────────┬─────────────────────┤
+│ HIERARCHY            ⋮   │                                                   │ INSPECTOR        ⋮  │
+│                          │                                                   │                     │
+│ ▾ Stage: HUD+Inv         │  ┌────── Canvas — 1920 × 1080 ──────────────┐    │ <button>            │
+│   ▾ root                 │  │                                            │    │ id        close-inv │
+│     ▸ player-frame       │  │ ╔════════════════════════════════════════╗ │    │ class     btn       │
+│     ▸ target-frame       │  │ ║      [HUD chrome + open inventory      ║ │    │ anchor    TopRight  │
+│     ▸ action-bar         │  │ ║       modal + tooltip on a buff icon] ║ │    │ offset    8,8       │
+│     ▸ chat               │  │ ║                                        ║ │    │ size      32,32     │
+│   ▾ overlay: Inventory   │  │ ║      safe-area frame (dotted)          ║ │    │ text      tr:close  │
+│     ▾ inv-frame          │  │ ║                                        ║ │    │ onclick   close-inv │
+│       ▸ item-grid        │  │ ║      z-x-ray (off): widgets render     ║ │    ├─────────────────────┤
+│       ▸ close-btn ●      │  │ ║      naturally; (on): each layer       ║ │    │ STYLE CASCADE       │
+│   ▾ tooltip layer        │  │ ║      tinted distinctly                 ║ │    │  .btn               │
+│     ▸ tooltip:buff-1     │  │ ╚════════════════════════════════════════╝ │    │    bg     #3a7bd5   │
+│                          │  │                                            │    │    pad    8         │
+│ ── COMPONENTS            │  │  Selection handles + snap-to-edge guides   │    │  .btn:hover         │
+│   • unit_frame.ui        │  └────────────────────────────────────────────┘    │    bg     #5a9bff ★ │
+│   • tooltip.ui           │                                                   │  inline             │
+│   • item_icon.ui         │  [⊟ Fit]  [100%]  [50%]  [Custom %]   100%        │    text   tr:close  │
+│   • drag_ghost.ui        │                                                   │                     │
+├──────────────────────────┴───────────────────────────────────────────────────┴─────────────────────┤
+│ PALETTE     [▾ Layout]    Stack  Grid  Container  ScrollView  Spacer  TabView                      │
+│             [▾ Display]   Label  Image  Icon  ProgressBar  RoundedPanel  Divider                   │
+│             [▾ Input]     Button Slider Checkbox Dropdown TextInput RadioGroup                     │
+│             [▾ Composite] Tooltip Modal Popup Toast ContextMenu                                    │
+│             [▾ World]     Nameplate OverheadBar FloatingText WorldMarker                           │
+├────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ FILES   │   THEMES   │   LOCALES   │   BINDINGS MOCKS   │   SOCKETS DEBUG                          │
+│ assets/ui/inventory/inventory.ui — modified ●                                                      │
+└────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Region breakdown
+
+**Top toolbar — the stage simulator chrome:**
+- **Stage selector** — picks composed view (Login / CharSelect / In-Game / In-Game+Inventory / Combat-LowHP / etc.). Drives the canvas root by mounting the stage's screen + overlays per `manifest.json`.
+- **Mock profile** — selects the active mock JSON for binding preview. Reusable across stages (`mocks/low_hp_combat.json`).
+- **Theme** — switches active theme JSON; live cascade re-resolves.
+- **Locale** — switches active locale; `tr:` keys re-resolve.
+- **Resolution** — locked-aspect canvas; sizes per `manifest.json` resolution list (16:9, 21:9, 4:3, mobile-portrait).
+- **Safe-area toggle** — dotted inset frame at the resolution's safe-area distance.
+- **Z-X-Ray toggle** — color-codes layers (HUD/Modal/Popup/Tooltip/Toast/Drag); makes overlap and clipping issues visible at a glance.
+- **Overflow toggle** — shows widgets anchored outside the visible canvas (off-screen safe-area diagnostics).
+- **Live indicator** — green when MMOClient is running with the same `manifest.json`; saves trigger client hot-reload.
+
+**Hierarchy (left top)** — the composed widget tree of the current stage. Top-level entries are stage root + each pushed overlay + tooltip layer; lets you debug stacking by inspecting the actual draw order.
+
+**Components (left bottom)** — `<include>` files browser. Drag-to-canvas inserts an `<include>` element; double-click drills into the component source.
+
+**Canvas (center)** — actual `UIRenderer` rendering the stage at locked aspect. Selection handles, snap-to-edge guides (parent edge, sibling edge, percent, grid), 9-position anchor preset visualizer (Godot Control style).
+
+**Inspector (right top)** — type-aware property editors per attribute. Anchors get a 9-position grid widget; colors get a swatch picker; socket attributes get an autocomplete dropdown from `MMO::SocketId`.
+
+**Style cascade (right bottom)** — for the selected widget, shows which class / pseudo-state / inline override contributed which value. Overrides marked `★`. Lets designers debug "why is this red" without grep'ing themes. (Pattern from Unity UI Builder.)
+
+**Palette (bottom strip)** — categorized widget toolbox. Drag-to-canvas creates an instance with sensible defaults. (Pattern from Unreal UMG.)
+
+**Bottom tabs** — secondary modes that don't deserve permanent screen space: Files (file browser), Themes (theme JSON editor), Locales (locale file editor), Bindings Mocks (mock profile editor), Sockets (socket debug overlay when world-attached widget selected).
+
+#### Deliverables
+
+- Stage selector top-bar + manifest-driven mounting
+- Multi-resolution canvas + safe-area frame
+- Z-order x-ray mode (color-coded layer overlay)
+- Mock profile dropdown + per-screen + reusable JSONs
+- Live-client connection indicator + bidirectional file watcher coordination
 - Canvas viewport (uses real `UIRenderer`)
 - Selection handles + move/resize gizmos with snap (parent edge, sibling edge, percent, grid)
 - Tree outliner (drag-reorder, multi-select, search/filter, virtualized for >200 widgets)
 - Widget palette (drag/drop) with Components tab listing `<include>` files
 - Property inspector (type-aware editors per attribute, debounced 200 ms)
-    - **Socket attributes**: dropdown autocompletes from `MMO::SocketId` enum at compile time; "Custom..." entry opens text field; custom values badged as `(custom)` in the UI for visibility
+    - **Socket attributes**: dropdown autocompletes from `MMO::SocketId` enum at compile time; "Custom..." entry opens text field; custom values badged as `(custom)`
 - Theme picker / live preview
 - Binding mock panel
 - Locale picker
@@ -870,7 +1106,7 @@ Consumes the engine's socket and projection systems. UI library work is mostly t
 - Undo/redo integrated with Editor3D's existing undo stack
 - Round-trip save (relies on M5 round-trip preservation)
 
-**Test:** open `ui/hud.ui` in `UIEditor`. Drag a `Button` onto the action bar; edit its `text`, `class`, `onclick` in inspector; save. Open the file in a text editor — diff is exactly the new button, surrounding formatting preserved. With MMOClient running in another window, the new button appears live (file watcher hot-reload). Switch locale in editor; `tr:` text refreshes in canvas. Open a `.ui` with 500 widgets; tree remains responsive (virtualization works). Select an `<overheadbar entity="{npc}">`; canvas shows the npc model with sockets labeled. Type `socket="MuzleR"`; inspector flags the typo with near-miss hint.
+**Test:** open the editor in UI workspace mode. Pick stage `In-Game + Inventory + Combat-LowHP`. Canvas shows HUD with low HP, inventory modal, and a tooltip — all composed in actual z-order. Toggle Z-X-Ray; layers tint distinctly. Toggle resolution to 21:9; safe-area frame moves; anchored elements re-flow. Drag a `Button` from palette into the inventory modal; edit `text`, `class`, `onclick` in inspector; save. With MMOClient running, the new button appears live (file watcher hot-reload). Switch locale; `tr:` text refreshes. Open a 500-widget `.ui`; tree remains responsive. Select an `<overheadbar entity="{npc}">`; canvas shows the npc model with sockets labeled.
 
 After M12, the library + editor are complete. Phase 1 of the tech demo unblocks.
 
