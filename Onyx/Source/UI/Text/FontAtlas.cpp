@@ -384,11 +384,15 @@ namespace Onyx::UI {
 			msdfgen::generateMSDF(msdf, g.shape, tx);
 
 			// Blit msdf bitmap into m_Pixels at (r.x, r.y).
+			// msdfgen's bitmap is Y-up (row 0 = shape bottom); our atlas is
+			// Y-down (row 0 = top). Flip the source row index so the runtime,
+			// which samples in Y-down convention, sees glyphs upright.
 			for (int y = 0; y < g.bitmapH; ++y)
 			{
+				const int srcY = g.bitmapH - 1 - y;
 				for (int x = 0; x < g.bitmapW; ++x)
 				{
-					const float* px = msdf(x, y);
+					const float* px = msdf(x, srcY);
 					const int dstX = r.x + x;
 					const int dstY = r.y + y;
 					const size_t off = (static_cast<size_t>(dstY) * m_AtlasWidth + dstX) * 3;
