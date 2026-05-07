@@ -43,8 +43,20 @@ namespace Onyx {
 		// Get final bone matrices for rendering
 		const std::vector<glm::mat4>& GetBoneMatrices() const { return m_FinalBoneMatrices; }
 
+		// Mesh-space animated bone transforms (globalInverse * globalAnim).
+		// Populated alongside m_FinalBoneMatrices in CalculateBoneTransform.
+		// AttachmentSet::ResolveWorld consumes these for animated socket resolution.
+		const std::vector<glm::mat4>& GetMeshSpaceBones() const { return m_MeshSpaceBones; }
+
+		// Per-Animator counter incremented on each Update() (and on EvaluateBindPose).
+		// Forms part of WorldUIAnchorSystem's projection cache key — when this
+		// doesn't change, the bone pose hasn't changed and cached projections stay
+		// valid. Static models (no animator) report 0 forever.
+		uint32_t GetTickId() const { return m_TickId; }
+
 	private:
 		void CalculateBoneTransform(int nodeIndex, const glm::mat4& parentTransform);
+		void EvaluateBindPose();
 
 		AnimatedModel* m_Model = nullptr;
 		Animation* m_CurrentAnimation = nullptr;
@@ -64,6 +76,10 @@ namespace Onyx {
 
 		// Final matrices
 		std::vector<glm::mat4> m_FinalBoneMatrices;
+		std::vector<glm::mat4> m_MeshSpaceBones;
+
+		// Bumped each Update() / EvaluateBindPose(). Cache key for downstream consumers.
+		uint32_t m_TickId = 0;
 
 		// Node transforms cache (for hierarchy traversal)
 		struct NodeTransformCache

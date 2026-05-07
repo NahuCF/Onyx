@@ -48,6 +48,12 @@ target_link_libraries(Onyx
         Threads::Threads
 )
 
+# msdfgen — multi-channel signed-distance-field font rendering for the UI
+# library text path (M3). msdfgen-ext brings FreeType for font loading;
+# msdfgen-core has the SDF math; both are used by FontAtlas runtime baker.
+find_package(msdfgen CONFIG REQUIRED)
+target_link_libraries(Onyx PUBLIC msdfgen::msdfgen msdfgen::msdfgen-ext msdfgen::msdfgen-core)
+
 # Add Assimp if enabled
 if(ONYX_USE_ASSIMP)
     target_link_libraries(Onyx PUBLIC assimp)

@@ -116,6 +116,17 @@ namespace Onyx {
 		void SetBoneMatrices(const std::vector<glm::mat4>& matrices) { m_BoneMatrices = matrices; }
 		const std::vector<glm::mat4>& GetBoneMatrices() const { return m_BoneMatrices; }
 
+		// Mesh-space animated bone transforms (globalInverse * globalAnim), distinct
+		// from skinning matrices. This is what AttachmentSet::ResolveWorld expects
+		// for animated sockets — see Attachment.h:48-55. Populated by Animator
+		// alongside the skinning matrices.
+		void SetMeshSpaceBones(const std::vector<glm::mat4>& matrices) { m_MeshSpaceBones = matrices; }
+		const std::vector<glm::mat4>& GetMeshSpaceBones() const { return m_MeshSpaceBones; }
+		const glm::mat4* GetMeshSpaceBonesPtr() const
+		{
+			return m_MeshSpaceBones.empty() ? nullptr : m_MeshSpaceBones.data();
+		}
+
 		const std::vector<SkinnedMesh>& GetMeshes() const { return m_Meshes; }
 		const std::vector<AnimatedMaterial>& GetMaterials() const { return m_Materials; }
 
@@ -138,8 +149,8 @@ namespace Onyx {
 		size_t GetMeshCount() const override { return m_Merged.meshInfos.size(); }
 		SubmitMeshView GetMeshView(size_t meshIndex) const override;
 		size_t GetBoneCount() const override { return m_BoneMatrices.size(); }
-		// Skinning matrices (globalInverse * globalAnim * offset). Not safe to
-		// pass to AttachmentSet::ResolveWorld — sockets need mesh-space bones.
+		// Skinning matrices (globalInverse * globalAnim * offset). For socket
+		// resolution, use GetMeshSpaceBones() / GetMeshSpaceBonesPtr() instead.
 		const glm::mat4* GetBoneMatricesPtr() const override
 		{
 			return m_BoneMatrices.empty() ? nullptr : m_BoneMatrices.data();
@@ -182,6 +193,7 @@ namespace Onyx {
 		std::vector<AnimatedMaterial> m_Materials;
 
 		std::vector<glm::mat4> m_BoneMatrices;
+		std::vector<glm::mat4> m_MeshSpaceBones;
 
 		glm::vec3 m_BoundsMin = glm::vec3(std::numeric_limits<float>::max());
 		glm::vec3 m_BoundsMax = glm::vec3(std::numeric_limits<float>::lowest());

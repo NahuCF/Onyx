@@ -9,7 +9,9 @@ namespace Onyx {
 		if (m_Model)
 		{
 			m_FinalBoneMatrices.resize(Skeleton::MAX_BONES, glm::mat4(1.0f));
+			m_MeshSpaceBones.resize(Skeleton::MAX_BONES, glm::mat4(1.0f));
 			BuildNodeCache();
+			EvaluateBindPose();
 		}
 	}
 
@@ -26,8 +28,31 @@ namespace Onyx {
 		if (m_Model)
 		{
 			m_FinalBoneMatrices.resize(Skeleton::MAX_BONES, glm::mat4(1.0f));
+			m_MeshSpaceBones.resize(Skeleton::MAX_BONES, glm::mat4(1.0f));
 			BuildNodeCache();
+			EvaluateBindPose();
 		}
+	}
+
+	void Animator::EvaluateBindPose()
+	{
+		if (!m_Model || m_NodeCache.empty())
+			return;
+
+		Animation* savedAnim = m_CurrentAnimation;
+		m_CurrentAnimation = nullptr; // forces bind-pose path in CalculateBoneTransform
+
+		const glm::mat4 identity(1.0f);
+		for (int i = 0; i < static_cast<int>(m_NodeCache.size()); i++)
+		{
+			if (m_NodeCache[i].parentIndex < 0)
+				CalculateBoneTransform(i, identity);
+		}
+
+		m_CurrentAnimation = savedAnim;
+		m_Model->SetBoneMatrices(m_FinalBoneMatrices);
+		m_Model->SetMeshSpaceBones(m_MeshSpaceBones);
+		++m_TickId;
 	}
 
 	void Animator::BuildNodeCache()
@@ -216,6 +241,8 @@ namespace Onyx {
 		}
 
 		m_Model->SetBoneMatrices(m_FinalBoneMatrices);
+		m_Model->SetMeshSpaceBones(m_MeshSpaceBones);
+		++m_TickId;
 	}
 
 	void Animator::CalculateBoneTransform(int nodeIndex, const glm::mat4& parentTransform)
@@ -268,7 +295,9 @@ namespace Onyx {
 			const Bone* bone = skeleton.GetBone(boneIndex);
 			if (bone)
 			{
-				m_FinalBoneMatrices[boneIndex] = skeleton.GetGlobalInverseTransform() * globalTransform * bone->offsetMatrix;
+				const glm::mat4 meshSpace = skeleton.GetGlobalInverseTransform() * globalTransform;
+				m_MeshSpaceBones[boneIndex] = meshSpace;
+				m_FinalBoneMatrices[boneIndex] = meshSpace * bone->offsetMatrix;
 			}
 		}
 

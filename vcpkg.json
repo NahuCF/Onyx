@@ -4,6 +4,11 @@
   "description": "Onyx engine + MMOGame dependencies (manifest mode).",
   "dependencies": [
     "libpqxx",
-    "openssl"
+    "openssl",
+    {
+      "name": "msdfgen",
+      "default-features": false,
+      "features": ["extensions"]
+    }
   ]
 }

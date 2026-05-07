@@ -5,12 +5,18 @@
 #include "Source/Core/Layer.h"
 #include "Source/Graphics/AssetManager.h"
 #include "Source/Graphics/Window.h"
+#include "Source/Graphics/WorldUIAnchorSystem.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
 int main();
+
+namespace Onyx::UI {
+	class Manager;
+	class UILayer;
+}
 
 namespace Onyx {
 
@@ -30,6 +36,8 @@ namespace Onyx {
 		void PushLayer(Layer* layer);
 		Ref<Onyx::Window> GetWindow() { return m_Window; }
 		AssetManager& GetAssetManager() { return *m_AssetManager; }
+		WorldUIAnchorSystem& GetWorldUIAnchorSystem() { return *m_WorldUIAnchorSystem; }
+		Onyx::UI::Manager& GetUI() { return *m_UI; }
 		static Application& GetInstance() { return *s_Instance; }
 	private:
 		void Run();
@@ -40,6 +48,9 @@ namespace Onyx {
 		Ref<Onyx::Window> m_Window;
 		Onyx::ImGuiLayer* m_ImGuiLayer;
 		std::unique_ptr<AssetManager> m_AssetManager;
+		std::unique_ptr<WorldUIAnchorSystem> m_WorldUIAnchorSystem;
+		std::unique_ptr<Onyx::UI::Manager> m_UI;
+		std::unique_ptr<Onyx::UI::UILayer> m_UILayer;
 		static Application* s_Instance;
 
 		friend int ::main();
