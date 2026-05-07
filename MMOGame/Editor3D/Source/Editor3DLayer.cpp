@@ -1,6 +1,7 @@
 #include "Editor3DLayer.h"
 #include "Commands/EditorCommand.h"
 #include "Export/MigrationSqlWriter.h"
+#include "Navigation/NavMeshBakeService.h"
 #include "Panels/AssetBrowserPanel.h"
 #include "Panels/HierarchyPanel.h"
 #include "Panels/InspectorPanel.h"
@@ -312,6 +313,23 @@ namespace MMO {
 			{
 				m_ShowRuntimeExportDialog = true;
 			}
+			if (ImGui::MenuItem("Bake NavMesh", nullptr, false, m_MapLoaded))
+			{
+				auto stats = Editor3D::NavMeshBakeService::Bake(
+					m_ViewportPanel->GetWorldSystem(), &m_World, m_CurrentMapId, "Data");
+				if (stats.success)
+				{
+					std::cout << "[NavMesh] " << stats.polyCount << " polys from "
+							  << stats.triangleCount << " input tris (" << stats.chunksUsed
+							  << " chunks, " << stats.objectsUsed << " objects) -> "
+							  << stats.outputPath.string() << '\n';
+					m_ViewportPanel->ReloadNavMeshDebugView("Data", m_CurrentMapId);
+				}
+				else
+				{
+					std::cerr << "[NavMesh] bake failed: " << stats.errorMessage << '\n';
+				}
+			}
 			ImGui::Separator();
 			const bool sessionRunning = m_RunSession && m_RunSession->GetStatus() == LocalRunSession::Status::Running;
 			if (ImGui::MenuItem("Run Locally", "Ctrl+R", false, m_MapLoaded && !sessionRunning))
@@ -464,6 +482,23 @@ namespace MMO {
 			{
 				m_World.SetTypeVisible(WorldObjectType::PLAYER_SPAWN, playerSpawnVisible);
 			}
+
+			ImGui::SeparatorText("Debug Overlays");
+
+			if (m_ViewportPanel)
+			{
+				bool& showNav = m_ViewportPanel->GetShowNavMesh();
+				if (ImGui::MenuItem("NavMesh", nullptr, &showNav, m_MapLoaded))
+				{
+					if (showNav)
+					{
+						// Load whatever's currently on disk so the toggle reveals
+						// the latest bake even if it predates this session.
+						m_ViewportPanel->ReloadNavMeshDebugView("Data", m_CurrentMapId);
+					}
+				}
+			}
+
 			ImGui::EndMenu();
 		}
 
@@ -637,7 +672,25 @@ namespace MMO {
 			m_RuntimeExportLog.push_back("ERROR: " + err);
 		}
 
-		if (result.success)
+		// Bake the navmesh from the same world state so Run Locally always picks
+		// up a fresh path graph alongside the chunks/migration data it just wrote.
+		auto navStats = Editor3D::NavMeshBakeService::Bake(
+			m_ViewportPanel->GetWorldSystem(), &m_World, m_CurrentMapId, "Data");
+		if (navStats.success)
+		{
+			m_RuntimeExportLog.push_back("NavMesh: " + std::to_string(navStats.polyCount) +
+										  " polys from " + std::to_string(navStats.triangleCount) +
+										  " input tris (" + std::to_string(navStats.chunksUsed) + " chunks, " +
+										  std::to_string(navStats.objectsUsed) + " objects) → " +
+										  navStats.outputPath.string());
+			m_ViewportPanel->ReloadNavMeshDebugView("Data", m_CurrentMapId);
+		}
+		else
+		{
+			m_RuntimeExportLog.push_back("NavMesh ERROR: " + navStats.errorMessage);
+		}
+
+		if (result.success && navStats.success)
 		{
 			m_RuntimeExportLog.push_back("Export completed successfully.");
 		}
@@ -661,6 +714,22 @@ namespace MMO {
 			for (const auto& err : result.errors)
 				std::cerr << "  " << err << '\n';
 			return;
+		}
+
+		// Bake the navmesh so the WorldServer can consume a fresh path graph at
+		// startup. A failed bake is non-fatal — the server falls back to its
+		// straight-line behaviour, but we surface the error so it isn't silent.
+		auto navStats = Editor3D::NavMeshBakeService::Bake(
+			m_ViewportPanel->GetWorldSystem(), &m_World, m_CurrentMapId, "Data");
+		if (!navStats.success)
+		{
+			std::cerr << "[Run Locally] navmesh bake failed: " << navStats.errorMessage << '\n';
+		}
+		else
+		{
+			std::cout << "[Run Locally] navmesh: " << navStats.polyCount
+					  << " polys -> " << navStats.outputPath.string() << '\n';
+			m_ViewportPanel->ReloadNavMeshDebugView("Data", m_CurrentMapId);
 		}
 
 		// Sibling binaries live in the same dir as the editor exe.

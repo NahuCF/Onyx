@@ -71,6 +71,7 @@ Full conventions in [docs/conventions.md](docs/conventions.md).
 - [docs/mmogame-shared.md](docs/mmogame-shared.md) — Shared library: Network, Packets, Spells, Items, Data, World, Types, Scripting base types.
 - [docs/mmogame-server.md](docs/mmogame-server.md) — LoginServer + WorldServer: entity components, scripting architecture (ScriptObject/ScriptRegistry/IEntity/IMapContext/CreatureAI/TriggerScript/InstanceScript), AI data model, grid, map, combat, aura, inventory, loot.
 - [docs/trigger-volumes.md](docs/trigger-volumes.md) — Server-side trigger volume system: shapes, events, script dispatch.
+- [docs/navmesh.md](docs/navmesh.md) — Recast bake (editor) + Detour runtime (WorldServer) + chase-AI integration. `.nav` file format in `MMOShared`.
 - [docs/mmogame-client.md](docs/mmogame-client.md) — Client app: `Main.cpp`/`GameLayer`, `IsometricCamera`, `GameRenderer`, `ClientTerrainSystem`, `GameClient` state.
 
 ### Editor3D & runtime data

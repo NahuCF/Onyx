@@ -5,6 +5,7 @@
 #include <array>
 #include <cmath>
 #include <unordered_map>
+#include <vector>
 
 namespace MMO {
 
@@ -201,6 +202,16 @@ namespace MMO {
 		Vec2 homePosition;
 		bool isEvading = false; // When true, mob is returning home and won't acquire new targets
 
+		// Cached navmesh path while chasing the current target. The mob heads
+		// toward chasePath[chasePathIndex] until it reaches the corner, then
+		// advances. Re-path when the target moves more than CHASE_REPATH_DIST
+		// from chasePathTargetSnapshot, or when the path is exhausted.
+		std::vector<Vec2> chasePath;
+		size_t chasePathIndex = 0;
+		Vec2 chasePathTargetSnapshot;
+		static constexpr float CHASE_REPATH_DIST = 2.0f;     // metres
+		static constexpr float CHASE_WAYPOINT_REACHED = 0.6f; // metres
+
 		EntityId GetTopThreat() const
 		{
 			EntityId top = INVALID_ENTITY_ID;
@@ -229,6 +240,12 @@ namespace MMO {
 		void ClearThreat()
 		{
 			threatTable.clear();
+		}
+
+		void ClearChasePath()
+		{
+			chasePath.clear();
+			chasePathIndex = 0;
 		}
 	};
 

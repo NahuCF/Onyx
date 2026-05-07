@@ -7,6 +7,7 @@
 #include <Graphics/PostProcess/SSAOEffect.h>
 #include <Graphics/RenderCommand.h>
 #include <Graphics/VertexLayout.h>
+#include <Graphics/WorldUIAnchorSystem.h>
 #include <algorithm>
 #include <cmath>
 #include <glm/gtc/matrix_transform.hpp>
@@ -256,6 +257,10 @@ namespace MMO {
 			"MMOGame/Editor3D/assets/shaders/infinite_grid.vert",
 			"MMOGame/Editor3D/assets/shaders/infinite_grid.frag");
 
+		m_NavMeshOverlayShader = std::make_unique<Onyx::Shader>(
+			"MMOGame/Editor3D/assets/shaders/navmesh_overlay.vert",
+			"MMOGame/Editor3D/assets/shaders/navmesh_overlay.frag");
+
 		float gridVertices[] = {
 			-1.0f, -1.0f,
 			1.0f, -1.0f,
@@ -437,9 +442,15 @@ namespace MMO {
 			ImGui::GetWindowDrawList()->AddText(pos, IM_COL32(255, 255, 255, 128), buildVersion);
 		}
 
+		if (m_ShowSocketDebug)
+		{
+			RenderSocketDebugOverlay(glm::vec2(vpPos.x, vpPos.y));
+		}
+
 		ImGui::SetCursorPos(ImVec2(0, 30));
 		ImGui::Checkbox("Show Grid", &m_ShowGrid);
 		ImGui::Checkbox("Wireframe", &m_ShowWireframe);
+		ImGui::Checkbox("Sockets", &m_ShowSocketDebug);
 		if (ImGui::Checkbox("MSAA 4x", &m_EnableMSAA))
 		{
 			uint32_t samples = m_EnableMSAA ? 4 : 1;
@@ -609,6 +620,13 @@ namespace MMO {
 		// Configure scene renderer
 		m_SceneRenderer->Begin(m_ViewMatrix, m_ProjectionMatrix, m_CameraPosition);
 
+		// Bump per-frame state for the engine-level world-anchor cache. Editor
+		// viewport size doubles as the screen-space coordinate frame for any
+		// projected anchors (sockets, world-attached UI).
+		Onyx::Application::GetInstance().GetWorldUIAnchorSystem().BeginFrame(
+			m_ViewMatrix, m_ProjectionMatrix,
+			glm::ivec2(static_cast<int>(m_ViewportWidth), static_cast<int>(m_ViewportHeight)));
+
 		Onyx::DirectionalLight dirLight;
 		dirLight.direction = glm::normalize(m_LightDir);
 		dirLight.color = m_LightColor;
@@ -736,6 +754,13 @@ namespace MMO {
 			m_WorldObjectRenderTime = static_cast<float>((glfwGetTime() - t0) * 1000.0);
 		}
 
+		// Navmesh debug overlay sits above terrain + objects but under the
+		// gizmos so it never obscures interaction handles.
+		if (m_ShowNavMesh)
+		{
+			RenderNavMeshOverlay();
+		}
+
 		RenderGizmoIcons();
 		RenderGizmo();
 
@@ -777,6 +802,80 @@ namespace MMO {
 
 		Onyx::RenderCommand::DrawIndexed(*m_GridVAO, 6);
 
+		Onyx::RenderCommand::DisableBlending();
+	}
+
+	void ViewportPanel::ReloadNavMeshDebugView(const std::string& dataDir, uint32_t mapId)
+	{
+		m_NavMeshIndexCount = 0;
+		m_NavMeshPolyCount = 0;
+		m_NavMeshVAO.reset();
+		m_NavMeshVBO.reset();
+		m_NavMeshEBO.reset();
+
+		char buf[64];
+		std::snprintf(buf, sizeof(buf), "%s/maps/%03u/navmesh.nav", dataDir.c_str(), mapId);
+
+		if (!m_NavMeshDebugView.LoadFromFile(buf))
+		{
+			std::cout << "[NavMesh Viz] no navmesh at " << buf << '\n';
+			return;
+		}
+
+		std::vector<float> verts;
+		std::vector<uint32_t> indices;
+		m_NavMeshPolyCount = m_NavMeshDebugView.BuildRenderGeometry(verts, indices, /*yBias=*/0.05f);
+		if (verts.empty() || indices.empty())
+		{
+			std::cout << "[NavMesh Viz] loaded " << buf << " but produced no geometry\n";
+			return;
+		}
+
+		m_NavMeshVBO = std::make_unique<Onyx::VertexBuffer>(
+			static_cast<const void*>(verts.data()),
+			static_cast<unsigned int>(verts.size() * sizeof(float)));
+		m_NavMeshEBO = std::make_unique<Onyx::IndexBuffer>(
+			static_cast<const void*>(indices.data()),
+			static_cast<unsigned int>(indices.size() * sizeof(uint32_t)));
+		m_NavMeshVAO = std::make_unique<Onyx::VertexArray>();
+
+		Onyx::VertexLayout layout;
+		layout.PushFloat(3); // position
+		layout.PushFloat(4); // color rgba
+
+		m_NavMeshVAO->SetVertexBuffer(m_NavMeshVBO.get());
+		m_NavMeshVAO->SetIndexBuffer(m_NavMeshEBO.get());
+		m_NavMeshVAO->SetLayout(layout);
+
+		m_NavMeshIndexCount = static_cast<uint32_t>(indices.size());
+
+		std::cout << "[NavMesh Viz] " << m_NavMeshPolyCount << " polys, "
+				  << (m_NavMeshIndexCount / 3) << " tris from " << buf << '\n';
+	}
+
+	void ViewportPanel::RenderNavMeshOverlay()
+	{
+		if (!m_NavMeshVAO || m_NavMeshIndexCount == 0 || !m_NavMeshOverlayShader)
+			return;
+
+		Onyx::RenderCommand::EnableBlending();
+		Onyx::RenderCommand::DisableCulling();
+		Onyx::RenderCommand::SetDepthMask(false);
+
+		m_NavMeshOverlayShader->Bind();
+		m_NavMeshOverlayShader->SetMat4("u_View", m_ViewMatrix);
+		m_NavMeshOverlayShader->SetMat4("u_Projection", m_ProjectionMatrix);
+
+		// Filled polys.
+		Onyx::RenderCommand::DrawIndexed(*m_NavMeshVAO, m_NavMeshIndexCount);
+
+		// Wireframe edges over the top.
+		Onyx::RenderCommand::SetWireframeMode(true);
+		Onyx::RenderCommand::DrawIndexed(*m_NavMeshVAO, m_NavMeshIndexCount);
+		Onyx::RenderCommand::SetWireframeMode(false);
+
+		Onyx::RenderCommand::SetDepthMask(true);
+		Onyx::RenderCommand::EnableCulling();
 		Onyx::RenderCommand::DisableBlending();
 	}
 
@@ -2321,6 +2420,107 @@ namespace MMO {
 			m_CollectedPointLights.resize(Editor3D::MAX_POINT_LIGHTS);
 		if ((int)m_CollectedSpotLights.size() > Editor3D::MAX_SPOT_LIGHTS)
 			m_CollectedSpotLights.resize(Editor3D::MAX_SPOT_LIGHTS);
+	}
+
+	void ViewportPanel::RenderSocketDebugOverlay(const glm::vec2& vpPos)
+	{
+		if (!m_World)
+			return;
+
+		const auto& selected = m_World->GetSelectedObjects();
+		if (selected.empty())
+			return;
+
+		auto& anchorSys = Onyx::Application::GetInstance().GetWorldUIAnchorSystem();
+		ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+		// Stable color picker so each socket name keeps the same dot color across
+		// frames; gives the eye a fixed reference while debugging.
+		auto colorForName = [](const std::string& name) -> ImU32 {
+			uint32_t h = 2166136261u;
+			for (char c : name)
+			{
+				h ^= static_cast<unsigned char>(c);
+				h *= 16777619u;
+			}
+			const uint8_t r = static_cast<uint8_t>((h >> 16) | 0x80);
+			const uint8_t g = static_cast<uint8_t>((h >> 8) | 0x80);
+			const uint8_t b = static_cast<uint8_t>(h | 0x80);
+			return IM_COL32(r, g, b, 230);
+		};
+
+		for (WorldObject* selectedObj : selected)
+		{
+			if (!selectedObj || selectedObj->GetObjectType() != WorldObjectType::STATIC_OBJECT)
+				continue;
+
+			auto* staticObj = static_cast<StaticObject*>(selectedObj);
+			const std::string& modelPath = staticObj->GetModelPath();
+			if (modelPath.empty())
+				continue;
+
+			ResolvedModel& resolved = ResolveModelCached(modelPath, true);
+			const Onyx::AttachmentSet* attachments = nullptr;
+			const std::vector<glm::mat4>* meshSpaceBones = nullptr;
+			uint32_t animTickId = 0;
+
+			if (resolved.isAnimated && resolved.animModel)
+			{
+				attachments = &resolved.animModel->GetAttachments();
+				if (Onyx::Animator* animator = GetAnimator(staticObj->GetGuid()))
+				{
+					meshSpaceBones = &animator->GetMeshSpaceBones();
+					animTickId = animator->GetTickId();
+				}
+				else
+				{
+					meshSpaceBones = &resolved.animModel->GetMeshSpaceBones();
+				}
+			}
+			else if (resolved.staticModel)
+			{
+				attachments = &resolved.staticModel->GetAttachments();
+			}
+
+			if (!attachments || attachments->Empty())
+				continue;
+
+			const glm::mat4 modelMatrix = m_World->GetWorldMatrix(staticObj);
+
+			for (const Onyx::Attachment& a : attachments->All())
+			{
+				// Debug overlay always uses the name path — slot wiring is
+				// done in the MMO load path for hot consumers (M11 overhead
+				// bars). The overlay isn't perf-sensitive enough to care.
+				Onyx::WorldUIAnchorSystem::AnchorRequest req{};
+				req.entityId = staticObj->GetGuid();
+				req.modelMatrix = &modelMatrix;
+				req.attachments = attachments;
+				req.meshSpaceBones = meshSpaceBones;
+				req.animTickId = animTickId;
+				req.mode = Onyx::WorldUIAnchorSystem::AnchorMode::Track;
+				req.socketSlot = 0xFF;
+				req.customSocketName = a.name.c_str();
+
+				const auto sample = anchorSys.Project(req);
+				if (!sample.visible)
+					continue;
+
+				const ImVec2 dotPos(vpPos.x + sample.screenPos.x, vpPos.y + sample.screenPos.y);
+				const ImU32 col = colorForName(a.name);
+
+				drawList->AddCircleFilled(dotPos, 5.0f, col);
+				drawList->AddCircle(dotPos, 5.0f, IM_COL32(0, 0, 0, 220), 0, 1.5f);
+
+				const ImVec2 labelPos(dotPos.x + 8.0f, dotPos.y - 7.0f);
+				const ImVec2 textSize = ImGui::CalcTextSize(a.name.c_str());
+				drawList->AddRectFilled(
+					ImVec2(labelPos.x - 2.0f, labelPos.y - 1.0f),
+					ImVec2(labelPos.x + textSize.x + 2.0f, labelPos.y + textSize.y + 1.0f),
+					IM_COL32(0, 0, 0, 160), 2.0f);
+				drawList->AddText(labelPos, IM_COL32(255, 255, 255, 240), a.name.c_str());
+			}
+		}
 	}
 
 } // namespace MMO

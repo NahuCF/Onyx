@@ -13,6 +13,7 @@ set(WORLDSERVER_SOURCES
     Source/AI/CreatureTemplates.cpp
     Source/AI/CreatureScripts.cpp
     Source/AI/InstanceScripts.cpp
+    Source/Navigation/NavMesh.cpp
     Source/Triggers/TriggerScripts.cpp
     Source/Scripting/GameObjectScripts.cpp
     Source/Scripting/QuestScripts.cpp
@@ -55,6 +56,8 @@ set(WORLDSERVER_HEADERS
     Source/Grid/GridDefines.h
     Source/Grid/GridCell.h
     Source/Grid/Grid.h
+    # Navigation
+    Source/Navigation/NavMesh.h
     # Triggers
     Source/Triggers/TriggerScript.h
 )
@@ -74,6 +77,7 @@ endif()
 
 target_link_libraries(MMOWorldServer PRIVATE
     MMOShared
+    Detour
 )
 
 set_target_properties(MMOWorldServer PROPERTIES
@@ -146,6 +150,11 @@ source_group("Grid" FILES
     Source/Grid/GridCell.h
     Source/Grid/Grid.h
     Source/Grid/Grid.cpp
+)
+
+source_group("Navigation" FILES
+    Source/Navigation/NavMesh.h
+    Source/Navigation/NavMesh.cpp
 )
 
 source_group("Triggers" FILES

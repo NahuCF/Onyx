@@ -6,6 +6,7 @@
 #include "../AI/InstanceScript.h"
 #include "../Entity/Entity.h"
 #include "../Grid/Grid.h"
+#include "../Navigation/NavMesh.h"
 #include "../Scripting/IMapContext.h"
 #include "MapDefines.h"
 #include <functional>
@@ -40,6 +41,7 @@ namespace MMO {
 		Entity* SummonCreature(uint32_t templateId, Vec2 position, EntityId summonerId) override;
 		void RemoveEntity(EntityId id) override;
 		void ProcessAbility(EntityId sourceId, EntityId targetId, AbilityId abilityId) override;
+		bool FindPath(Vec2 start, Vec2 end, std::vector<Vec2>& outPath) const override;
 
 		// ========================================
 		// MapInstance-specific API
@@ -141,6 +143,11 @@ namespace MMO {
 		void CheckTriggers(EntityId entityId, Vec2 oldPos, Vec2 newPos);
 		void FireTriggerScript(Entity& entity, const ServerTriggerVolume& trigger, TriggerEventKind kind);
 
+		// Navmesh access (loaded from Data/maps/<id>/navmesh.nav at construction).
+		// HasNavMesh() == false means we fall back to straight-line motion.
+		const NavMesh* GetNavMesh() const { return m_NavMesh.get(); }
+		bool HasNavMesh() const { return m_NavMesh && m_NavMesh->IsLoaded(); }
+
 	private:
 		EntityId GenerateEntityId();
 		void UpdateMobAI(Entity* mob, float dt);
@@ -182,6 +189,7 @@ namespace MMO {
 		std::unordered_map<EntityId, LootData> m_Lootables;
 
 		Grid m_Grid;
+		std::unique_ptr<NavMesh> m_NavMesh;
 		BroadcastCallback m_BroadcastCallback;
 
 		EntityId m_NextProjectileId = 10000;

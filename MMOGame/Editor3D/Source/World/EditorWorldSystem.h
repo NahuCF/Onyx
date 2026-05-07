@@ -120,6 +120,19 @@ namespace Editor3D {
 
 		WorldChunk* GetChunk(int32_t cx, int32_t cz);
 
+		// Walk every chunk that exists on disk for this map, regardless of
+		// streaming state. Chunks already in memory are passed through
+		// unchanged; missing ones are temp-loaded from disk and unloaded after
+		// the callback returns. The callback receives (chunk, cx, cz).
+		// Used by export + navmesh bake — both need to see every chunk, not
+		// just the ones currently near the camera.
+		void ForEachKnownChunkTransient(const std::function<void(WorldChunk*, int32_t, int32_t)>& callback);
+
+		// Look up the on-disk path for a chunk, even if it's not currently loaded.
+		// Returned even when the file doesn't exist (caller checks).
+		std::string GetChunkFilePathFor(int32_t cx, int32_t cz) const { return GetChunkFilePath(cx, cz); }
+		const std::unordered_set<int32_t>& GetKnownChunkKeys() const { return m_KnownChunkFiles; }
+
 		static int32_t MakeChunkKeyPublic(int32_t x, int32_t z)
 		{
 			return static_cast<int32_t>((static_cast<uint32_t>(x) << 16) | (static_cast<uint32_t>(z) & 0xFFFF));

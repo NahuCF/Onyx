@@ -2,6 +2,7 @@
 
 #include "../../../Shared/Source/Types/Types.h"
 #include <string_view>
+#include <vector>
 
 namespace MMO {
 
@@ -34,6 +35,11 @@ namespace MMO {
 		virtual IEntity* SummonCreature(uint32_t templateId, Vec2 position, EntityId summonerId) = 0;
 		virtual void RemoveEntity(EntityId id) = 0;
 		virtual void ProcessAbility(EntityId sourceId, EntityId targetId, AbilityId abilityId) = 0;
+
+		// Navmesh path query. Populates outPath with waypoint corners (start … end)
+		// and returns true on success. Returns false if there is no navmesh loaded
+		// or no path exists; scripts should fall back to straight-line motion.
+		virtual bool FindPath(Vec2 start, Vec2 end, std::vector<Vec2>& outPath) const = 0;
 	};
 
 } // namespace MMO

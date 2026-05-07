@@ -847,6 +847,42 @@ namespace Editor3D {
 		}
 	}
 
+	void EditorWorldSystem::ForEachKnownChunkTransient(
+		const std::function<void(WorldChunk*, int32_t, int32_t)>& callback)
+	{
+		// Snapshot the key list — the callback may insert/erase via temp loads.
+		std::vector<int32_t> keys(m_KnownChunkFiles.begin(), m_KnownChunkFiles.end());
+		for (int32_t key : keys)
+		{
+			int32_t cx = static_cast<int16_t>(key >> 16);
+			int32_t cz = static_cast<int16_t>(key & 0xFFFF);
+
+			WorldChunk* chunk = nullptr;
+			bool temporarilyLoaded = false;
+
+			auto it = m_Chunks.find(key);
+			if (it != m_Chunks.end())
+			{
+				chunk = it->second.get();
+			}
+			else
+			{
+				// Temp-load from disk; no GPU upload, just CPU data.
+				auto tempChunk = std::make_unique<WorldChunk>(cx, cz);
+				tempChunk->Load(GetChunkFilePath(cx, cz));
+				chunk = tempChunk.get();
+				m_Chunks[key] = std::move(tempChunk);
+				temporarilyLoaded = true;
+			}
+
+			if (chunk)
+				callback(chunk, cx, cz);
+
+			if (temporarilyLoaded)
+				m_Chunks.erase(key);
+		}
+	}
+
 	WorldChunk* EditorWorldSystem::CreateChunk(int32_t chunkX, int32_t chunkZ)
 	{
 		return GetOrCreateChunk(chunkX, chunkZ);

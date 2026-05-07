@@ -2,6 +2,7 @@
 
 #include "EditorPanel.h"
 #include "Gizmo/TransformGizmo.h"
+#include "Navigation/NavMeshDebugView.h"
 #include "Terrain/TerrainMaterialLibrary.h"
 #include "World/EditorWorldSystem.h"
 #include "World/StaticObject.h"
@@ -69,6 +70,12 @@ namespace MMO {
 		bool& GetShowGrid() { return m_ShowGrid; }
 		bool& GetShowWireframe() { return m_ShowWireframe; }
 		bool& GetEnableMSAA() { return m_EnableMSAA; }
+		bool& GetShowNavMesh() { return m_ShowNavMesh; }
+
+		// Reload the navmesh overlay from disk and rebuild GPU buffers.
+		// Pass the same Data root + map id used by ExportForRuntime / Bake.
+		// Safe to call when no .nav exists — the overlay just disappears.
+		void ReloadNavMeshDebugView(const std::string& dataDir, uint32_t mapId);
 
 		Onyx::PostProcessStack& GetPostProcessStack() { return m_PostProcessStack; }
 
@@ -135,11 +142,17 @@ namespace MMO {
 		void RenderGrid();
 		void RenderWorldObjects();
 		void RenderTerrain();
+		void RenderNavMeshOverlay();
 		void HandleTerrainInput();
 		bool RaycastTerrain(const glm::vec3& rayOrigin, const glm::vec3& rayDir, glm::vec3& hitPoint);
 		void RenderSelectionOutline();
 		void RenderGizmoIcons();
 		void RenderGizmo();
+
+		// Socket debug overlay: renders colored dots + labels for every socket on
+		// the selected entity's model. Validates the importer → .omdl → load →
+		// Animator pose → AttachmentSet::ResolveWorld → WorldUIAnchorSystem chain.
+		void RenderSocketDebugOverlay(const glm::vec2& vpPos);
 
 		void HandleCameraInput();
 		void HandleObjectPicking();
@@ -195,6 +208,16 @@ namespace MMO {
 		std::unique_ptr<Onyx::VertexBuffer> m_GridVBO;
 		std::unique_ptr<Onyx::IndexBuffer> m_GridEBO;
 
+		// Navmesh debug overlay
+		std::unique_ptr<Onyx::Shader> m_NavMeshOverlayShader;
+		std::unique_ptr<Onyx::VertexArray> m_NavMeshVAO;
+		std::unique_ptr<Onyx::VertexBuffer> m_NavMeshVBO;
+		std::unique_ptr<Onyx::IndexBuffer> m_NavMeshEBO;
+		uint32_t m_NavMeshIndexCount = 0;
+		int m_NavMeshPolyCount = 0;
+		Editor3D::NavMeshDebugView m_NavMeshDebugView;
+		bool m_ShowNavMesh = false;
+
 		glm::vec3 m_CameraPosition = glm::vec3(0.0f, 10.0f, 20.0f);
 		glm::vec3 m_CameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 		glm::vec3 m_CameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -224,6 +247,7 @@ namespace MMO {
 		bool m_ShowGrid = true;
 		bool m_ShowWireframe = false;
 		bool m_EnableMSAA = true;
+		bool m_ShowSocketDebug = false;
 		float m_GridSize = 100.0f;
 		float m_GridSpacing = 1.0f;
 

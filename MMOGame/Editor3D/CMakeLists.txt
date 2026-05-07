@@ -41,6 +41,9 @@ set(EDITOR3D_SOURCES
     Source/Runtime/Subprocess.cpp
     Source/Runtime/LocalRunSession.cpp
     Source/Settings/EditorPreferences.cpp
+    Source/Navigation/NavMeshBuilder.cpp
+    Source/Navigation/NavMeshBakeService.cpp
+    Source/Navigation/NavMeshDebugView.cpp
 )
 
 set(EDITOR3D_HEADERS
@@ -69,6 +72,9 @@ set(EDITOR3D_HEADERS
     Source/Runtime/Subprocess.h
     Source/Runtime/LocalRunSession.h
     Source/Settings/EditorPreferences.h
+    Source/Navigation/NavMeshBuilder.h
+    Source/Navigation/NavMeshBakeService.h
+    Source/Navigation/NavMeshDebugView.h
 )
 
 add_executable(MMOEditor3D ${EDITOR3D_SOURCES} ${EDITOR3D_HEADERS})
@@ -88,6 +94,8 @@ target_link_libraries(MMOEditor3D PRIVATE
     assimp
     ImGuiFileDialog
     nlohmann_json::nlohmann_json
+    Recast
+    Detour
 )
 
 set_target_properties(MMOEditor3D PROPERTIES

@@ -10,6 +10,8 @@
 #include "MapManager.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <filesystem>
 #include <iostream>
 
 namespace MMO {
@@ -22,6 +24,30 @@ namespace MMO {
 		: m_InstanceId(instanceId), m_Template(tmpl), m_Grid(this)
 	{
 		BuildTriggerCellIndex();
+
+		// Try to load the baked navmesh next to the chunks. The path mirrors what
+		// NavMeshBakeService writes (Data/maps/<id>/navmesh.nav). If the file is
+		// missing or fails to load, we run without nav and AI falls back to
+		// straight-line chase. The CWD convention matches how chunks are looked
+		// up: WorldServer is launched from the workspace root.
+		{
+			char buf[64];
+			std::snprintf(buf, sizeof(buf), "Data/maps/%03u/navmesh.nav", tmpl->id);
+			const std::filesystem::path navPath = buf;
+
+			auto nav = std::make_unique<NavMesh>();
+			if (nav->LoadFromFile(navPath))
+			{
+				m_NavMesh = std::move(nav);
+				std::cout << "[Map:" << tmpl->name << "] navmesh loaded from "
+						  << navPath.string() << '\n';
+			}
+			else
+			{
+				std::cout << "[Map:" << tmpl->name << "] no navmesh available ("
+						  << navPath.string() << ") — AI will use straight-line fallback\n";
+			}
+		}
 
 		// Construct per-instance encounter script if configured
 		if (!tmpl->instanceScriptName.empty())
@@ -187,12 +213,12 @@ namespace MMO {
 		std::unique_ptr<CreatureAI> ai;
 		if (tmpl->resolvedScript)
 		{
-			ai = tmpl->resolvedScript->CreateAI(*this, *ptr);
+			ai = tmpl->resolvedScript->CreateAI(*this, *ptr, tmpl);
 		}
 		else if (!tmpl->aiName.empty())
 		{
 			if (auto* arch = BuiltInAIRegistry().Get(tmpl->aiName))
-				ai = arch->CreateAI(*this, *ptr);
+				ai = arch->CreateAI(*this, *ptr, tmpl);
 		}
 		if (!ai)
 		{
@@ -252,6 +278,14 @@ namespace MMO {
 	{
 		auto it = m_Entities.find(id);
 		return it != m_Entities.end() ? it->second.get() : nullptr;
+	}
+
+	bool MapInstance::FindPath(Vec2 start, Vec2 end, std::vector<Vec2>& outPath) const
+	{
+		outPath.clear();
+		if (!m_NavMesh || !m_NavMesh->IsLoaded())
+			return false;
+		return m_NavMesh->FindPath(start, end, outPath);
 	}
 
 	std::unique_ptr<Entity> MapInstance::ReleaseEntity(EntityId id)
@@ -666,6 +700,7 @@ namespace MMO {
 			{
 				// Evade - return home
 				aggro->ClearThreat();
+				aggro->ClearChasePath();
 				aggro->isEvading = true;
 				ai->OnEvade();
 				combat->targetId = INVALID_ENTITY_ID;
@@ -711,16 +746,59 @@ namespace MMO {
 				MarkTargetDirty(mob->GetId());
 			}
 
-			// Chase if not in range
-			float dist = Vec2::Distance(movement->position, target->GetMovement()->position);
+			// Chase if not in range. Prefer the navmesh corridor; fall back to
+			// straight-line if no nav is loaded or the path query fails.
+			const Vec2 targetPos = target->GetMovement()->position;
+			const Vec2 fromPos = movement->position;
+			const float dist = Vec2::Distance(fromPos, targetPos);
 			if (dist > combat->attackRange)
 			{
-				Vec2 dir = (target->GetMovement()->position - movement->position).Normalized();
+				Vec2 aimPos = targetPos;
+
+				if (HasNavMesh())
+				{
+					const bool needRepath =
+						aggro->chasePath.empty() ||
+						aggro->chasePathIndex >= aggro->chasePath.size() ||
+						Vec2::Distance(targetPos, aggro->chasePathTargetSnapshot) >
+							AggroComponent::CHASE_REPATH_DIST;
+
+					if (needRepath)
+					{
+						std::vector<Vec2> newPath;
+						if (FindPath(fromPos, targetPos, newPath) && newPath.size() >= 2)
+						{
+							aggro->chasePath = std::move(newPath);
+							aggro->chasePathIndex = 1; // [0] is fromPos itself
+							aggro->chasePathTargetSnapshot = targetPos;
+						}
+						else
+						{
+							aggro->ClearChasePath();
+						}
+					}
+
+					if (!aggro->chasePath.empty() && aggro->chasePathIndex < aggro->chasePath.size())
+					{
+						aimPos = aggro->chasePath[aggro->chasePathIndex];
+						if (Vec2::Distance(fromPos, aimPos) < AggroComponent::CHASE_WAYPOINT_REACHED)
+						{
+							aggro->chasePathIndex++;
+							if (aggro->chasePathIndex < aggro->chasePath.size())
+								aimPos = aggro->chasePath[aggro->chasePathIndex];
+							else
+								aimPos = targetPos;
+						}
+					}
+				}
+
+				const Vec2 dir = (aimPos - fromPos).Normalized();
 				movement->velocity = dir * movement->speed;
 			}
 			else
 			{
 				movement->velocity = Vec2(0, 0);
+				aggro->ClearChasePath();
 			}
 
 			ai->Update(dt, target, *this);
@@ -733,6 +811,7 @@ namespace MMO {
 				combat->targetId = INVALID_ENTITY_ID;
 				MarkTargetDirty(mob->GetId());
 			}
+			aggro->ClearChasePath();
 
 			float distToHome = Vec2::Distance(movement->position, aggro->homePosition);
 			if (distToHome > 1.0f)

@@ -35,6 +35,7 @@ set(SHARED_HEADERS
     Source/Model/OmdlWriter.h
     Source/Model/OmdlReader.h
     Source/Model/SocketId.h
+    Source/Navigation/NavFile.h
     Source/Scripting/ScriptObject.h
     Source/Scripting/ScriptRegistry.h
     Source/Scripting/HookRegistry.h
@@ -164,6 +165,10 @@ source_group("Model" FILES
     Source/Model/OmdlReader.cpp
     Source/Model/SocketId.h
     Source/Model/SocketId.cpp
+)
+
+source_group("Navigation" FILES
+    Source/Navigation/NavFile.h
 )
 
 source_group("Scripting" FILES

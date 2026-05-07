@@ -161,6 +161,36 @@ if(ONYX_USE_ASSIMP)
     endif()
 endif()
 
+# Recast/Detour (navmesh build + runtime). Recast is the build pipeline used by
+# the editor at bake time; Detour is the runtime path query used by the server.
+if(NOT ONYX_USE_SYSTEM_LIBS)
+    FetchContent_Declare(
+        recastnavigation
+        GIT_REPOSITORY https://github.com/recastnavigation/recastnavigation.git
+        GIT_TAG        v1.6.0
+        GIT_SHALLOW    TRUE
+        GIT_PROGRESS   TRUE
+    )
+    set(RECASTNAVIGATION_DEMO OFF CACHE BOOL "" FORCE)
+    set(RECASTNAVIGATION_TESTS OFF CACHE BOOL "" FORCE)
+    set(RECASTNAVIGATION_EXAMPLES OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(recastnavigation)
+    foreach(_rn_target Recast Detour DetourCrowd DetourTileCache DebugUtils)
+        if(TARGET ${_rn_target})
+            set_target_properties(${_rn_target} PROPERTIES FOLDER "ThirdParty")
+        endif()
+    endforeach()
+else()
+    find_package(recastnavigation REQUIRED)
+endif()
+
+# msdf-atlas-gen integration deferred: Windows MSVC build of msdf-atlas-gen
+# via FetchContent hits Skia / Freetype / file-lock issues. The runtime path
+# (FontAtlas loader + MSDF shader) ships in M3; baked atlases live under
+# `Resources/Fonts/` and are produced externally for now. Future work: add
+# the FetchContent block back once the dependency build is stable on Windows
+# (likely requires switching to msdfgen-core-only + custom in-tree CLI).
+
 # Find OpenGL
 find_package(OpenGL REQUIRED)
 
