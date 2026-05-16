@@ -877,6 +877,13 @@ namespace MMO {
 		Onyx::RenderCommand::SetDepthMask(true);
 		Onyx::RenderCommand::EnableCulling();
 		Onyx::RenderCommand::DisableBlending();
+
+		// Don't leak this VAO/program to whatever renders next (the UI batch
+		// runs after the viewport). A later glBindBuffer(GL_ELEMENT_ARRAY_*)
+		// against a still-bound foreign VAO rewrites its element binding —
+		// the inverse of the UIRenderer::Flush VAO-order fix. ResetState()
+		// here is the idiomatic one-off-draw cleanup used elsewhere.
+		Onyx::RenderCommand::ResetState();
 	}
 
 	void ViewportPanel::RenderWorldObjects()
