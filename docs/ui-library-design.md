@@ -14,7 +14,7 @@ Quick scan of where each milestone stands against the design. Detail lives in ea
 |---|---|---|---|
 | M1 | Widget foundation | ✅ shipped | Widget, WidgetTree, ScreenStack, InputEvent in place; focus/hover/capture working. |
 | M2 | Render path (batched + clipping) | ✅ shipped | `UIRenderer` with batched quads, scissor stack, premultiplied alpha, white-pixel solids, DebugRect smoke widget. Mask textures + pool allocators still deferred to first consumer. |
-| M3 | Text system | ⚠️ code complete, **visually broken** | `FontAtlas` bakes Roboto-Medium (319 glyphs, 1024×1024, 4 px range) and `Label` widget exists; MSDF shader inline in `UIRenderer.cpp`. Glyphs do not appear on screen — Y-axis sign, atlas projection units, or shader `u_PxRange` propagation. **Plus**: `UIRenderer::Flush` access-violates in `nvoglv64.dll` when NavMesh debug view is enabled. Mitigation in place; root-cause fix pending. |
+| M3 | Text system | ✅ fixed 2026-05-16 | Root cause of "invisible text" was a **stale atlas cache**, not live code: `Roboto-Medium.atlas.bin` was baked ~7 min *before* the Y-flip fix `131820c` and `LoadOrBake` never re-bakes when a cache exists. Fixed by bumping `kAtlasVersion` 1→2 so stale caches auto-invalidate (commit `79af616`); rebake path runtime-verified (atlas regenerates with v2 header). msdfgen projection (`scale*(coord+translate)`) and plane Y-signs confirmed correct against vendored source. **Plus**: the `UIRenderer::Flush` `nvoglv64.dll` access-violation under NavMesh debug view is root-caused & fixed — Flush bound its VBO/IBO before its VAO, so the navmesh overlay's leaked VAO had its element buffer rewritten → next-frame OOB. Flush now binds its VAO first and unbinds after (commit `90d66be`). On-screen glyph legibility still wants a human confirmation pass. |
 | M4 | Layout | ✅ shipped | `LayoutSpec` (Fixed/Fill/Percent/Aspect, min/max, anchor+offset, flex), `ContainerMode` (Free/StackH/StackV), 9-position anchors, convenience builders. Content-driven sizing for `Label` waits on M3. |
 | M5 | `.ui` loader + includes | ❌ not started | No pugixml dependency, no widget factory registry, no attribute parser, no `<include>` plumbing, no file watcher. Designer authoring path is C++ today. |
 | M6 | Theming + animation + audio + accessibility | ❌ not started | Only forward-looking comments in `Color.h`, `InputEvent.h`, `TextInput.h` referencing "once M6 lands". No JSON theme parser, no `Theme` class, no pseudo-state cascade, no tween system, no audio bus hooks, no UI-scale multiplier. |
@@ -30,18 +30,19 @@ Quick scan of where each milestone stands against the design. Detail lives in ea
 - **MMO adapter layer (Q7)** — `MMOGame/Shared/Source/UI/` (or `MMOGame/Shared/UI/`) does not exist. The `RegisterAttributeResolver` hook design is in place (library-side), but nothing on the MMO side imports the library yet to plug in socket-name resolution, `GameClient` bindings, or mounted-state lookup. Will land naturally with M11 widget work.
 - **Asset hot-reload (`efsw`)** — `.ui` / theme / locale watcher referenced from M5 / M6 / M10 isn't wired; `AssetManager` still cold-loads.
 - **`assets/ui/manifest.json`** (Q17) — the stage → screen / theme / mock manifest is not authored. Required for M12's stage selector and runtime `ShowStage(UIStage::*)` API.
-- **Visible M3 text** — until this is fixed, every screen using `Label` is visually empty for text. Highest priority next time the UI lib is opened.
+- ~~**Visible M3 text**~~ — **resolved 2026-05-16** (stale-cache root cause; `kAtlasVersion` bump, commit `79af616`; Flush VAO-order AV fixed, commit `90d66be`). On-screen legibility pending a human confirmation pass.
 
 ### Recommended pick-up order for the next session
 
-1. **Fix M3 text rendering** (visual). Concrete suspects: `out.planeMin = (g.planeL, -g.planeT)` Y-axis sign in `FontAtlas.cpp`, msdfgen `SDFTransformation` projection units, `u_PxRange` uniform propagation in the text batch. Without this, M9 widgets that contain text are unverifiable.
-2. **Fix `UIRenderer::Flush` access violation under NavMesh debug view** (root-cause, not the current early-return mitigation). Likely GL state leak between navmesh overlay shader and the UI batch — bind a clean VAO + reset blend state before `glDrawElements`.
-3. **Commit the M12 WIP** (`UIEditorPanel.cpp` + `UILayer` + `Window` + `Main.cpp`) once it's stable. Right now it's blocking review of any further UI work.
-4. **M5 `.ui` loader** — unblocks `manifest.json`-driven stage mounting (Q17), which the rest of M12 builds on.
-5. **M6 theming** — minimum viable cut: JSON theme parser + class cascade + the four needed pseudo-states (`:hover`, `:pressed`, `:focused`, `:disabled`). Animation / audio / a11y can stage in after the cascade lands.
-6. **M9 widget catalog** — drive by what the demo actually needs (HUD = `ProgressBar` + `Image` + `Container` + `Stack`; dialog = `Modal` + `Button`; quest tracker = `ScrollView` + `Label`). Tooltip + virtualized ScrollView are the two with non-trivial design surface.
-7. **M11 widget side** + MMO adapter — only after M9 baseline lands so `OverheadBar` can derive from `ProgressBar`.
-8. **M7, M8, M10** — folded in as the demo flow forces them (M10 not blocking until Spanish locale ships; M7 not blocking if widgets are wired imperatively for the demo; M8 not blocking until inventory ships).
+**Done 2026-05-16** (was items 1–2): M3 invisible text (stale-cache root cause, `79af616`) and the `UIRenderer::Flush` NavMesh AV (VAO-order, `90d66be`) are fixed, built, and committed on `feature/spawn-pack-trigger-and-doc-fixes`. Scope of that commit was the two pure-UI fix files only; the M12 WIP was deliberately left uncommitted pending a scoping decision.
+
+1. **Stabilize & commit the M12 WIP** (`UIEditorPanel.cpp` + `UILayer` + `Window` + `Main.cpp`). It builds today; the open question is commit scope — it's entangled with non-UI changes (`StatusOverlay`/`NavMeshBakeService`/`ModelExporter`) in `Editor3DLayer`/`Editor3D/CMakeLists.txt`, so it can't be a clean "UI-only" commit. Still blocking review of further UI work.
+2. **Engine-side VAO-leak hardening** — inverse of the Flush fix: `RenderCommand::DrawIndexed` (and the navmesh overlay) leave their VAO bound, a latent footgun for any consumer. Small; do alongside M12.
+3. **M5 `.ui` loader** — unblocks `manifest.json`-driven stage mounting (Q17), which the rest of M12 builds on.
+4. **M6 theming** — minimum viable cut: JSON theme parser + class cascade + the four needed pseudo-states (`:hover`, `:pressed`, `:focused`, `:disabled`). Animation / audio / a11y can stage in after the cascade lands.
+5. **M9 widget catalog** — drive by what the demo actually needs (HUD = `ProgressBar` + `Image` + `Container` + `Stack`; dialog = `Modal` + `Button`; quest tracker = `ScrollView` + `Label`). Tooltip + virtualized ScrollView are the two with non-trivial design surface.
+6. **M11 widget side** + MMO adapter — only after M9 baseline lands so `OverheadBar` can derive from `ProgressBar`.
+7. **M7, M8, M10** — folded in as the demo flow forces them (M10 not blocking until Spanish locale ships; M7 not blocking if widgets are wired imperatively for the demo; M8 not blocking until inventory ships).
 
 ## Locked decisions
 
@@ -908,9 +909,9 @@ Each milestone ends with something testable. Don't start M(N+1) until M(N) demon
 
 **Test:** Editor smoke test passed. Test screen with a clipping panel containing an inner rect shows in the editor; clean run for 14 s. Visual interactive verification (hover changes color, click logs) deferred to M9 when full scenes ship.
 
-### M3 — Text system ⚠️ shipped 2026-05-06 (visually unverified)
+### M3 — Text system ✅ fixed 2026-05-16 (was: shipped 2026-05-06, visually broken)
 
-**Code path complete and the bake works**, but glyphs aren't appearing on screen yet — needs investigation in the next session.
+The "glyphs invisible" symptom was a **stale on-disk atlas cache**, not the live code (see Status snapshot). The bake/render path is correct; `kAtlasVersion` 1→2 (`79af616`) forces a rebake whenever `Bake()` output changes, and the `Flush` NavMesh access-violation is root-caused & fixed (`90d66be`).
 
 - `msdfgen` via vcpkg manifest (`extensions` feature only — FreeType + libpng, no Skia).
 - `Onyx::UI::FontAtlas` (`Onyx/Source/UI/Text/FontAtlas.{h,cpp}`) — runtime baker + loader. First run generates the Latin atlas from `Resources/Fonts/Roboto-Medium.ttf` using msdfgen + a shelf packer; caches to `Resources/Fonts/Roboto-Medium.atlas.bin`. Verified writes a 3 MB binary with 319 glyphs at 1024×1024 RGB, 32 px bake, 4 px range.
@@ -918,9 +919,9 @@ Each milestone ends with something testable. Don't start M(N+1) until M(N) demon
 - `UIRenderer::DrawText` / `MeasureText` — UTF-8 decode (1/2/3-byte), per-glyph quads, alignment.
 - `Onyx::UI::Label` widget.
 
-**What's broken / what to investigate next session:**
-1. With a temporary render-order swap to put UI on top of ImGui, the colored `DebugRect`s render but `Label` glyphs don't appear. Cause unconfirmed — possible: Y-axis sign in the plane-bounds conversion (`out.planeMin = (g.planeL, -g.planeT)`), atlas-data correctness (msdfgen `SDFTransformation` projection units), or shader uniform `u_PxRange` not propagating into the text batch.
-2. `UIRenderer::Flush` crashes inside `nvoglv64.dll` (access violation reading 0x0) when navmesh debug view is enabled. Suspected cause: GL state interference between navmesh debug rendering and `glDrawElements`. Mitigation: removed the test scene from `Editor3DLayer` so the main `Manager` has no active screen → `Flush` early-returns on empty geometry. Pending user verification that this stops the crash.
+**Resolved 2026-05-16:**
+1. ~~Glyphs don't appear~~ — **root cause: stale `Roboto-Medium.atlas.bin`** baked ~7 min before the Y-flip fix `131820c`; `LoadOrBake` never re-bakes when a cache exists, so the wrongly-oriented atlas was loaded every run. The suspected live-code causes were ruled out: the plane-bounds Y-signs are correct, and msdfgen's projection is `scale*(coord+translate)` (verified against vendored `Projection.cpp`), so `translate=(-l,-b)` maps shape→bitmap correctly. Fix: `kAtlasVersion` 1→2 + documented invalidation contract (`79af616`); rebake runtime-verified.
+2. ~~`UIRenderer::Flush` `nvoglv64.dll` AV under navmesh debug view~~ — **root cause: VAO state leak.** `Flush` bound its VBO/IBO *before* its VAO; `RenderCommand::DrawIndexed` (navmesh overlay) leaves its VAO bound, so the UI IBO bind rewrote the navmesh VAO's element buffer → next-frame OOB → driver AV. Fix: `Flush` binds its VAO first and unbinds after (`90d66be`); renderer is now correct regardless of inherited GL state. The old mitigation (remove the test scene from `Editor3DLayer` so `Manager` has no screen → empty-geometry early-return) is now obsolete — re-adding a Manager-driven test scene is safe and tracked as M12/test work. Engine-side inverse leak in `DrawIndexed` is tracked as a separate hardening item.
 
 **Path forward — UIEditor panel preview:**
 

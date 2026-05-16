@@ -23,10 +23,25 @@ cmake --build build -j$(nproc)
 
 Binaries land in `./build/bin/` (`MMOEditor3D`, `MMOClient`, `MMOLoginServer`, `MMOWorldServer`, `OnyxEditor`). There is **no** `build.sh` — use CMake directly. CMake presets (`linux-debug`, `linux-release`, `windows-debug`, etc.) are also available — see [docs/build.md](docs/build.md).
 
-**Always rsync to Windows after building** (WSL2 → Windows desktop):
-```bash
-rsync -av --delete --exclude='build/' --exclude='.git/' /home/god/git/Onyx/ /mnt/c/Users/god/Desktop/Onyx/
+### Canonical tree & build (read this — the old WSL→rsync flow is retired)
+
+The active development tree is the **Windows copy** at `C:\Users\god\Desktop\Onyx`, on branch
+`feature/spawn-pack-trigger-and-doc-fixes`, tracked on `origin` (`git@github.com:NahuCF/Onyx.git`).
+The UI library and all current feature work live here and on origin — **not** in the WSL tree.
+
+Build on Windows with:
+```bat
+build_win.bat   :: VsDevCmd (VS 18 Community) + cmake --build build\windows-debug -j 8
 ```
+Configured preset: `windows-debug` (Ninja + MSVC 14.5x + vcpkg `x64-windows-static-md`).
+Binaries land in `build\windows-debug\bin\`.
+
+> ⚠️ **Do NOT run the old `rsync -av --delete … /home/god/git/Onyx/ … /Desktop/Onyx/`.**
+> The WSL tree at `/home/god/git/Onyx` is stale (`master`, ~2026-05-04) and contains
+> **none** of the UI library / feature-branch work. That rsync would `--delete`-clobber the
+> live Windows working tree; committed work survives via `.git`/origin, but any uncommitted
+> WIP would be lost. Commit + push to origin to checkpoint; treat WSL as legacy/abandoned
+> for this stream of work.
 
 ## Quick run (MMO)
 
