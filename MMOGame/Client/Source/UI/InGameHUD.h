@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace Onyx
@@ -19,6 +20,7 @@ namespace Onyx::UI
 	class Widget;
 	class ProgressBar;
 	class FloatingText;
+	class Nameplate;
 }
 
 namespace MMO {
@@ -63,6 +65,7 @@ namespace MMO {
 	private:
 		void BuildTree();
 		void DriveBars();
+		void SyncNameplates();
 		void GarbageCollectFloats();
 
 		// Bound to GameClient::SetDamageHandler.
@@ -83,6 +86,11 @@ namespace MMO {
 		// Live floating numbers; raw pointers into the attached tree.
 		// Pruned when FloatingText::IsDead().
 		std::vector<Onyx::UI::FloatingText*> m_ActiveFloats;
+
+		// Per-RemoteEntity nameplates. Cache mounted on first sight of the
+		// entity, unmounted when it disappears from GameClient::GetEntities.
+		// Raw pointers into the attached tree.
+		std::unordered_map<EntityId, Onyx::UI::Nameplate*> m_Nameplates;
 	};
 
 } // namespace MMO

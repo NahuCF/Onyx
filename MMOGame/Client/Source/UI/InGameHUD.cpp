@@ -12,6 +12,7 @@
 #include "Source/UI/Widget.h"
 #include "Source/UI/WidgetTree.h"
 #include "Source/UI/Widgets/FloatingText.h"
+#include "Source/UI/Widgets/Nameplate.h"
 #include "Source/UI/Widgets/ProgressBar.h"
 
 #include <algorithm>
@@ -69,6 +70,7 @@ namespace MMO {
 		m_PlayerHpBar  = nullptr;
 		m_TargetHpBar  = nullptr;
 		m_ActiveFloats.clear();
+		m_Nameplates.clear();
 
 		auto root = std::make_unique<Widget>();
 		root->SetContainerMode(ContainerMode::Free);
@@ -133,6 +135,7 @@ namespace MMO {
 		if (!m_AttachedHandle)
 			return;
 		DriveBars();
+		SyncNameplates();
 		GarbageCollectFloats();
 	}
 
@@ -230,6 +233,61 @@ namespace MMO {
 		{
 			root->AddChild(std::move(ft));
 			m_ActiveFloats.push_back(raw);
+		}
+	}
+
+	void InGameHUD::SyncNameplates()
+	{
+		if (!m_AnchorSystem || !m_AttachedHandle)
+			return;
+
+		auto* root = m_AttachedHandle->GetRoot();
+		if (!root)
+			return;
+
+		const Onyx::UI::FontAtlas* font =
+			m_Manager->DefaultFontLoaded() ? &m_Manager->GetDefaultFont() : nullptr;
+
+		const auto& entities = m_Client.GetEntities();
+
+		// Mount new entities + refresh existing per-frame state.
+		for (const auto& [id, ent] : entities)
+		{
+			Onyx::UI::Nameplate* plate = nullptr;
+			auto it = m_Nameplates.find(id);
+			if (it == m_Nameplates.end())
+			{
+				auto fresh = std::make_unique<Onyx::UI::Nameplate>(font, 13.0f);
+				fresh->SetAnchorSystem(m_AnchorSystem);
+				fresh->SetEntityId(static_cast<uint64_t>(id));
+				fresh->SetWorldOffset({0.0f, 0.0f, OVERHEAD_Z_OFFSET});
+				plate = fresh.get();
+				root->AddChild(std::move(fresh));
+				m_Nameplates.emplace(id, plate);
+			}
+			else
+			{
+				plate = it->second;
+			}
+
+			plate->SetName(ent.name);
+			plate->SetWorldPosition({ent.position.x, ent.position.y, ent.height});
+			plate->SetHealthFraction(SafeFraction(ent.health, ent.maxHealth));
+			plate->SetShowHealth(ent.maxHealth > 0);
+		}
+
+		// Unmount entities that have disappeared from the grid.
+		for (auto it = m_Nameplates.begin(); it != m_Nameplates.end(); )
+		{
+			if (entities.find(it->first) == entities.end())
+			{
+				root->RemoveChild(it->second);
+				it = m_Nameplates.erase(it);
+			}
+			else
+			{
+				++it;
+			}
 		}
 	}
 
