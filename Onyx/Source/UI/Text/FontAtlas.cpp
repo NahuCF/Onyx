@@ -16,7 +16,11 @@ namespace Onyx::UI {
 	namespace {
 
 		constexpr uint32_t kAtlasMagic = 0x31544143u; // 'CAT1' little-endian
-		constexpr uint32_t kAtlasVersion = 1;
+		// Bump whenever Bake() output changes (glyph layout, blit orientation,
+		// plane/UV convention, pixel range). LoadFromFile rejects mismatched
+		// versions and forces a rebake, so a code fix can't be masked by a
+		// stale on-disk cache. (v1→v2: 131820c Y-flip blit fix.)
+		constexpr uint32_t kAtlasVersion = 2;
 
 		struct FileHeader
 		{
