@@ -41,3 +41,23 @@ Created 2026-05-16. Delete each box when confirmed; delete this file once all pa
 ## 5. No regression from the 4 commits
 - [ ] Full build is green (verified). Smoke-run `MMOEditor3D` and `MMOClient`
       to confirm nothing else broke.
+
+## 6. New M8/M9/M11 widgets (built + pushed, NOT visually validated)
+Commits `79af616`..`4a54849` add the demo-critical widgets. Each compiles +
+links (verified); none has been seen on screen. Note: text-bearing widgets
+inherit the M3 caveat — confirm M3 text first (item 1) or they read blank.
+- [ ] **ProgressBar** — HP/cast: fill tracks value, border/label correct.
+- [ ] **Image** — Stretch/Fit/Fill (Fill clipped); loading-screen art.
+- [ ] **Icon** — atlas region; disabled-dim.
+- [ ] **ScrollView** — wheel scrolls, scissor-clips, thumb tracks; quest tracker.
+- [ ] **Modal** — dims screen, centers panel, grabs input, Escape/backdrop close.
+- [ ] **FloatingText** — rises+fades at a world point, despawns (damage numbers).
+- [ ] **Nameplate** — name + HP bar tracks a head, hides off-screen/culled.
+- [ ] **WorldMarker** — quest !/? badge tracks a world point (bob).
+- [ ] **CooldownOverlay / DrawPie** — clockwise radial sweep + countdown,
+      clipped to the slot.
+- [ ] **M8 DragSlot/DragContext/DragGhostLayer** — drag an icon, ghost
+      follows, drop on a compatible slot fires handler with modifier flags,
+      drop-outside snaps back.
+- [ ] Wire one demo screen (e.g. a stage in UIEditor / MMOClient) that
+      exercises these so the validation is real, not synthetic.
