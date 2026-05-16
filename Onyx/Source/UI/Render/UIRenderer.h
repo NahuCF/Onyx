@@ -68,6 +68,12 @@ namespace Onyx::UI {
 		// Fragment SDF rounding is a future optimization (M2 deferred).
 		void DrawRoundedRect(const Rect2D& bounds, const Color& color, float radius);
 
+		// Filled pie wedge (triangle fan from center). Angles in radians,
+		// 0 = +X, increasing clockwise on screen (Y-down). Used for the
+		// action-bar cooldown sweep. segments<=0 auto-scales with radius.
+		void DrawPie(glm::vec2 center, float radius, float startRad,
+					 float sweepRad, const Color& color, int segments = 0);
+
 		// Textured quad. Pass nullptr to use the white-pixel texture (same as
 		// DrawRect).
 		void DrawTexture(const Rect2D& bounds, Onyx::Texture* tex, const Color& tint = Color::White());

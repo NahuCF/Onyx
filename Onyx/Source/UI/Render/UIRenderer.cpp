@@ -473,6 +473,42 @@ void main() {
 		fan(glm::vec2(bounds.max.x - radius, bounds.max.y - radius), 0.0f);                   // BR: 0° → 90°
 	}
 
+	void UIRenderer::DrawPie(glm::vec2 center, float radius, float startRad,
+							 float sweepRad, const Color& color, int segments)
+	{
+		if (radius <= 0.0f || sweepRad == 0.0f)
+			return;
+
+		SetBatchShader(BatchShader::Default);
+		SetBatchTexture(nullptr);
+
+		const int segs = segments > 0
+							  ? segments
+							  : std::max(8, std::min(96, static_cast<int>(radius * 0.6f)));
+
+		// 1 center vertex + (segs+1) ring vertices; reserve generously.
+		EnsureCapacity(static_cast<uint32_t>((segs + 2) / 4 + 2));
+
+		const glm::vec4 premul(color.r * color.a, color.g * color.a,
+							   color.b * color.a, color.a);
+		const uint32_t base = static_cast<uint32_t>(m_Vertices.size());
+		m_Vertices.push_back({center, glm::vec2(0.0f), premul});
+		for (int i = 0; i <= segs; ++i)
+		{
+			const float t = static_cast<float>(i) / static_cast<float>(segs);
+			const float a = startRad + t * sweepRad;
+			const glm::vec2 p = center + glm::vec2(std::cos(a), std::sin(a)) * radius;
+			m_Vertices.push_back({p, glm::vec2(0.0f), premul});
+		}
+		for (int i = 0; i < segs; ++i)
+		{
+			m_Indices.push_back(base);
+			m_Indices.push_back(base + 1 + i);
+			m_Indices.push_back(base + 2 + i);
+		}
+		++m_Stats.quads;
+	}
+
 	void UIRenderer::Draw9Slice(const Rect2D& bounds, Onyx::Texture* tex, glm::vec4 borderPx,
 								const Color& tint)
 	{
