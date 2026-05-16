@@ -2,6 +2,8 @@
 
 Status of the Editor3D as of 2026-05-05 plus a prioritized roadmap to MVP.
 
+> **Currency note (2026-05-16):** This doc captures the editor's phase-by-phase state from 2026-05-05. Significant work has shipped since — most notably NavMesh (Recast/Detour bake + Detour runtime + AI chase + visualizer, `d865a35`), trigger-volume round-trip + WorldServer loader (`8929b37`), and ongoing engine-UI library development (`65330a6`, `131820c`, `4491357`, `109dcaf`). **For the live demo plan, [tech-demo-checklist.md](tech-demo-checklist.md) is now the authoritative blueprint.** Annotations in the "Next up — Tier 2" list below reflect the 2026-05-16 status.
+
 ## Current state
 
 Editor3D is **feature-complete for visual map authoring** — terrain, static objects, lights, materials, sounds, particle emitters. All major editing affordances work (multi-select, undo/redo, copy/paste, hierarchy with grouping, snap to grid, gizmos). Client-side runtime export of `.omdl` models, `.chunk` terrain, materials, and textures is shipped. See [editor3d.md](editor3d.md) for current structure and [export-pipeline.md](export-pipeline.md) for the shipped export.
@@ -136,13 +138,24 @@ Mirrors [release-pipeline.md](release-pipeline.md) Implementation order, with ed
 
 **On WSL2 dev machine specifically:** export `GALLIUM_DRIVER=d3d12` to use Mesa's D3D12 backend, which exposes the host NVIDIA GPU and gives full HW-accelerated GL 4.6. Default WSL2 GL is software llvmpipe, capped at 4.5 — too slow for interactive editor work. Already in user's `.bashrc`.
 
-**Next up — Tier 2 (in suggested order):**
+**Next up — Tier 2 (in suggested order, status as of 2026-05-16):**
 1. Broaden Run Locally writers to **portals + trigger volumes + gameobject_spawn**. Same `MigrationSqlWriter` + `Database::Load*` pattern as creature_spawn. Reuses the migration-runner foundation.
+   - 🟡 **Partial.** Trigger volumes done: `MigrationSqlWriter::EmitTriggerVolumesForMap` writes, `Database::LoadTriggerVolumes` reads, `MapManager::Initialize` indexes them for runtime dispatch (`8929b37`). Portal loader done (`Database::LoadPortals` + `WorldServer::HandleUsePortal`); editor-side **portal writer** still missing. **`gameobject_spawn` / `gameobject_template`** still missing on both writer + loader sides (no schema migration yet).
 2. **Creature template editor panel** — Inspector affordance for `creature_template` rows (level, faction, npcflag bitfield, ai_name, model, loot table). Today these live in `CreatureTemplate.cpp`.
+   - ❌ Not started.
 3. **Spawn ↔ template linking** — Inspector dropdown on creature_spawn that picks an `entry` from the editor-known `creature_template` list.
+   - ❌ Not started.
 4. **NPC role** (`npcflag` UI: vendor / quest-giver / trainer / flight-master / hostile) — derived from creature_template; surfaced as checkbox row.
+   - ❌ Not started.
 5. **GameObject placement** as a new entity type in `EditorWorld` with its own placeable affordance + Inspector + writer.
+   - ❌ Not started.
 6. **NavMesh** (Recast/Detour) bake step.
+   - ✅ **Shipped.** Tiled bake with content-hashed per-tile reuse, async worker, `.omdl`-driven mesh ingestion, pre-transform + per-triangle culling, status overlay HUD, View ▸ NavMesh visualizer, runtime `MMO::NavMesh` in WorldServer, AI chase rewired to navmesh corridors. See [navmesh.md](navmesh.md).
+
+**Server-side demo-blocking items shipped since 2026-05-05 (track via [tech-demo-checklist.md](tech-demo-checklist.md)):**
+- `MapManager::Initialize` loads `trigger_volume` + `portal` from DB and indexes them.
+- Mob auto-attack runs through the existing ability system (`MOB_BASIC_ATTACK` 15-damage swing on 2 s cadence, IN_RANGE 2.0 condition).
+- `SpawnPackTriggerScript` (`"SpawnPack"`) spawns 3 creatures of `EventId`-as-template-id around the trigger when an entity enters — the "walk into clearing → mobs appear" beat from the tech-demo flow.
 
 **Locked design decisions** — see [release-pipeline.md](release-pipeline.md) for full text:
 - DB-only architecture (no JSON intermediates for DB-bound entities); single `migration.sql` is the source of truth.

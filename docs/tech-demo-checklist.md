@@ -16,7 +16,7 @@ Stripped-down roadmap for the first end-to-end demo. The goal is a one-button ex
 
 - Editor: terrain authoring, object placement (spawn / trigger / portal / static / lights / particles / sound), gizmos, undo/redo, autosave
 - Editor: "Run Locally" exports `Data/`, applies migrations, spawns LoginServer + WorldServer + Client subprocesses
-- WorldServer: spell + aura + combat + loot + AI (`DataDrivenAI`), trigger volume system, C++20 scripting architecture, `creature_spawn` + `player_create_info` DB loaders
+- WorldServer: spell + aura + combat + loot + AI (`DataDrivenAI`), trigger volume system (`ServerTriggerVolume` + script dispatch via `TriggerScript`), C++20 scripting architecture, `creature_spawn` + `player_create_info` + `trigger_volume` + `portal` DB loaders, navmesh-driven mob chase, mob auto-attack via `AbilityRule(MOB_BASIC_ATTACK, …)` on `CreatureTemplate` scheduled through `CreatureAI::Update` + `EventMap`
 - Client: isometric camera, networked entity rendering with full 3D position + orientation, login → character select → enter-world flow
 - LoginServer: account creation, auth, session token, character creation with race/class
 - Network protocol packets (`EntityState`, `S_EnterWorld`, `S_EntitySpawn`, `S_EntityUpdate`)
@@ -63,13 +63,13 @@ Without this, abilities have nothing to target and combat is invisible.
 
 - [x] **NavMesh** — editor bake step (Recast/Detour) → WorldServer consumption at startup. See [navmesh.md](navmesh.md).
 - [ ] **Waypoint / patrol path** — placement in editor + execution in WorldServer
-- [ ] **Engine animation state machine** — idle / walk / run / death states with transitions
-- [ ] **Mob auto-attack** — basic melee swing when player is in range
-- [ ] **Server-authoritative movement basics** — server is the source of truth for NPC positions on the wire
-- [ ] **Health bars** (player + target) — consumes Phase 0 `HealthBar` widget; world→screen projection for over-head bars
-- [ ] **Damage numbers** — consumes Phase 0 `FloatingText` widget; spawned on combat events
+- [ ] **Engine animation state machine** — idle / walk / run / death state transitions on the client/engine side. (Note: server already tracks `MovementComponent.moveState` IDLE / RUNNING / DEAD and ships it in `EntityState` / `S_EntityUpdate.UPDATE_POSITION`; what's pending is the client's blend-tree / state-machine that consumes it.)
+- [x] **Mob auto-attack** — shipped via the existing ability system. `CreatureTemplate::abilities` lists `AbilityRule(AbilityId::MOB_BASIC_ATTACK, 2.0f).WithCondition(ConditionType::IN_RANGE, 2.0f)` (or per-creature variants like `WEREWOLF_CLAW`). `CreatureAI::Update` schedules ticks via `EventMap`; on fire, `IMapContext::ProcessAbility` → `MapInstance::ExecuteAbility` → `ProcessSpellEffect(DIRECT_DAMAGE)` → `ApplyDamage`, which broadcasts `GameEventType::DAMAGE` / `DEATH`. Per-creature damage/range/cooldown lives in `AbilityData.cpp`.
+- [x] **Server-authoritative movement basics** — for NPC mobs. `MapInstance::UpdateMobAI` computes `velocity` server-side every tick (navmesh corridor → straight-line fallback), the integrator advances `position`, and `MovementComponent.moveState` (IDLE / RUNNING / DEAD) is broadcast in `EntityState` / `S_EntityUpdate.UPDATE_POSITION` along with `height` and `orientation`. (Player-input movement still trusts the client; full server-validated player movement is a separate hardening pass — out of scope for the demo.)
+- [ ] **Health bars** (player + target) — consumes Phase 0 `HealthBar` widget; world→screen projection for over-head bars. The wire already carries `HealthComponent` deltas via `S_EntityUpdate.UPDATE_HEALTH`; the Phase 0 widget consumes them.
+- [ ] **Damage numbers** — consumes Phase 0 `FloatingText` widget; the server already emits `GameEventType::DAMAGE` via `BroadcastEvent` (from `ApplyDamage`); the client just needs the widget to render them.
 
-Mob entity, AI base + scripts, `creature_spawn` DB loader, and `CreatureTemplate` are already in place — see [docs/mmogame-server.md](mmogame-server.md). Phase 1 is purely about pathing, animation, and HUD wiring.
+Mob entity, AI base + scripts, `creature_spawn` DB loader, navmesh chase, auto-attack via abilities, and `CreatureTemplate` are already in place — see [docs/mmogame-server.md](mmogame-server.md). Phase 1 remaining is purely client-side animation + HUD wiring (both Phase 0-gated) and waypoint authoring/execution.
 
 **Test:** Place a hostile creature spawn near a player spawn. Run Locally. The creature wanders its waypoint path. When you get close, it pathfinds to you and attacks. You watch your HP drop, both HP bars work, either of you eventually dies and the death animation plays.
 
@@ -107,9 +107,9 @@ Mob entity, AI base + scripts, `creature_spawn` DB loader, and `CreatureTemplate
 
 The pieces that make the demo a full scenario instead of a single encounter.
 
-- [ ] **DB loader for `trigger_volume`** in MMOWorldServer
-- [ ] **Trigger → "spawn creatures" action** — editor Inspector picks template + count; server handler spawns them on enter
-- [ ] **DB loader for portals** in MMOWorldServer
+- [x] **DB loader for `trigger_volume`** in MMOWorldServer — `MapManager::Initialize` reads `trigger_volume` rows via `Database::LoadTriggerVolumes(map_id)`, materialises `ServerTriggerVolume`, resolves script names against `ScriptRegistry<TriggerScript>` at boot, and indexes volumes into per-cell buckets so movement-driven `MapInstance::CheckTriggers` is O(1) amortised per entity-move.
+- [x] **Trigger → "spawn creatures" action** — `SpawnPackTriggerScript` registered as `"SpawnPack"` in `MMOGame/WorldServer/Source/Triggers/TriggerScripts.cpp`. Authoring (Inspector): `ScriptName="SpawnPack"`, `EventId=<creature_template_id>`, `TriggerOnce=true`. Spawns `SPAWN_COUNT=3` creatures on a circle around the volume center (`spread = min(SPREAD_MAX, BoundingRadiusXY*0.7)`). Per-trigger count/spread schema is a Phase 4 polish follow-up; the v1 contract is `eventId == creature_template_id`.
+- [x] **DB loader for portals** in MMOWorldServer — `MapManager::Initialize` reads `portal` rows via `Database::LoadPortals(map_id)`. `WorldServer::HandleUsePortal` consumes them for cross-instance transfer via `WorldServer::TransferPlayer` (existing `C_USE_PORTAL` packet handler).
 - [ ] **Portal destination binding** — editor Inspector picks target map ID (placement already exists)
 - [ ] **Instance map lifecycle** in MMOWorldServer — load dungeon on portal use, despawn on empty/timeout (single-player scope is fine for the demo)
 - [ ] **Loading screen** between maps in MMOClient
