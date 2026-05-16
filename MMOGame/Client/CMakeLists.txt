@@ -7,6 +7,7 @@ set(CLIENT_SOURCES
     Source/Rendering/IsometricCamera.cpp
     Source/Rendering/GameRenderer.cpp
     Source/Terrain/ClientTerrainSystem.cpp
+    Source/UI/InGameHUD.cpp
 )
 
 set(CLIENT_HEADERS
@@ -14,6 +15,7 @@ set(CLIENT_HEADERS
     Source/Rendering/IsometricCamera.h
     Source/Rendering/GameRenderer.h
     Source/Terrain/ClientTerrainSystem.h
+    Source/UI/InGameHUD.h
 )
 
 add_executable(MMOClient ${CLIENT_SOURCES} ${CLIENT_HEADERS})

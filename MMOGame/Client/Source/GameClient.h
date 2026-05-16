@@ -231,6 +231,14 @@ namespace MMO {
 		const std::vector<GameEvent>& GetPendingEvents() const { return m_PendingEvents; }
 		void ClearEvents() { m_PendingEvents.clear(); }
 
+		// HUD hook: fires once per server DAMAGE event (sign-agnostic — negative
+		// `amount` indicates a heal piggy-backing on the same wire path). Pass
+		// an empty function to detach. The handler runs synchronously inside
+		// the network read path; keep it cheap.
+		using DamageHandler =
+			std::function<void(EntityId source, EntityId target, int32_t amount, Vec2 groundPos)>;
+		void SetDamageHandler(DamageHandler h) { m_DamageHandler = std::move(h); }
+
 		// Projectiles for rendering
 		struct ClientProjectile
 		{
@@ -312,6 +320,7 @@ namespace MMO {
 
 		// Events
 		std::vector<GameEvent> m_PendingEvents;
+		DamageHandler          m_DamageHandler;
 
 		// Projectiles
 		std::vector<ClientProjectile> m_Projectiles;

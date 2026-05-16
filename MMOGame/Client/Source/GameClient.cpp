@@ -793,6 +793,8 @@ namespace MMO {
 		{
 		case GameEventType::DAMAGE:
 			std::cout << "Damage: " << sEvent.value << " to " << sEvent.targetId << '\n';
+			if (m_DamageHandler)
+				m_DamageHandler(sEvent.sourceId, sEvent.targetId, sEvent.value, sEvent.position);
 			break;
 		case GameEventType::HEAL:
 			std::cout << "Heal: " << sEvent.value << " to " << sEvent.targetId << '\n';
