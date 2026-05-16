@@ -562,6 +562,15 @@ void main() {
 		glDisable(GL_DEPTH_TEST);
 		glDisable(GL_CULL_FACE);
 
+		// Bind our VAO *before* touching the VBO/IBO. glBindBuffer on
+		// GL_ELEMENT_ARRAY_BUFFER mutates the currently-bound VAO's element
+		// binding as a side effect; if a prior pass (e.g. the editor's navmesh
+		// overlay) left its VAO bound, doing the IBO bind first would rewrite
+		// that foreign VAO's element buffer and crash its next draw in the
+		// driver. Binding ours first keeps every buffer side effect contained
+		// to this renderer, so Flush is correct regardless of inherited state.
+		m_VAO->Bind();
+
 		m_VBO->Bind();
 		m_VBO->SetSubData(m_Vertices.data(), 0,
 						  static_cast<uint32_t>(m_Vertices.size() * sizeof(UIVertex)));
@@ -590,10 +599,15 @@ void main() {
 		Onyx::Texture* tex = m_BatchTexture ? m_BatchTexture : m_WhitePixel.get();
 		tex->Bind(0);
 
-		m_VAO->Bind();
 		glDrawElements(GL_TRIANGLES,
 					   static_cast<GLsizei>(m_Indices.size()),
 					   GL_UNSIGNED_INT, nullptr);
+
+		// Don't leak our VAO to whatever renders next — symmetric to binding
+		// it first above. (The inverse leak — engine passes that leave their
+		// own VAO bound, like RenderCommand::DrawIndexed for the navmesh
+		// overlay — should also be hardened there; tracked separately.)
+		glBindVertexArray(0);
 
 		++m_Stats.drawCalls;
 		++m_Stats.batchBreaks;
