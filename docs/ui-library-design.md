@@ -6,6 +6,43 @@ This is the definitive design — no v1/v2 split. Everything documented here is 
 
 Status: **design locked, implementation in progress.** Architectural decisions Q1-Q6 resolved 2026-05-06; Q7-Q15 (layering / ownership / build / protocol details) resolved 2026-05-06 same day.
 
+## Status snapshot — 2026-05-16
+
+Quick scan of where each milestone stands against the design. Detail lives in each milestone's section below.
+
+| # | Milestone | Status | One-line summary |
+|---|---|---|---|
+| M1 | Widget foundation | ✅ shipped | Widget, WidgetTree, ScreenStack, InputEvent in place; focus/hover/capture working. |
+| M2 | Render path (batched + clipping) | ✅ shipped | `UIRenderer` with batched quads, scissor stack, premultiplied alpha, white-pixel solids, DebugRect smoke widget. Mask textures + pool allocators still deferred to first consumer. |
+| M3 | Text system | ⚠️ code complete, **visually broken** | `FontAtlas` bakes Roboto-Medium (319 glyphs, 1024×1024, 4 px range) and `Label` widget exists; MSDF shader inline in `UIRenderer.cpp`. Glyphs do not appear on screen — Y-axis sign, atlas projection units, or shader `u_PxRange` propagation. **Plus**: `UIRenderer::Flush` access-violates in `nvoglv64.dll` when NavMesh debug view is enabled. Mitigation in place; root-cause fix pending. |
+| M4 | Layout | ✅ shipped | `LayoutSpec` (Fixed/Fill/Percent/Aspect, min/max, anchor+offset, flex), `ContainerMode` (Free/StackH/StackV), 9-position anchors, convenience builders. Content-driven sizing for `Label` waits on M3. |
+| M5 | `.ui` loader + includes | ❌ not started | No pugixml dependency, no widget factory registry, no attribute parser, no `<include>` plumbing, no file watcher. Designer authoring path is C++ today. |
+| M6 | Theming + animation + audio + accessibility | ❌ not started | Only forward-looking comments in `Color.h`, `InputEvent.h`, `TextInput.h` referencing "once M6 lands". No JSON theme parser, no `Theme` class, no pseudo-state cascade, no tween system, no audio bus hooks, no UI-scale multiplier. |
+| M7 | Bindings + sandboxing | ❌ not started | No `BindingContext`, no expression parser, no `Pending<T>`/`Stale<T>`, no `foreach`/`if` directives. Current widget data is set imperatively. |
+| M8 | Drag and drop system | ❌ not started | No drag threshold state machine, no `DragGhost`, no drop-target registry. |
+| M9 | Built-in widget library + virtualized ScrollView | 🟡 **partial — ~4 of ~25 widgets** | Shipped: `Label`, `Button`, `TextInput`, `DebugRect`. **Missing**: `Container`, `Stack`, `Grid`, `ScrollView` (incl. virtualization), `Spacer`, `TabView`, `Image`, `Icon`, `ProgressBar`, `RoundedPanel`, `Divider`, `Slider`, `Checkbox`, `Dropdown`, `RadioGroup`, `Tooltip`, `Modal`, `Popup`, `Toast`, `ContextMenu`. ScreenStack has the layer enum reserved for Tooltip/Popup/Toast/Drag, but no widgets actually populate those layers. |
+| M10 | Localization | ❌ not started | No `Locale` class, no `tr:` resolver, no locale file parser, no `LocaleRules.cpp`. Strings are inline. The MMO adapter directory (`MMOGame/Shared/Source/UI/`, per Q7) **does not exist yet** — adapter layer is a separate gap. |
+| M11 | World-attached widgets | 🟡 partial — engine prereq landed, widget side missing | `WorldUIAnchorSystem` exists at `Onyx/Source/Graphics/WorldUIAnchorSystem.{h,cpp}`, owned by `Application`. Socket system + `.omdl` v3 + `Animator::GetTickId` all shipped (per commit `2e393fa`). **Missing**: `AnimatedModel::GetMeshSpaceBonesPtr()` accessor, debug overlay for sockets, plus all four widgets (`Nameplate`, `OverheadBar`, `FloatingText`, `WorldMarker`) and the per-widget GPU-instanced bar geometry. |
+| M12 | `UIEditor` workspace in MMOEditor3D | 🔨 **in-flight (uncommitted)** | `MMOGame/Editor3D/Source/Panels/UIEditorPanel.{h,cpp}` exists (~1048 lines `.cpp`) and is **part of the 2026-05-07 uncommitted working tree** along with `UILayer.{h,cpp}`, `Window.{h,cpp}`, and `MMOClient/Main.cpp`. The stage-simulator chrome (Q16) and a "Login stage" composed of M9 widgets (Button + TextInput) are wired up but unverified; workspace mode, mock profile dropdown, Z-X-Ray, file browser, theme picker, palette, inspector cascade, undo/redo integration are all not yet done. **Resume here**: finish & commit the WIP, then close the M12 deliverables list incrementally. |
+
+### Cross-cutting gaps
+
+- **MMO adapter layer (Q7)** — `MMOGame/Shared/Source/UI/` (or `MMOGame/Shared/UI/`) does not exist. The `RegisterAttributeResolver` hook design is in place (library-side), but nothing on the MMO side imports the library yet to plug in socket-name resolution, `GameClient` bindings, or mounted-state lookup. Will land naturally with M11 widget work.
+- **Asset hot-reload (`efsw`)** — `.ui` / theme / locale watcher referenced from M5 / M6 / M10 isn't wired; `AssetManager` still cold-loads.
+- **`assets/ui/manifest.json`** (Q17) — the stage → screen / theme / mock manifest is not authored. Required for M12's stage selector and runtime `ShowStage(UIStage::*)` API.
+- **Visible M3 text** — until this is fixed, every screen using `Label` is visually empty for text. Highest priority next time the UI lib is opened.
+
+### Recommended pick-up order for the next session
+
+1. **Fix M3 text rendering** (visual). Concrete suspects: `out.planeMin = (g.planeL, -g.planeT)` Y-axis sign in `FontAtlas.cpp`, msdfgen `SDFTransformation` projection units, `u_PxRange` uniform propagation in the text batch. Without this, M9 widgets that contain text are unverifiable.
+2. **Fix `UIRenderer::Flush` access violation under NavMesh debug view** (root-cause, not the current early-return mitigation). Likely GL state leak between navmesh overlay shader and the UI batch — bind a clean VAO + reset blend state before `glDrawElements`.
+3. **Commit the M12 WIP** (`UIEditorPanel.cpp` + `UILayer` + `Window` + `Main.cpp`) once it's stable. Right now it's blocking review of any further UI work.
+4. **M5 `.ui` loader** — unblocks `manifest.json`-driven stage mounting (Q17), which the rest of M12 builds on.
+5. **M6 theming** — minimum viable cut: JSON theme parser + class cascade + the four needed pseudo-states (`:hover`, `:pressed`, `:focused`, `:disabled`). Animation / audio / a11y can stage in after the cascade lands.
+6. **M9 widget catalog** — drive by what the demo actually needs (HUD = `ProgressBar` + `Image` + `Container` + `Stack`; dialog = `Modal` + `Button`; quest tracker = `ScrollView` + `Label`). Tooltip + virtualized ScrollView are the two with non-trivial design surface.
+7. **M11 widget side** + MMO adapter — only after M9 baseline lands so `OverheadBar` can derive from `ProgressBar`.
+8. **M7, M8, M10** — folded in as the demo flow forces them (M10 not blocking until Spanish locale ships; M7 not blocking if widgets are wired imperatively for the demo; M8 not blocking until inventory ships).
+
 ## Locked decisions
 
 ### Library shape (Q1-Q6)
@@ -956,7 +993,14 @@ Rather than continue debugging via the render-order swap, add a `UIEditorPanel` 
 
 **Test:** two `<itemicon>` widgets and three `<actionslot>` drop targets (one accepts `item`, one accepts `spell`, one accepts both). Drag item → all `item`-accepting slots highlight. Drop on accepting slot fires handler with source data + modifier flags. Shift+drop sets `split=true`. Escape mid-drag cancels with snap-back.
 
-### M9 — Built-in widget library + virtualized ScrollView
+### M9 — Built-in widget library + virtualized ScrollView 🟡 partial (~4 of ~25 widgets, as of 2026-05-16)
+
+**Shipped:** `Label`, `Button`, `TextInput`, `DebugRect` (the last is M2's smoke widget, kept around).
+
+**Still missing:** `Container`, `Stack`, `Grid`, `ScrollView` (incl. virtualization, recycle pool, scroll smoothing, lazy height cache), `Spacer`, `TabView`, `Image`, `Icon`, `ProgressBar`, `RoundedPanel`, `Divider`, `Slider`, `Checkbox`, `Dropdown`, `RadioGroup`, `Tooltip` (incl. hover-intent + clip-escape), `Modal` (incl. `PushOverlay` integration), `Popup`, `Toast`, `ContextMenu`. ScreenStack reserves the Tooltip / Popup / Toast / Drag layers but no widgets render into them yet.
+
+Below is the original deliverable list, preserved as the M9 acceptance contract.
+
 - All built-ins: `Container` `Stack` `Grid` `ScrollView` `Spacer` `TabView` `Label` `Image` `Icon` `ProgressBar` `RoundedPanel` `Divider` `Button` `Slider` `Checkbox` `Dropdown` `TextInput` `RadioGroup` `Tooltip` `Modal` `Popup` `Toast` `ContextMenu`
 - ScrollView virtualization (render-only-visible + recycling pool + scroll smoothing + lazy height cache)
 - Tooltip with hover-intent delay + clip-escape rendering
@@ -1013,7 +1057,14 @@ Consumes the engine's socket and projection systems. UI library work is mostly t
 - Creature without sockets (legacy model) falls back to AABB-top anchor; nameplate still appears in a sensible place
 - Custom socket on a boss model resolves correctly via name lookup
 
-### M12 — `UIEditor` workspace in MMOEditor3D
+### M12 — `UIEditor` workspace in MMOEditor3D 🔨 in-flight uncommitted (as of 2026-05-16)
+
+`MMOGame/Editor3D/Source/Panels/UIEditorPanel.{h,cpp}` exists at ~1048 lines `.cpp`, and is part of the 2026-05-07 dirty working tree along with `Onyx/Source/UI/UILayer.{h,cpp}`, `Onyx/Source/Graphics/Window.{h,cpp}`, and `MMOGame/Client/Source/Main.cpp` (the latter wiring a Login stage built on M1 widgets).
+
+The stage-simulator chrome (Q16) and a "Login stage" using `Button` + `TextInput` are wired but unverified. Workspace mode reflow, mock-profile dropdown, Z-X-Ray, theme picker, locale picker, palette, type-aware inspector with style cascade, undo/redo integration, sockets debug overlay, file browser, and round-trip save are not yet in place. **Resume here**: stabilize and commit the WIP, then close the deliverables list incrementally.
+
+Original deliverable list preserved below as the M12 acceptance contract.
+
 
 The UIEditor is a **workspace mode** of MMOEditor3D, not a single panel — when activated, the docking layout reflows to a UI-authoring preset. Primary navigation is the **stage selector** (Q16): pick a stage and the canvas mounts that stage's screens with the right theme and mock; the file browser is secondary.
 
